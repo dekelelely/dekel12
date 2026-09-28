@@ -35,7 +35,7 @@ Source IDs (S1, S2, …) match the tags in each slide's speaker notes. Accessed 
 | S21 | MedOne Kfar Yona: DCD. https://www.datacenterdynamics.com/en/news/medone-to-build-two-underground-data-centers-in-israel/. Ctech. https://www.calcalistech.com/ctechnews/article/e91pd3nm9 | Two underground data centers in Kfar Yona (first opens 2026) | 2 |
 | S22 | NED Alpha Campus, Netanya: Globes. https://en.globes.co.il/en/article-ned-levinstein-begin-construction-of-netanya-data-center-1001508989 | 42 MW, opens early 2027 | 2 |
 | S23 | Bnei Zion: Globes. https://en.globes.co.il/en/article-bnei-zion-residents-petition-court-against-google-data-center-1001384688 | 2021 residents' court petition against a local server farm | Q&A |
-| S24 | Planning & Building Law amendment (AI server farms = national infrastructure): Ha-Makom. https://www.ha-makom.co.il/data-centers-national-infrastructure/. C14. https://www.c14.co.il/article/1572573 | ≥50 MW farms skip local and district committees; first reading 1 Jun 2026. **Final passage [confirm]** | 3, 4 |
+| S24 | Planning & Building Law amendment (AI server farms = national infrastructure): Ha-Makom. https://www.ha-makom.co.il/data-centers-national-infrastructure/. C14. https://www.c14.co.il/article/1572573 | ≥50 MW farms skip local and district committees; first reading 1 Jun 2026. **Final passage [confirm]** | 3 |
 
 ## NGOs and laws
 
@@ -44,7 +44,22 @@ Source IDs (S1, S2, …) match the tags in each slide's speaker notes. Accessed 
 | S25 | SPNI position: Calcalist. https://www.calcalist.co.il/real-estate/article/sjowlzt2wg. Greenpeace Israel. https://www.greenpeace.org/israel/position/85205/ | SPNI (and Greenpeace Israel) oppose the fast-track bill | 3 |
 | S26 | Food & Water Watch, Jun 2026. https://www.foodandwaterwatch.org/2026/06/11/500-groups-from-47-states-call-for-nationwide-ai-data-center-moratorium/ | International NGO: 500+ groups call for a US moratorium on new data centers | Q&A |
 | S27 | Water Law, 5719-1959, section 1 (FAOLEX). https://faolex.fao.org/docs/pdf/isr1321.pdf | "Water sources in Israel are public property…" | 3 |
-| S28 | EU Energy Efficiency Directive (EU) 2023/1791, Article 12; Delegated Regulation (EU) 2024/1364. https://eur-lex.europa.eu/eli/dir/2023/1791/oj | Data centers ≥500 kW must report energy and water use every year | 3, 4 |
+| S28 | EU Energy Efficiency Directive (EU) 2023/1791, Article 12; Delegated Regulation (EU) 2024/1364. https://eur-lex.europa.eu/eli/dir/2023/1791/oj | Data centers ≥500 kW must report energy and water use every year | 3, 5 (notes) |
+
+## Our idea: Run AI Locally (Slides 4–5)
+
+| ID | Source | Used for | Slide |
+|---|---|---|---|
+| S29 | Microsoft, *Phi-3 Technical Report: A Highly Capable Language Model Locally on Your Phone*, Apr 2024. https://arxiv.org/abs/2404.14219 | Phi-3-mini (3.8B) quantized to 4 bits takes about 1.8 GB and runs on an iPhone 14 ("Already real: Phi-3 runs on a phone") | 4 |
+| S30 | Meta, "Llama 3.2: Revolutionizing edge AI and vision", 25 Sep 2024. https://ai.meta.com/blog/llama-3-2-connect-2024-vision-edge-mobile-devices/ | 1B/3B models built to run on phones and edge devices | 4 (notes) |
+| S31 | Dettmers et al., *QLoRA: Efficient Finetuning of Quantized LLMs*, 2023. https://arxiv.org/abs/2305.14314 | 4-bit quantization makes models much smaller | 4 |
+| S32 | Microsoft Learn, *Copilot+ PCs developer guide* (Copilot+ PCs announced May 2024). https://learn.microsoft.com/en-us/windows/ai/npu-devices/ | Laptops with an AI chip (NPU) of 40+ TOPS run AI locally ("Better chips") | 4 |
+| S4+ | Google Cloud blog, "Measuring the environmental impact of AI inference", 21 Aug 2025. https://cloud.google.com/blog/products/infrastructure/measuring-the-environmental-impact-of-ai-inference | Energy per Gemini prompt fell 33× in one year through optimization (supports "make AI more efficient") | 5 (notes) |
+
+Caveat for the speakers: running AI locally moves electricity use to your own device (still power plants, still off-site water). The real saving comes from smaller, optimized models. Training still needs data centers.
+
+## Images
+All background images are 3D illustrations made for this presentation (rendered with three.js). They show generic scenes, not real places or real events.
 
 ## Not verified (don't state as fact)
 - Water quotas for Lev HaSharon moshavim: no public figures found.
