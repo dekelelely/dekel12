@@ -59,8 +59,8 @@ Source IDs (S1, S2, …) match the tags in each slide's speaker notes. Accessed 
 Caveat for the speakers: running AI locally moves electricity use to your own device (still power plants, still off-site water). The real saving comes from smaller, optimized models. Training still needs data centers.
 
 ## Images
-- Slides 1, 2 and 4: 3D illustrations made for this presentation (rendered with three.js). Generic scenes, not real places.
-- Slides 3 and 5: AI-generated images made by our team. Slide 3 (protest at a data center) is not a real event; one banner with scrambled AI text was blurred. Slide 5 (AI NPU chip) is not a real product; its label and numbers are part of the illustration.
+- Slides 2 and 4: 3D illustrations made for this presentation (rendered with three.js). Generic scenes, not real places.
+- Slides 1, 3 and 5: AI-generated images made by our team. Slide 1 (server hall) is not a real place. Slide 3 (protest at a data center) is not a real event; one banner with scrambled AI text was blurred. Slide 5 (AI NPU chip) is not a real product; its label and numbers are part of the illustration.
 
 ## Not verified (don't state as fact)
 - Water quotas for Lev HaSharon moshavim: no public figures found.
