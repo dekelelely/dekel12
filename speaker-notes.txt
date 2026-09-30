@@ -4,16 +4,19 @@ SPEAKER NOTES: "AI'S HIDDEN THIRST: WHO PAYS?"
 Three speakers, about 2 minutes each (about 6 minutes in total).
 Speak slowly. Pause at every full stop. Look at the class, not the slide.
 Put your names in place of [A], [B] and [C].
+Slide 1 is the title slide. Type your names, class and date on it before presenting.
 
   [CLICK]     = move to the next slide.
   HANDOFF ->  = the line where the next speaker takes over.
   S1, S2 ...  = source numbers in sources.md.
 
 
-SPEAKER A: SLIDE 1 (Introduction & Global Picture)
---------------------------------------------------
+SPEAKER A: SLIDES 1-2 (Title; Introduction & Global Picture)
+------------------------------------------------------------
 
-Hi everyone. Our topic today is AI's hidden thirst, and who pays for it.
+Hi everyone. We are [A], [B] and [C]. Our topic today is AI's hidden thirst, and who pays for it.
+
+[CLICK -> Slide 2]
 
 When you ask an AI chatbot a question, the work happens in huge buildings called data centers. Data centers need two things: electricity to run, and water to stay cool.
 
@@ -30,7 +33,7 @@ HANDOFF -> "Now [B] will show you what this looks like here in Israel."
 (Sources: S1 (US lab = Lawrence Berkeley National Laboratory), S6 (Google), S9 (Uruguay))
 
 
-SPEAKER B: SLIDES 2-3 (Israel & Lev HaSharon; NGOs & Laws)
+SPEAKER B: SLIDES 3-4 (Israel & Lev HaSharon; NGOs & Laws)
 ----------------------------------------------------------
 
 Thank you, [A]. Now let's look at Israel.
@@ -43,7 +46,7 @@ And it is close to home: there are projects in Kfar Yona, Netanya and Hadera.
 
 In a shortage, who is cut first? In late August 2026, algae shut five of the six big desalination plants. Farms were cut first. Data centers did not cause this. But it shows who pays first.
 
-[CLICK -> Slide 3]
+[CLICK -> Slide 4]
 
 Who is pushing back? SPNI, the Society for the Protection of Nature in Israel, is an NGO. It does advocacy against a new bill. The bill would let big AI server farms skip local planning committees, so neighbors lose their chance to object. In our opinion, that can become discrimination against small communities.
 
@@ -54,7 +57,7 @@ HANDOFF -> "Now [C] will tell you our idea."
 (Sources: S14, S15 (chart, freeze), S16, S17 (desalination), S21, S22 (local projects), S18 (algae), S24, S25 (bill, SPNI), S27 (Water Law), S28 (EU))
 
 
-SPEAKER C: SLIDES 4-5 (Our Idea & Our Plan)
+SPEAKER C: SLIDES 5-6 (Our Idea & Our Plan)
 -------------------------------------------
 
 Thanks, [B]. So what would we do?
@@ -63,7 +66,7 @@ Our idea is simple: run AI locally. Today, most AI runs in huge data centers. We
 
 How? Companies can make models smaller and more efficient. One method is quantization: it stores the model's numbers in a shorter form, so it needs much less memory. This is already real. Microsoft's small model, Phi-3, runs on a phone. And new laptops have special AI chips that make local AI stronger.
 
-[CLICK -> Slide 5]
+[CLICK -> Slide 6]
 
 So here is our plan. One: AI companies should release local versions of their models. Two: they should optimize their models, not just make them bigger. Three: data centers should stay for training and for the biggest models.
 
@@ -86,7 +89,7 @@ LIKELY QUESTIONS (with short, honest answers)
 1. "Isn't Israel's water desalinated anyway? So why does this matter here?"
    Who answers: B
 
-Yes, and we say that on Slide 2. Most of our drinking water comes from desalination. Sources give different numbers, from about half to over 80 percent. So data centers here don't take our drinking water the way it happened in Uruguay. The Israeli problem is electricity. The State Comptroller named both desalination and data centers as reasons that power demand will grow toward 2030. Data centers have asked for about three times Israel's average power use. And desalination can fail: in August 2026, algae shut five of the six big plants, and farms were cut first. (S16, S17, S14, S18)
+Yes, and we say that on Slide 3. Most of our drinking water comes from desalination. Sources give different numbers, from about half to over 80 percent. So data centers here don't take our drinking water the way it happened in Uruguay. The Israeli problem is electricity. The State Comptroller named both desalination and data centers as reasons that power demand will grow toward 2030. Data centers have asked for about three times Israel's average power use. And desalination can fail: in August 2026, algae shut five of the six big plants, and farms were cut first. (S16, S17, S14, S18)
 
 2. "Does one AI question really use a whole bottle of water?"
    Who answers: A
@@ -128,17 +131,17 @@ WORDS THAT MAY BE HARD TO SAY
 REQUIRED VOCABULARY: WHERE EACH WORD IS USED
 ============================================
 
-  advocacy          B, Slide 3
-  awareness         C, Slide 5; Q3
-  discrimination    B, Slide 3
-  impact            A, Slide 1
-  legislation       B, Slide 3
-  NGO               B, Slide 3
-  policy            C, Slide 5
-  reform            C, Slide 5
-  regulation        B, Slide 3; Q3
-  social justice    A, Slide 1
-  sustainability    A, Slide 1
+  advocacy          B, Slide 4
+  awareness         C, Slide 6; Q3
+  discrimination    B, Slide 4
+  impact            A, Slide 2
+  legislation       B, Slide 4
+  NGO               B, Slide 4
+  policy            C, Slide 6
+  reform            C, Slide 6
+  regulation        B, Slide 4; Q3
+  social justice    A, Slide 2
+  sustainability    A, Slide 2
 
 
 CHECK BEFORE PRESENTING
