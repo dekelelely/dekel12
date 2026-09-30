@@ -1,0 +1,143 @@
+# Speaker Notes: "AI's Hidden Thirst: Who Pays?"
+
+Three speakers, about 2 minutes each (about 6 minutes in total).
+Speak slowly. Pause at every full stop. Look at the class, not the slide.
+Put your names in place of **[A]**, **[B]** and **[C]**.
+
+- *[CLICK]* means move to the next slide.
+- **➜ HANDOFF** marks the line where the next speaker takes over.
+- Source tags (S1, S2, …) match `sources.md`.
+
+---
+
+## Speaker A: Slide 1 (Introduction & Global Picture)
+
+Hi everyone. Our topic today is AI's hidden thirst, and who pays for it.
+
+When you ask an AI chatbot a question, the work happens in huge buildings called data centers. Data centers need two things: electricity to run, and water to stay cool.
+
+There are two kinds of water use. On-site: inside the building, water evaporates to cool the servers. Off-site: the power plants that make the electricity also use water. A US government lab studied the year 2023. It found that the power plants used about twelve times more water than the data centers themselves.
+
+And it is growing fast. Look at our chart. Google's total water use went from 24 billion litres in 2023 to 41 billion in 2025. That is 70 percent more in two years.
+
+So this is a question of sustainability. But it is also a question of social justice. The benefits of AI go to people all over the world. The impact lands on the people who live near the data center.
+
+Here is an example. In 2023, Uruguay had its worst drought in 74 years. In the capital, Montevideo, the tap water turned salty. At the same time, Google planned a data center there. It would use about seven and a half million litres of water a day. People protested. After the protests, Google made the project smaller and changed to air cooling.
+
+**➜ HANDOFF:** "Now [B] will show you what this looks like here in Israel."
+
+<sub>Sources: S1 (US lab = Lawrence Berkeley National Laboratory), S6 (Google), S9 (Uruguay)</sub>
+
+---
+
+## Speaker B: Slides 2–3 (Israel & Lev HaSharon; NGOs & Laws)
+
+Thank you, [A]. Now let's look at Israel.
+
+Israel is different. Most of our tap water comes from the sea, through desalination. So here, the bigger problem is electricity. Desalination and data centers both need a lot of it.
+
+Look at the chart. Data centers were already promised 1,500 megawatts. That uses up all the new power planned until 2035. But new requests add up to 27,000 megawatts. That is eighteen times more, and about three times Israel's average use. So in July 2026, the Electricity Authority froze new requests for 140 days.
+
+And it is close to home: there are projects in Kfar Yona, Netanya and Hadera.
+
+In a shortage, who is cut first? In late August 2026, algae shut five of the six big desalination plants. Farms were cut first. Data centers did not cause this. But it shows who pays first.
+
+*[CLICK → Slide 3]*
+
+Who is pushing back? SPNI, the Society for the Protection of Nature in Israel, is an NGO. It does advocacy against a new bill. The bill would let big AI server farms skip local planning committees, so neighbors lose their chance to object. In our opinion, that can become discrimination against small communities.
+
+In Europe, 2023 legislation makes big data centers report their water and energy use every year. In Israel, the Water Law of 1959 says water sources are public property. But we found no Israeli regulation that makes data centers report their water use.
+
+**➜ HANDOFF:** "Now [C] will tell you our idea."
+
+<sub>Sources: S14, S15 (chart, freeze), S16, S17 (desalination), S21, S22 (local projects), S18 (algae), S24, S25 (bill, SPNI), S27 (Water Law), S28 (EU)</sub>
+
+---
+
+## Speaker C: Slides 4–5 (Our Idea & Our Plan)
+
+Thanks, [B]. So what would we do?
+
+Our idea is simple: run AI locally. Today, most AI runs in huge data centers. We want large language models, the AI behind chatbots like ChatGPT, to run on normal laptops and PCs.
+
+How? Companies can make models smaller and more efficient. One method is quantization: it stores the model's numbers in a shorter form, so it needs much less memory. This is already real. Microsoft's small model, Phi-3, runs on a phone. And new laptops have special AI chips that make local AI stronger.
+
+*[CLICK → Slide 5]*
+
+So here is our plan. One: AI companies should release local versions of their models. Two: they should optimize their models, not just make them bigger. Three: data centers should stay for training and for the biggest models.
+
+This policy reform could mean fewer new data centers: less water, less land, and more privacy, because your data stays on your computer.
+
+To be honest, a laptop also uses electricity from power plants. The real saving comes from smaller, smarter models. Google says it cut the energy for each Gemini question by 33 times in one year, by making its systems more efficient.
+
+Our awareness idea is an "AI label", like a food label. It shows how much water and power an AI tool uses.
+
+This way, AI can keep growing without one community paying the price. So our message is: Don't just build bigger data centers. Make AI smarter and more efficient.
+
+Thank you. Any questions?
+
+<sub>Sources: S29 (Phi-3), S31 (quantization), S32 (AI chips), S4+ (Google 33×)</sub>
+
+---
+
+## Likely questions (with short, honest answers)
+
+### 1. "Isn't Israel's water desalinated anyway? So why does this matter here?"
+**Who answers: B**
+
+Yes, and we say that on Slide 2. Most of our drinking water comes from desalination. Sources give different numbers, from about half to over 80 percent. So data centers here don't take our drinking water the way it happened in Uruguay. The Israeli problem is electricity. The State Comptroller named both desalination and data centers as reasons that power demand will grow toward 2030. Data centers have asked for about three times Israel's average power use. And desalination can fail: in August 2026, algae shut five of the six big plants, and farms were cut first. *(S16, S17, S14, S18)*
+
+### 2. "Does one AI question really use a whole bottle of water?"
+**Who answers: A**
+
+No. That is a misreading. A research team (Li and others, 2023) estimated about half a litre for every 10 to 50 answers from GPT-3. That number includes the water used by power plants. Google says a normal Gemini question uses 0.26 millilitres, but it counts only the water inside the data center. The numbers are very different because they measure different things. That is why we show totals, like Google's 41 billion litres, and not "per question" numbers. *(S3, S4, S6)*
+
+### 3. "Why would companies do this? They make money from the cloud."
+**Who answers: C**
+
+Good point. We can't force them tomorrow. But there are two tools. The first is awareness: if people can see the water and power cost, for example on our AI label, efficient AI becomes a selling point. The second is regulation: in Europe, big data centers must already report their energy and water use every year. Israel could copy this rule. We found no rule like this in Israel yet. Also, some companies already do this: Microsoft's Phi-3 and Meta's small Llama models are built to run on phones. *(S28, S29, S30)*
+
+### 4. "If AI runs on my laptop, it still uses electricity. So what do we save?"
+**Who answers: C**
+
+You're right, and we said it too. A laptop's electricity also comes from power plants, and training big models still needs data centers. Running a big model on a laptop does not save much on its own. The real saving comes from small, optimized models that do less work for the same answer. Google says it cut the energy for each Gemini question 33 times in one year this way. Local AI also brings other benefits: fewer new data centers, less land used, and more privacy. *(S4+, S29)*
+
+### Two quick backups (if the teacher asks about the charts)
+- **"Is Google's 70% rise all because of AI?"** No, we can't say that. The chart shows all of Google's water use, not only AI. We use it to show how fast the total is growing. *(S6)*
+- **"Will all 27,000 megawatts really be built?"** Probably not all. These are requests, not buildings. But even the 1,500 megawatts already promised uses up all the new power planned until 2035. *(S14, S15)*
+
+---
+
+## Words that may be hard to say
+
+| Word | Say it like |
+|---|---|
+| desalination | dee-sal-ih-NAY-shun |
+| quantization | kwon-tih-ZAY-shun |
+| megawatts | MEG-uh-wots |
+| Uruguay | YOOR-uh-gwai |
+| Montevideo | mon-teh-vih-DAY-oh |
+| Phi-3 | "fye three" |
+| SPNI | say the letters: S-P-N-I |
+| evaporates | ih-VAP-uh-rates |
+
+## Required vocabulary: where each word is used
+
+| Word | Where |
+|---|---|
+| advocacy | B, Slide 3 |
+| awareness | C, Slide 5; Q3 |
+| discrimination | B, Slide 3 |
+| impact | A, Slide 1 |
+| legislation | B, Slide 3 |
+| NGO | B, Slide 3 |
+| policy | C, Slide 5 |
+| reform | C, Slide 5 |
+| regulation | B, Slide 3; Q3 |
+| social justice | A, Slide 1 |
+| sustainability | A, Slide 1 |
+
+## Check before presenting
+- **S24:** has the server-farm bill passed its final Knesset reading? If it has, B should say "a new law" instead of "a new bill", and "lets" instead of "would let".
+- **S1:** open the LBNL report once and confirm the 66 billion and about 800 billion litre numbers (the "twelve times" line).
+- **S10:** the month of the Chile court decision, only if someone asks about Chile.
