@@ -204,6 +204,16 @@ def wing_outline():
     return poly(pts)
 
 
+WING_SCALE = 0.8    # wing length in proportion to the body, as on a barn swallow
+
+
+def _wing_scaled(p):
+    if p is None:
+        return None
+    k = WING_SCALE
+    return _as_path(p).transform(k, 0, 0, k, 480 - 480 * k, 302 - 302 * k)
+
+
 def left_wing():
     """Returns (dark parts, pale-lining lines, silhouette)."""
     outline = wing_outline()
@@ -228,7 +238,8 @@ def left_wing():
     bottom = [(x, y + depth(t / 30)) for t, (x, y) in zip(range(31), top)]
     lining = poly(top + list(reversed(bottom)))
     if SOLID:
-        return union(acc, lining), None, union(outline, lining)
+        return (_wing_scaled(union(acc, lining)), None,
+                _wing_scaled(union(outline, lining)))
     acc = diff(acc, dilate(lining, 1.6))
     lines = [stroke(to_d(lining), 1.5)]
     for row, frac in enumerate((.42, .78)):
@@ -239,7 +250,8 @@ def left_wing():
             lines.append(stroke(f"M{cx - r:.1f},{cy - 2:.1f} Q{cx:.1f},{cy + r:.1f} "
                                 f"{cx + r:.1f},{cy - 2:.1f}", 1.0, cap="butt"))
     lead_line = stroke("M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in top), 2.6)
-    return acc, union(*lines, lead_line), union(outline, lining)
+    return (_wing_scaled(acc), _wing_scaled(union(*lines, lead_line)),
+            _wing_scaled(union(outline, lining)))
 
 
 def swallow():
@@ -249,11 +261,13 @@ def swallow():
     # Tail: the long outer streamer and four inner feathers, each with the
     # white spot of a barn swallow's tail.
     tail = None
-    for base, tip, w, spot in (((490, 390), (444, 526), 12, None),
-                               ((492, 394), (462, 460), 15, .74),
-                               ((494, 396), (471, 448), 15, .72),
-                               ((496, 397), (481, 438), 14, .7),
-                               ((498, 398), (491, 432), 13, .68)):
+    # Streamers leave the body almost parallel and thin; the inner tail
+    # feathers make a shallow fork between them.
+    for base, tip, w, spot in (((492, 390), (468, 506), 9, None),
+                               ((493, 393), (479, 450), 12, .74),
+                               ((495, 395), (484, 442), 12, .72),
+                               ((497, 396), (489, 435), 11, .7),
+                               ((499, 397), (494, 430), 10, .68)):
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
@@ -278,12 +292,12 @@ def swallow():
     hood0 = poly(hood_pts)
     # The head is drawn at full size, then scaled down about the neck so
     # it sits in proportion on the swallow's body.
-    K = 0.76
+    K = 0.6
     DY = 12      # sit the head low, so the wings meet the neck
     T = lambda p: _as_path(p).transform(K, 0, 0, K, 500 - 500 * K, 300 - 300 * K + DY)
     hood = T(hood0)
-    torso = P("M526.5,290 C531,306 530,322 526,342 C522,362 514,380 507,400 L493,400 "
-              "C486,380 478,362 474,342 C470,322 469,306 473.5,290 Z")
+    torso = P("M521,288 C526,306 525,322 522,342 C519,362 512,380 506,398 L494,398 "
+              "C488,380 481,362 478,342 C475,322 474,306 479,288 Z")
     body = union(hood, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
     if MARKER:
