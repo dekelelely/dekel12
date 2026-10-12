@@ -273,9 +273,15 @@ def swallow():
              + [bezier((535, 229), (538, 243), (541, 256), (538, 266), k / 8) for k in range(1, 9)]
              + [bezier((538, 266), (535, 275), (533, 283), (538, 298), k / 8) for k in range(1, 9)])
     hood_pts = [(500, 203)] + right + fringe + R_(right)[1:]
-    hood = poly(hood_pts)
-    torso = P("M530,290 C532,306 530,322 526,342 C522,362 514,380 507,400 L493,400 "
-              "C486,380 478,362 474,342 C470,322 468,306 470,290 Z")
+    hood0 = poly(hood_pts)
+    # The head is drawn at full size, then scaled down about the neck so
+    # it sits in proportion on the swallow's body.
+    K = 0.76
+    DY = 12      # sit the head low, so the wings meet the neck
+    T = lambda p: _as_path(p).transform(K, 0, 0, K, 500 - 500 * K, 300 - 300 * K + DY)
+    hood = T(hood0)
+    torso = P("M526.5,290 C531,306 530,322 526,342 C522,362 514,380 507,400 L493,400 "
+              "C486,380 478,362 474,342 C470,322 469,306 473.5,290 Z")
     body = union(hood, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
 
@@ -302,12 +308,12 @@ def swallow():
                             for k in range(-2, 16, 3)]))
     face_gold = union(beak_g, *gapes, *irises)
     if SOLID:
-        return diff(sil, dilate(face_gold, 2)), face_gold, sil
+        return diff(sil, dilate(T(face_gold), 2)), T(face_gold), sil
 
     def outline(shape, w0=0.7, w1=1.9):
         return diff(dilate(shape, w1), dilate(shape, w0))
 
-    ink = [stroke(to_d(hood), 1.6), outline(beak_g)]
+    ink = [outline(beak_g)]
     ink += [outline(g, 0.6, 1.5) for g in gapes]
     for (x, y), iris in zip(eyes, irises):
         ink.append(outline(diff(circle(x, y, R), lids[eyes.index((x, y))]), 0.5, 1.4))
@@ -336,20 +342,29 @@ def swallow():
         L = rnd.uniform(2.4, 5.2)
         strokes_.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
                               rnd.uniform(0.35, 0.6), 0.08))
-    hood_in = diff(hood, stroke(to_d(hood), 3))
-    crown = union(*ink, diff(inter(union(*strokes_), hood_in), keep_out))
+    hood_in = diff(hood0, stroke(to_d(hood0), 3))
+    crown = T(union(*ink, diff(inter(union(*strokes_), hood_in), keep_out)))
+    face_gold = T(face_gold)
 
     # The breast band under the fringe, and the pale belly below it.
-    band = diff(inter(torso, P("M450,290 H550 V310 Q500,334 450,310 Z")), dilate(hood, 1.4),
-                *[stroke(f"M{x},{294 + (x % 3)} L{x + (x - 500) * .05:.1f},"
-                         f"{310 + 12 * (1 - ((x - 500) / 32) ** 2):.1f}", 0.7,
-                         cap="butt") for x in range(468, 534, 4)])
-    belly_lines = [diff(stroke(to_d(torso), 1.8), dilate(hood, 1.2))]
+    # The dark breast feathers end in their own ragged edge, so the white
+    # hood, the dark band and the pale belly read as one plumage.
+    low, x = [], 536.0
+    while x > 464:
+        step = rnd.uniform(2.8, 4.4)
+        low.append((x - step * .5, 338 + rnd.uniform(3, 10)))
+        low.append((x - step, 336 + rnd.uniform(-2, 2)))
+        x -= step
+    band_shape = poly([(464, 286), (536, 286), (538, 336)] + low + [(462, 336)])
+    band = diff(inter(torso, band_shape), dilate(hood, 1.0),
+                *[taper((x_, 318 + rnd.uniform(-3, 3)), (x_ + (x_ - 500) * .04, 344), 0.7, 0.15)
+                  for x_ in [rnd.uniform(468, 532) for _ in range(26)]])
+    belly_lines = [stroke(to_d(body), 1.8)]          # one contour, head to tail
     flanks = diff(torso, diff(torso, stroke(to_d(torso), 26)))
-    for y in range(326, 398, 5):
+    for y in range(344, 398, 5):
         arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
         belly_lines.append(inter(arc, flanks))
-    for j, y in enumerate(range(328, 350, 7)):        # chest feather tips
+    for j, y in enumerate(range(350, 372, 7)):        # chest feather tips
         for x in range(486 + (j % 2) * 4, 516, 8):
             belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
                                             0.6, cap="butt"), torso))
