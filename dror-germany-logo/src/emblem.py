@@ -482,43 +482,73 @@ def skylines():
              for x in (182, 296)]
     jer = union(wall, octa, drum, spire, *trees)
 
-    # Witten -------------------------------------------------------------
-    w0, w1, wc = 682, 826, 754
-    hall = rect(w0, b - 50, w1 - w0, 50)
-    gable = poly([(wc - 30, b - 50), (wc - 30, b - 66), (wc, b - 80),
-                  (wc + 30, b - 66), (wc + 30, b - 50)])
-    corners = [rect(x, b - 62, 10, 62) for x in (w0, w1 - 10)]
-    caps = [P(f"M{x},{b - 62} L{x + 5},{b - 70} L{x + 10},{b - 62} Z") for x in (w0, w1 - 10)]
-    drum = rect(wc - 17, b - 96, 34, 16)
-    dome = P(f"M{wc - 20},{b - 96} C{wc - 22},{b - 112} {wc - 10},{b - 124} {wc},{b - 126} "
-             f"C{wc + 10},{b - 124} {wc + 22},{b - 112} {wc + 20},{b - 96} Z")
-    lantern = union(rect(wc - 3.5, b - 136, 7, 11), P(f"M{wc - 4.5},{b - 136} "
-                                                   f"Q{wc},{b - 144} {wc + 4.5},{b - 136} Z"),
-                    rect(wc - 0.7, b - 152, 1.4, 10))
-    tablets = union(*[P(f"M{x},{b - 80} V{b - 87} A3,3 0 0 1 {x + 6},{b - 87} V{b - 80} Z")
-                      for x in (wc - 6.6, wc + 0.6)])
-    syn = union(hall, gable, *corners, *caps, drum, dome, lantern)
+    # Witten, after the photograph of the 1885 synagogue: a front block
+    # framed by one great round arch with a rose window over the door,
+    # slender corner turrets with spires, a tall drum with arched windows
+    # under a bulbous ribbed dome with a spike, and a long wing to the right
+    # with two rows of paired arched windows and its own curved gable.
+    def arched(x, y_bot, w, h):
+        r = w / 2
+        return P(f"M{x - r},{y_bot} V{y_bot - h + r} A{r},{r} 0 0 1 {x + r},{y_bot - h + r} "
+                 f"V{y_bot} Z")
+
+    def spire(x, y_top, w=6, h=30, tip=14):
+        return union(rect(x - w / 2, y_top, w, h + 200),
+                     P(f"M{x - w / 2 - 1},{y_top} L{x},{y_top - tip} L{x + w / 2 + 1},{y_top} Z"))
+
+    fc = 724                                   # front block centre
+    front = union(rect(fc - 26, b - 74, 52, 74), arched(fc, b - 60, 52, 40))
+    wing = union(rect(fc + 26, b - 54, 826 - fc - 26, 54),
+                 poly([(fc + 26, b - 54), (812, b - 54), (806, b - 62), (fc + 30, b - 62)]))
+    gable_r = union(rect(806, b - 66, 22, 66), arched(817, b - 64, 22, 18))
+    left = union(rect(682, b - 40, fc - 26 - 682, 40),
+                 poly([(682, b - 40), (fc - 26, b - 40), (fc - 26, b - 48), (688, b - 46)]))
+    turrets = union(*[intersect for intersect in
+                      [inter(spire(x, b - 86, 6, 0, 12), rect(0, 0, 1000, b)) for x in (fc - 26, fc + 26)]],
+                    *[inter(spire(x, b - 80, 5, 0, 10), rect(0, 0, 1000, b)) for x in (806, 828)])
+    roof = poly([(fc - 30, b - 74), (fc, b - 90), (fc + 30, b - 74)])
+    drum = rect(fc - 13, b - 116, 26, 28)
+    cornice = rect(fc - 15, b - 118, 30, 3)
+    dome = P(f"M{fc - 15},{b - 118} C{fc - 19},{b - 132} {fc - 9},{b - 144} {fc},{b - 146} "
+             f"C{fc + 9},{b - 144} {fc + 19},{b - 132} {fc + 15},{b - 118} Z")
+    spike = union(rect(fc - 0.9, b - 162, 1.8, 18), circle(fc, b - 150, 2.4))
+    syn = union(front, wing, gable_r, left, turrets, roof, drum, cornice, dome, spike)
+
     cuts = []
-    for y in range(int(b - 46), int(b - 4), 6):              # two-colour brick bands
-        cuts.append(rect(w0 + 11, y, w1 - w0 - 22, 1.1))
-    for x in list(range(w0 + 18, wc - 34, 13)) + list(range(wc + 38, w1 - 14, 13)):
-        cuts.append(P(f"M{x - 3},{b - 12} V{b - 34} A3,3 0 0 1 {x + 3},{b - 34} V{b - 12} Z"))
-    cuts.append(P(f"M{wc - 8},{b} V{b - 18} A9,9 0 1 1 {wc + 8},{b - 18} V{b} Z"))  # horseshoe door
-    cuts.append(circle(wc, b - 62, 7.5))                     # rose window
-    for x in range(wc - 12, wc + 13, 6):                     # drum windows
-        cuts.append(P(f"M{x - 1.6},{b - 83} V{b - 91} A1.6,1.6 0 0 1 {x + 1.6},{b - 91} "
-                      f"V{b - 83} Z"))
-    for o in (-11, 0, 11):                                   # dome ribs
-        cuts.append(stroke(f"M{wc + o},{b - 96} Q{wc + o * .7},{b - 116} {wc},{b - 125}",
-                           0.9, cap="butt"))
+    # The great arch of the front, as a recessed line, and its rose window.
+    cuts.append(diff(arched(fc, b - 4, 40, 64), arched(fc, b - 4, 37, 62.5)))
+    cuts.append(diff(circle(fc, b - 46, 7), circle(fc, b - 46, 5.4)))
+    for k in range(8):
+        a_ = math.pi * k / 4
+        cuts.append(taper((fc + 1.2 * math.cos(a_), b - 46 + 1.2 * math.sin(a_)),
+                          (fc + 5.4 * math.cos(a_), b - 46 + 5.4 * math.sin(a_)), 0.7, 0.7))
+    cuts.append(arched(fc, b, 12, 26))                                  # the door
+    for x in (fc - 15, fc + 15):                                         # windows by it
+        cuts.append(arched(x, b - 6, 4, 16))
+    # Wing: two rows of paired arched windows.
+    for x in range(fc + 34, 803, 12):
+        for dx in (-2.2, 2.2):
+            cuts.append(arched(x + dx, b - 30, 3, 14))
+            cuts.append(arched(x + dx, b - 6, 3, 14))
+    cuts.append(diff(circle(817, b - 52, 4.5), circle(817, b - 52, 3.2)))  # gable rose
+    for x in (813, 821):
+        cuts.append(arched(x, b - 8, 3, 18))
+    for x in range(690, fc - 30, 9):                                    # left wing windows
+        cuts.append(arched(x, b - 8, 3.4, 20))
+    # Drum windows and dome ribs.
+    for x in (fc - 8, fc, fc + 8):
+        cuts.append(arched(x, b - 92, 4, 16))
+    for o in (-10, -5, 0, 5, 10):
+        cuts.append(stroke(f"M{fc + o},{b - 118} Q{fc + o * .85},{b - 136} {fc},{b - 145}",
+                           0.7, cap="butt"))
+    # Two-colour brick: light courses across every wall.
+    walls = union(front, wing, gable_r, left)
+    courses = union(*[rect(682, y, 148, 0.8) for y in range(int(b - 70), int(b - 1), 5)])
+    cuts.append(diff(inter(courses, walls), *[dilate(c, 1.2) for c in cuts[:]]))
+    # Gable edges: the decorative arched frieze, as a pale line under the eaves.
+    cuts.append(diff(arched(fc, b - 60, 46, 36), arched(fc, b - 60, 44.4, 35.2)))
+    cuts.append(diff(arched(817, b - 64, 18, 15), arched(817, b - 64, 16.6, 14.3)))
     syn = diff(syn, *cuts)
-    # Rose window with a Star of David in its tracery.
-    r = 5.6
-    tri = lambda a0: [(wc + r * math.sin(math.radians(a0 + k * 120)),
-                       b - 62 - r * math.cos(math.radians(a0 + k * 120))) for k in range(3)]
-    star = union(stroke("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in tri(0)) + " Z", 1.1),
-                 stroke("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in tri(60)) + " Z", 1.1))
-    syn = union(syn, inter(star, circle(wc, b - 62, 7)))
     return union(jer, syn), gold
 
 
