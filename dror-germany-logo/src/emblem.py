@@ -276,14 +276,15 @@ def swallow():
     # As in the photograph: a chestnut shield on the forehead narrowing to
     # the bill, a short wide bill with the gape spread to the sides, and a
     # broad chestnut throat below it.
-    beak = P("M492,263.6 L496.6,260.8 L503.4,260.8 L508,263.6 "
-             "Q503.2,264.6 500,270.2 Q496.8,264.6 492,263.6 Z")
+    beak = P("M496.5,260.8 L503.5,260.8 L504.4,263.4 L509.6,265.2 L509.5,266 L503.6,265.8 "
+             "Q501.6,268.5 500,271.4 Q498.4,268.5 496.4,265.8 L490.5,266 L490.4,265.2 "
+             "L495.6,263.4 Z")
     forehead = diff(P("M487.6,247.8 Q500,245.6 512.4,247.8 C511,252 508.6,256.6 505.6,260.6 "
-                      "L494.4,260.6 C491.4,256.6 489,252 487.6,247.8 Z"), dilate(beak, 1.3))
-    throat = diff(inter(body, P("M492,263.6 C487,264.6 481.5,265.2 477.5,268.2 "
+                      "L494.4,260.6 C491.4,256.6 489,252 487.6,247.8 Z"), dilate(beak, 0.5))
+    throat = diff(inter(body, P("M490.4,265.6 C487,265.4 481.5,265.2 477.5,268.2 "
                                 "C474.5,273.5 476.8,280.6 483.5,284.4 C490,287.6 510,287.6 516.5,284.4 "
-                                "C523.2,280.6 525.5,273.5 522.5,268.2 C518.5,265.2 513,264.6 508,263.6 "
-                                "L500,270.2 Z")), dilate(beak, 1.3))
+                                "C523.2,280.6 525.5,273.5 522.5,268.2 C518.5,265.2 513,265.4 509.6,265.6 "
+                                "L503.6,265.8 Q501.6,268.5 500,271.4 Q498.4,268.5 496.4,265.8 Z")), dilate(beak, 0.5))
     notches = []
     for k in range(22):
         a = math.radians(-8 + k * 196 / 21)
@@ -311,10 +312,10 @@ def swallow():
     # The face: dark masks run from the forehead shield out through the eyes;
     # each eye is marked only by a lower lid and a catchlight in the same
     # place in both. The crown above is lighter, cut with fine feather ticks.
-    eyes = [(484.2, 254.2), (515.8, 254.2)]
-    mask = P("M488.4,248.2 C484.5,247 478.5,247.8 473.6,250.6 C469.8,253.4 469,258 470,262.4 "
-             "C475.5,260.4 481.5,260.8 486.5,262.4 C489,263.2 490.8,263.6 492,263.6 "
-             "C493,259.5 491,253.5 488.4,248.2 Z")
+    eyes = [(484, 254.4), (516, 254.4)]
+    mask = P("M488.6,247.6 C484,246 477.5,246.8 472.8,249.8 C469.4,252.8 468.8,258 469.8,263 "
+             "C475.5,261.6 482,262.6 486.5,264.4 C488.4,265.2 489.6,265.6 490.6,265.6 "
+             "C493,260 491.2,253.2 488.6,247.6 Z")
     mask = union(mask, mirror(mask))
     ticks = []
     for gy in range(0, 34):
@@ -329,12 +330,16 @@ def swallow():
                  dilate(forehead, 1.4), dilate(throat, 1.4), dilate(beak, 1.4),
                  *[circle(x, y, 5.2) for x, y in eyes],
                  P("M466,288 C478,297 490,301 500,301 C510,301 522,297 534,288 V310 H466 Z"))
-    crown = diff(head, dilate(throat, 0.6), dilate(forehead, 0.6), dilate(beak, 1.1), gloss,
-                 *[circle(x - 0.8, y - 0.7, 1.25) for x, y in eyes],
-                 *[circle(x + 1.3, y + 1.0, 0.45) for x, y in eyes])
-    # The bill is pale: drawn as an outline with the ridge down its middle.
-    beak = union(diff(beak, diff(beak, stroke(to_d(beak), 1.5))),
-                 inter(stroke("M500,261.6 L500,266.6", 0.6, cap="butt"), beak))
+    crown = diff(head, dilate(throat, 0.6), dilate(forehead, 0.6), dilate(beak, 0.4), gloss,
+                 *[diff(circle(x, y, 3.65), circle(x, y, 3.37)) for x, y in eyes],
+                 *[circle(x - 1.05, y - 1.05, 1.1) for x, y in eyes],
+                 *[circle(x + 1.25, y + 1.3, 0.38) for x, y in eyes])
+    # The bill is pale: its body outlined with the ridge down the middle,
+    # the gape running out to the sides as thin pale lines.
+    bill = P("M496.5,260.8 L503.5,260.8 L504.6,264.4 Q502,267.6 500,271.4 "
+             "Q498,267.6 495.4,264.4 Z")
+    beak = union(diff(bill, diff(bill, stroke(to_d(bill), 0.9))),
+                 inter(stroke("M500,261.6 L500,267.6", 0.45, cap="butt"), bill))
     head_ink = union(crown, beak)
 
     belly_lines = [stroke(to_d(body), 1.8)]
