@@ -29,7 +29,15 @@ def ring(r0, r1):
 
 
 def dilate(shape, g):
-    return union(shape, stroke(to_d(shape), 2 * g))
+    shape = pathops.simplify(_as_path(shape), clockwise=True)
+    # Skia's boolean engine can trip on a near-degenerate offset; a hair
+    # wider or narrower always goes through.
+    for k in (1, 1.013, 0.987, 1.031):
+        try:
+            return union(shape, stroke(to_d(shape), 2 * g * k))
+        except pathops.PathOpsError:
+            continue
+    raise
 
 
 SOLID = False                  # True: draw the bird as one silhouette
@@ -127,46 +135,174 @@ def blades(base_a, base_b, tip_a, tip_b, w_a, w_b, n, shaft=True):
     return out
 
 
+def bezier(p0, p1, p2, p3, t):
+    u = 1 - t
+    return (u**3 * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t**3 * p3[0],
+            u**3 * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t**3 * p3[1])
+
+
+def poly(points):
+    return P("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in points) + " Z")
+
+
+def taper(p0, p1, w0, w1):
+    """A straight line that thins from w0 to w1: one engraver's stroke."""
+    dx, dy = p1[0] - p0[0], p1[1] - p0[1]
+    L = math.hypot(dx, dy) or 1
+    nx, ny = -dy / L, dx / L
+    return poly([(p0[0] + nx * w0 / 2, p0[1] + ny * w0 / 2),
+                 (p1[0] + nx * w1 / 2, p1[1] + ny * w1 / 2),
+                 (p1[0] - nx * w1 / 2, p1[1] - ny * w1 / 2),
+                 (p0[0] - nx * w0 / 2, p0[1] - ny * w0 / 2)])
+
+
+def flight_feather(base, tip, w, spot=None):
+    """A dark flight feather engraved in line: pale tapering strokes along
+    the vane, lighter at the base, closing up toward the tip, and a pale
+    shaft, as the underside of a swallow's wing looks."""
+    f = feather(base, tip, w, shaft=False)
+    if SOLID:
+        return f
+    (bx, by), (tx, ty) = base, tip
+    L = math.hypot(tx - bx, ty - by)
+    ux, uy = (tx - bx) / L, (ty - by) / L
+    nx, ny = -uy, ux
+    cuts = []
+    k = -w / 2 + 2.2
+    while k < w / 2 - 1.2:
+        p0 = (bx + ux * L * .06 + nx * k * .7, by + uy * L * .06 + ny * k * .7)
+        p1 = (bx + ux * L * .9 + nx * k * .25, by + uy * L * .9 + ny * k * .25)
+        cuts.append(taper(p0, p1, 1.5, 0.15))
+        k += 2.7
+    cuts.append(taper((bx + ux * L * .04, by + uy * L * .04),
+                      (bx + ux * L * .8, by + uy * L * .8), 1.6, 0.4))
+    if spot:
+        sx, sy = bx + ux * L * spot, by + uy * L * spot
+        cuts.append(P(f"M{sx - 3.2},{sy} A3.2,5 0 1 0 {sx + 3.2},{sy} "
+                      f"A3.2,5 0 1 0 {sx - 3.2},{sy} Z"))
+    return diff(f, *cuts)
+
+
+# Left wing outline, seen from below: leading edge shoulder -> wrist -> tip,
+# then the trailing edge back to the body. Long, narrow, swept at the wrist.
+LEAD = [((478, 300), (442, 282), (406, 272), (372, 276)),
+        ((372, 276), (330, 282), (270, 308), (214, 350))]
+TRAIL = [((214, 350), (256, 347), (296, 354), (328, 366)),
+         ((328, 366), (372, 382), (432, 372), (482, 356))]
+
+
+def along(segs, t):
+    seg = segs[0] if t < 0.5 else segs[1]
+    return bezier(*seg, t * 2 if t < 0.5 else t * 2 - 1)
+
+
+def wing_outline():
+    pts = [along(LEAD, i / 40) for i in range(41)]
+    pts += [along(TRAIL, i / 40) for i in range(1, 41)]
+    return poly(pts)
+
+
 def left_wing():
+    """Returns (dark parts, pale-lining lines, silhouette)."""
+    outline = wing_outline()
     acc = None
-    # Primaries: long blades side by side, the outermost forming the tip.
-    for f in blades((318, 286), (378, 298), (206, 300), (326, 352), 17, 21, 7):
-        acc = lay(acc, f, 2.4)
-    # Secondaries along the trailing edge of the arm.
-    for f in blades((388, 300), (462, 330), (344, 356), (448, 380), 24, 24, 6):
-        acc = lay(acc, f, 2.4)
-    # One row of coverts over their bases, no shafts.
-    for f in blades((336, 284), (470, 322), (300, 312), (446, 352), 22, 22, 8,
-                    shaft=False):
-        acc = lay(acc, f, 2.2)
-    # Leading edge: marginal coverts as one band from shoulder to hand.
-    band = P("M486,316 C446,286 406,262 364,260 C330,259 296,272 258,296 "
-             "C296,290 330,282 364,286 C404,292 444,314 480,342 Z")
-    return lay(acc, band, 2.8)
+    # Nine primaries fanning from the hand to the pointed tip.
+    for i in range(9):
+        t = i / 8
+        base = (334 + 38 * t, 290 + 2 * t)
+        tip = along(TRAIL, 0.5 * t ** 0.9)
+        acc = lay(acc, flight_feather(base, tip, 14 + 6 * t), 1.4)
+    # Eight secondaries along the arm, tips on the trailing edge.
+    for i in range(8):
+        t = i / 7
+        base = (380 + 96 * t, 294 + 22 * t)
+        tip = along(TRAIL, 0.53 + 0.45 * t)
+        acc = lay(acc, flight_feather(base, tip, 20), 1.4)
+    acc = inter(acc, dilate(outline, 1))
+    # The underwing lining: pale coverts between the leading edge and the
+    # flight feathers, drawn as outlines and small scallops only.
+    depth = lambda f: 2 + 32 * (1 - f) ** 0.7
+    top = [along(LEAD, t / 30 * .86) for t in range(31)]
+    bottom = [(x, y + depth(t / 30)) for t, (x, y) in zip(range(31), top)]
+    lining = poly(top + list(reversed(bottom)))
+    if SOLID:
+        return union(acc, lining), None, union(outline, lining)
+    acc = diff(acc, dilate(lining, 1.6))
+    lines = [stroke(to_d(lining), 1.5)]
+    for row, frac in enumerate((.42, .78)):
+        for j in range(3 + row, 30, 2):
+            (x0, y0), (x1, y1) = top[j], bottom[j]
+            cx, cy = x0 + (x1 - x0) * frac, y0 + (y1 - y0) * frac
+            r = 4.5 + 2 * (1 - j / 30)
+            lines.append(stroke(f"M{cx - r:.1f},{cy - 2:.1f} Q{cx:.1f},{cy + r:.1f} "
+                                f"{cx + r:.1f},{cy - 2:.1f}", 1.0, cap="butt"))
+    lead_line = stroke("M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in top), 2.6)
+    return acc, union(*lines, lead_line), union(outline, lining)
 
 
 def swallow():
-    wing = left_wing()
+    """A barn swallow seen from below, engraved. Returns
+    (blue parts, gold parts, silhouette)."""
+    wing, wing_lines, wing_sil = left_wing()
+    # Tail: the long outer streamer and four inner feathers, each with the
+    # white spot of a barn swallow's tail.
     tail = None
-    for f in (feather((490, 400), (436, 524), 15, False),
-              feather((494, 404), (472, 466), 18),
-              feather((498, 404), (488, 450), 18)):
-        tail = lay(tail, f, 2.4)
+    for base, tip, w, spot in (((490, 390), (444, 526), 12, None),
+                               ((492, 394), (462, 460), 15, .74),
+                               ((494, 396), (471, 448), 15, .72),
+                               ((496, 397), (481, 438), 14, .7),
+                               ((498, 398), (491, 432), 13, .68)):
+        tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
-    body = union(P("M500,272 C517,272 526,290 526,312 C526,348 517,382 509,406 "
-                   "C505,416 495,416 491,406 C483,382 474,348 474,312 "
-                   "C474,290 483,272 500,272 Z"), circle(500, 258, 21),
-                 circle(500, 284, 22))
-    if not SOLID:                                 # engraved contour lines
-        cuts = [stroke(f"M{482 + (y - 330) * .18:.1f},{y} Q500,{y + 7} "
-                       f"{518 - (y - 330) * .18:.1f},{y}", 1.3, cap="butt")
-                for y in range(326, 404, 8)]
-        cuts.append(stroke("M488,250 Q494,242 504,242", 1.6))       # head light
-        body = diff(body, *cuts)
-    bird = lay(union(wing, mirror(wing)), tail, 3)
-    bird = lay(bird, body, 3)
-    throat = P("M486,286 Q500,300 514,286 Q515,304 500,312 Q485,304 486,286 Z")
-    return diff(bird, dilate(throat, 2.6)), throat
+
+    body = P("M500,229 C510,229 518,236 519,248 C520,258 524,268 527,282 "
+             "C531,300 530,322 526,342 C522,362 514,380 507,400 L493,400 "
+             "C486,380 478,362 474,342 C470,322 469,300 473,282 "
+             "C476,268 480,258 481,248 C482,236 490,229 500,229 Z")
+    beak = P("M492,235 Q500,221 508,235 Q500,231 492,235 Z")
+    cap = inter(body, P("M460,220 H540 V244 Q500,236 460,244 Z"))
+    bib = P("M479,243 Q500,236 521,243 C525,258 519,275 500,281 "
+            "C481,275 475,258 479,243 Z")
+    throat = inter(body, bib)
+    band = diff(inter(body, P("M462,254 C478,276 490,283 500,283 C510,283 522,276 538,254 "
+                              "V274 C522,294 510,300 500,300 C490,300 478,294 462,274 Z")),
+                dilate(bib, 1.2))
+    sil = union(union(wing_sil, mirror(wing_sil)), tail, body, beak)
+    if SOLID:
+        return diff(sil, dilate(throat, 2.2)), throat, sil
+
+    # The belly is pale: an outline and contour lines that wrap the flanks.
+    belly_lines = [stroke(to_d(body), 1.8)]
+    # Shading only where the body turns away: a band along each flank,
+    # wider low on the body, lines closer near the edge.
+    flanks = diff(body, diff(body, stroke(to_d(body), 26)))
+    for y in range(312, 398, 5):
+        arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
+        belly_lines.append(inter(arc, flanks))
+    for y in range(318, 390, 10):                   # a second, finer set
+        arc = stroke(f"M466,{y + 2.5} Q500,{y + 11.5} 534,{y + 2.5}", 0.7, cap="butt")
+        belly_lines.append(inter(arc, diff(body, stroke(to_d(body), 14) )
+                                 if False else inter(arc, diff(body, diff(body, stroke(to_d(body), 12))))))
+    for y in range(384, 400, 5):                   # undertail coverts
+        belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
+                                        cap="butt"), body))
+    crown = diff(cap, *[stroke(f"M{x},{230} L{x + (x - 500) * .1:.1f},{242}", 0.9,
+                               cap="butt") for x in range(490, 512, 4)])
+    # The breast band: short strokes that follow its curve.
+    marks = []
+    for i in range(15):
+        t = i / 14
+        x = 470 + 60 * t
+        y = 262 + 22 * (1 - (2 * t - 1) ** 2)
+        marks.append(stroke(f"M{x:.1f},{y:.1f} L{x + (x - 500) * .08:.1f},{y + 12:.1f}",
+                            0.9, cap="butt"))
+    band = diff(band, *marks)
+    bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
+    bird = lay(bird, tail, 1.6)
+    bird = diff(bird, dilate(body, 2.4))
+    bird = union(bird, crown, band, beak, *belly_lines)
+    bird = diff(bird, dilate(throat, 1.8))
+    return bird, throat, sil
 
 
 # --- bridge, flame, light, sky, water ----------------------------------------
@@ -284,7 +420,7 @@ def guilloche(keep_out):
 def tiny_swallow(cx, cy, k=0.16):
     global SOLID
     SOLID = True
-    bird, throat = swallow()
+    bird, throat, _ = swallow()
     SOLID = False
     bird = union(bird, throat)
     return bird.transform(k, 0, 0, k, cx - 500 * k, cy - 360 * k)
@@ -346,7 +482,7 @@ def emblem_small():
     global SOLID
     field = circle(C, C, FIELD + 40)
     SOLID = True
-    bird, throat = swallow()
+    bird, throat, _ = swallow()
     SOLID = False
     k = 1.12
     bird = bird.transform(k, 0, 0, k, 500 - 500 * k, 300 - 330 * k)
@@ -365,10 +501,10 @@ def emblem_small():
 
 def emblem():
     field = circle(C, C, FIELD)
-    bird, throat = swallow()
+    bird, throat, sil = swallow()
     deck, openings = bridge()
     fl = memorial_flame()
-    bird_halo = dilate(bird, 9)
+    bird_halo = dilate(sil, 9)
     city = skylines()
     blue = union(
         inter(sky([bird_halo, inter(circle(C, C, 186), rect(0, 0, 1000, DECK)),
@@ -382,7 +518,7 @@ def emblem():
         bird,
         ring(FIELD, FIELD + 4),
     )
-    gold = union(diff(fl, dilate(bird, 4)), throat)
+    gold = union(diff(fl, dilate(sil, 4)), throat)
 
     top = arc_text(NAME, "Rubik-VF.ttf", 66, 412, "top", wght=700,
                    tracking=0.03)
@@ -402,7 +538,7 @@ def emblem():
     blue = union(blue, micro)
 
     gold = union(gold, ring(485, 492), ring(377, 381), *diamonds)
-    return [("paper", P(circle(C, C, 492))), ("ink", diff(band, lace)),
+    return [("paper", P(circle(C, C, 492))), ("ink", band),
             ("lace", lace), ("blue", blue), ("gold", gold)]
 
 
