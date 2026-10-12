@@ -255,19 +255,23 @@ def swallow():
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
-    body = P("M500,229 C510,229 518,236 519,248 C520,258 524,268 527,282 "
+    body = P("M500,231 C512,231 520,235 521,246 C521,258 524,268 527,282 "
              "C531,300 530,322 526,342 C522,362 514,380 507,400 L493,400 "
              "C486,380 478,362 474,342 C470,322 469,300 473,282 "
-             "C476,268 480,258 481,248 C482,236 490,229 500,229 Z")
-    beak = P("M492,235 Q500,221 508,235 Q500,231 492,235 Z")
-    cap = inter(body, P("M460,220 H540 V244 Q500,236 460,244 Z"))
-    bib = P("M479,243 Q500,236 521,243 C525,258 519,275 500,281 "
-            "C481,275 475,258 479,243 Z")
+             "C476,268 479,258 479,246 C480,235 488,231 500,231 Z")
+    # Head-on: the bird looks straight out of the emblem. The short bill
+    # points at the viewer (seen as a small triangle), the rust forehead sits
+    # between the eyes, the rust throat below the bill.
+    beak = P("M495,244.5 Q500,243.2 505,244.5 L500,251 Z")
+    forehead = P("M493.5,242.6 Q500,238.2 506.5,242.6 Q500,241.4 493.5,242.6 Z")
+    cap = inter(body, P("M460,220 H540 V266 Q500,256 460,266 Z"))
+    bib = P("M487,250 L494,246 L500,252.6 L506,246 L513,250 "
+            "C522,259 519,277 500,282 C481,277 478,259 487,250 Z")
     throat = inter(body, bib)
     band = diff(inter(body, P("M462,254 C478,276 490,283 500,283 C510,283 522,276 538,254 "
                               "V274 C522,294 510,300 500,300 C490,300 478,294 462,274 Z")),
                 dilate(bib, 1.2))
-    sil = union(union(wing_sil, mirror(wing_sil)), tail, body, beak)
+    sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
     if SOLID:
         return diff(sil, dilate(throat, 2.2)), throat, sil
 
@@ -281,13 +285,26 @@ def swallow():
         belly_lines.append(inter(arc, flanks))
     for y in range(318, 390, 10):                   # a second, finer set
         arc = stroke(f"M466,{y + 2.5} Q500,{y + 11.5} 534,{y + 2.5}", 0.7, cap="butt")
-        belly_lines.append(inter(arc, diff(body, stroke(to_d(body), 14) )
-                                 if False else inter(arc, diff(body, diff(body, stroke(to_d(body), 12))))))
+        belly_lines.append(inter(arc, diff(body, diff(body, stroke(to_d(body), 12)))))
     for y in range(384, 400, 5):                   # undertail coverts
         belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
                                         cap="butt"), body))
-    crown = diff(cap, *[stroke(f"M{x},{230} L{x + (x - 500) * .1:.1f},{242}", 0.9,
-                               cap="butt") for x in range(490, 512, 4)])
+    # The eyes face the viewer: both seen whole, set off from the dark mask
+    # by a hairline, each with its catchlight in the same place, so the gaze
+    # meets yours. The gape runs from the corners of the bill.
+    eyes = [(486.6, 245), (513.4, 245)]
+    face_gold = union(throat, forehead)
+    crown = diff(cap, dilate(bib, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9),
+                 # A dark eye on a dark face shows as its catchlight.
+                 *[circle(x - 0.6, y - 0.7, 0.95) for x, y in eyes],
+                 # gloss on the steel-blue crown
+                 stroke("M486,236.5 Q500,231.8 514,236.5", 0.55, cap="butt"),
+                 stroke("M489,239 Q500,235.4 511,239", 0.45, cap="butt"),
+                 # gape: from the corners of the bill toward the eyes
+                 stroke("M495,244.6 Q492.5,245.2 490.4,246.6", 0.55, cap="butt"),
+                 stroke("M505,244.6 Q507.5,245.2 509.6,246.6", 0.55, cap="butt"))
+    beak = diff(beak, circle(498, 245.2, 0.45), circle(502, 245.2, 0.45),
+                stroke("M500,245.6 L500,249.6", 0.4, cap="butt"))
     # The breast band: short strokes that follow its curve.
     marks = []
     for i in range(15):
@@ -301,8 +318,8 @@ def swallow():
     bird = lay(bird, tail, 1.6)
     bird = diff(bird, dilate(body, 2.4))
     bird = union(bird, crown, band, beak, *belly_lines)
-    bird = diff(bird, dilate(throat, 1.8))
-    return bird, throat, sil
+    bird = diff(bird, dilate(face_gold, 1.5))
+    return bird, face_gold, sil
 
 
 # --- bridge, flame, light, sky, water ----------------------------------------
@@ -369,36 +386,82 @@ def soffits(arches):
 
 
 def skylines():
-    """Jerusalem on the left bank, Berlin on the right, as silhouettes."""
+    """Left bank: the Old City wall with the Dome of the Rock behind it.
+    Right bank: the Witten synagogue (1885, destroyed 1938): a two-colour
+    brick hall in round-arch style with a central dome on a drum.
+    Returns (blue silhouettes, gold dome)."""
     b = DECK
-    jer = [
-        rect(176, b - 22, 136, 22),                       # city wall
-        *[rect(x, b - 30, 7, 9) for x in range(178, 306, 12)],  # crenels
-        rect(206, b - 74, 18, 52), rect(203, b - 82, 24, 6),     # Tower of David
-        circle(215, b - 86, 9), rect(214, b - 104, 2.4, 12),
-        rect(256, b - 44, 38, 22),                        # the Hurva dome
-        P(f"M256,{b - 44} A19,19 0 0 1 294,{b - 44} Z"),
-        rect(270, b - 70, 10, 9), rect(274.2, b - 80, 1.6, 10),
-        P(f"M242,{b - 22} C236,{b - 40} 240,{b - 60} 244,{b - 66} "
-          f"C248,{b - 60} 252,{b - 40} 246,{b - 22} Z"),  # cypresses
-        P(f"M300,{b - 22} C295,{b - 36} 298,{b - 50} 302,{b - 54} "
-          f"C306,{b - 50} 309,{b - 36} 304,{b - 22} Z"),
-    ]
-    jer_cuts = [rect(x, b - 15, 4, 8, 2) for x in range(186, 306, 14)] + \
-               [rect(212, b - 64, 6, 10, 3)]
-    ber = [
-        rect(690, b - 30, 76, 30),                        # Reichstag
-        rect(686, b - 36, 84, 6),
-        P(f"M708,{b - 36} A20,20 0 0 1 748,{b - 36} Z"),  # glass dome
-        rect(772, b - 40, 22, 40), rect(796, b - 26, 18, 26),  # new blocks
-        rect(803, b - 120, 5, 120),                       # TV tower
-        circle(805.5, b - 128, 11), rect(804.6, b - 176, 1.8, 40),
-    ]
-    ber_cuts = [stroke(f"M{x},{b - 36} L728,{b - 55}", 1, cap="butt")
-                for x in (712, 720, 736, 744)] + \
-               [rect(x, b - 24, 4, 16) for x in range(696, 764, 9)] + \
-               [rect(776, y, 14, 2.2) for y in range(b - 34, b - 4, 6)]
-    return union(diff(union(*jer), *jer_cuts), diff(union(*ber), *ber_cuts))
+    # Jerusalem ----------------------------------------------------------
+    wall = union(rect(170, b - 16, 148, 16),
+                 *[rect(x, b - 23, 7, 8) for x in range(172, 314, 12)])
+    wall = diff(wall, *[rect(x, b - 11, 3, 6, 1.5) for x in range(180, 314, 12)])
+    cx = 236
+    octa = poly([(cx - 46, b - 16), (cx - 46, b - 44), (cx - 30, b - 50),
+                 (cx + 30, b - 50), (cx + 46, b - 44), (cx + 46, b - 16)])
+    octa_cuts = [rect(cx - 47, b - 47, 94, 1.2)]            # parapet line
+    for x in range(cx - 26, cx + 27, 9):                     # arched windows
+        octa_cuts.append(P(f"M{x - 2.4},{b - 22} V{b - 32} A2.4,2.4 0 0 1 {x + 2.4},{b - 32} "
+                           f"V{b - 22} Z"))
+    for x in (cx - 39, cx + 39):                             # side faces
+        octa_cuts.append(P(f"M{x - 1.8},{b - 22} V{b - 30} A1.8,1.8 0 0 1 {x + 1.8},{b - 30} "
+                           f"V{b - 22} Z"))
+    for x in (cx - 30, cx + 30):                             # corner edges
+        octa_cuts.append(rect(x - 0.5, b - 46, 1, 30))
+    octa_cuts += [rect(cx - 46, y, 92, 0.8) for y in (b - 38, b - 36)]  # tile band
+    octa = diff(octa, *octa_cuts)
+    drum = diff(rect(cx - 22, b - 64, 44, 14),
+                *[rect(x, b - 61, 2.4, 7, 1.2) for x in range(cx - 18, cx + 18, 6)])
+    gold = P(f"M{cx - 25},{b - 64} C{cx - 27},{b - 84} {cx - 14},{b - 100} {cx},{b - 104} "
+             f"C{cx + 14},{b - 100} {cx + 27},{b - 84} {cx + 25},{b - 64} Z")
+    # Engraved light on the gold: meridians that wrap the curve of the dome.
+    gold = diff(gold, *[stroke(f"M{cx + o},{b - 64} Q{cx + o * .8},{b - 92} {cx},{b - 103}",
+                               0.8, cap="butt") for o in (-16, -8, 8, 16)],
+                stroke(f"M{cx - 25},{b - 70} Q{cx},{b - 66} {cx + 25},{b - 70}", 0.8,
+                       cap="butt"))
+    spire = union(rect(cx - 0.9, b - 118, 1.8, 15), circle(cx, b - 108, 2.2))
+    trees = [P(f"M{x - 4},{b - 16} C{x - 9},{b - 34} {x - 5},{b - 58} {x},{b - 66} "
+               f"C{x + 5},{b - 58} {x + 9},{b - 34} {x + 4},{b - 16} Z")
+             for x in (182, 296)]
+    jer = union(wall, octa, drum, spire, *trees)
+
+    # Witten -------------------------------------------------------------
+    w0, w1, wc = 682, 826, 754
+    hall = rect(w0, b - 50, w1 - w0, 50)
+    gable = poly([(wc - 30, b - 50), (wc - 30, b - 66), (wc, b - 80),
+                  (wc + 30, b - 66), (wc + 30, b - 50)])
+    corners = [rect(x, b - 62, 10, 62) for x in (w0, w1 - 10)]
+    caps = [P(f"M{x},{b - 62} L{x + 5},{b - 70} L{x + 10},{b - 62} Z") for x in (w0, w1 - 10)]
+    drum = rect(wc - 17, b - 96, 34, 16)
+    dome = P(f"M{wc - 20},{b - 96} C{wc - 22},{b - 112} {wc - 10},{b - 124} {wc},{b - 126} "
+             f"C{wc + 10},{b - 124} {wc + 22},{b - 112} {wc + 20},{b - 96} Z")
+    lantern = union(rect(wc - 3.5, b - 136, 7, 11), P(f"M{wc - 4.5},{b - 136} "
+                                                   f"Q{wc},{b - 144} {wc + 4.5},{b - 136} Z"),
+                    rect(wc - 0.7, b - 152, 1.4, 10))
+    tablets = union(*[P(f"M{x},{b - 80} V{b - 87} A3,3 0 0 1 {x + 6},{b - 87} V{b - 80} Z")
+                      for x in (wc - 6.6, wc + 0.6)])
+    syn = union(hall, gable, *corners, *caps, drum, dome, lantern)
+    cuts = []
+    for y in range(int(b - 46), int(b - 4), 6):              # two-colour brick bands
+        cuts.append(rect(w0 + 11, y, w1 - w0 - 22, 1.1))
+    for x in list(range(w0 + 18, wc - 34, 13)) + list(range(wc + 38, w1 - 14, 13)):
+        cuts.append(P(f"M{x - 3},{b - 12} V{b - 34} A3,3 0 0 1 {x + 3},{b - 34} V{b - 12} Z"))
+    cuts.append(P(f"M{wc - 8},{b} V{b - 18} A9,9 0 1 1 {wc + 8},{b - 18} V{b} Z"))  # horseshoe door
+    cuts.append(circle(wc, b - 62, 7.5))                     # rose window
+    for x in range(wc - 12, wc + 13, 6):                     # drum windows
+        cuts.append(P(f"M{x - 1.6},{b - 83} V{b - 91} A1.6,1.6 0 0 1 {x + 1.6},{b - 91} "
+                      f"V{b - 83} Z"))
+    for o in (-11, 0, 11):                                   # dome ribs
+        cuts.append(stroke(f"M{wc + o},{b - 96} Q{wc + o * .7},{b - 116} {wc},{b - 125}",
+                           0.9, cap="butt"))
+    syn = diff(syn, *cuts)
+    # Rose window with a Star of David in its tracery.
+    r = 5.6
+    tri = lambda a0: [(wc + r * math.sin(math.radians(a0 + k * 120)),
+                       b - 62 - r * math.cos(math.radians(a0 + k * 120))) for k in range(3)]
+    star = union(stroke("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in tri(0)) + " Z", 1.1),
+                 stroke("M" + " L".join(f"{x:.2f},{y:.2f}" for x, y in tri(60)) + " Z", 1.1))
+    syn = union(syn, inter(star, circle(wc, b - 62, 7)))
+    return union(jer, syn), gold
 
 
 def guilloche(keep_out):
@@ -505,10 +568,10 @@ def emblem():
     deck, openings = bridge()
     fl = memorial_flame()
     bird_halo = dilate(sil, 9)
-    city = skylines()
+    city, gold_dome = skylines()
     blue = union(
         inter(sky([bird_halo, inter(circle(C, C, 186), rect(0, 0, 1000, DECK)),
-                   dilate(deck, 3), dilate(city, 4),
+                   dilate(deck, 3), dilate(union(city, gold_dome), 4),
                    dilate(fl, 6)]), field),
         inter(light([bird_halo, dilate(fl, 7)]), field),
         inter(deck, field),
@@ -518,7 +581,7 @@ def emblem():
         bird,
         ring(FIELD, FIELD + 4),
     )
-    gold = union(diff(fl, dilate(sil, 4)), throat)
+    gold = union(diff(fl, dilate(sil, 4)), throat, inter(gold_dome, field))
 
     top = arc_text(NAME, "Rubik-VF.ttf", 66, 412, "top", wght=700,
                    tracking=0.03)
