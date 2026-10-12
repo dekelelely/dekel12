@@ -255,62 +255,102 @@ def swallow():
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
-    body = P("M500,231 C512,231 520,235 521,246 C521,258 524,268 527,282 "
-             "C531,300 530,322 526,342 C522,362 514,380 507,400 L493,400 "
-             "C486,380 478,362 474,342 C470,322 469,300 473,282 "
-             "C476,268 479,258 479,246 C480,235 488,231 500,231 Z")
-    # Head-on: the bird looks straight out of the emblem. The short bill
-    # points at the viewer (seen as a small triangle), the rust forehead sits
-    # between the eyes, the rust throat below the bill.
-    beak = P("M495,244.5 Q500,243.2 505,244.5 L500,251 Z")
-    forehead = P("M493.5,242.6 Q500,238.2 506.5,242.6 Q500,241.4 493.5,242.6 Z")
-    cap = inter(body, P("M460,220 H540 V266 Q500,256 460,266 Z"))
-    bib = P("M487,250 L494,246 L500,252.6 L506,246 L513,250 "
-            "C522,259 519,277 500,282 C481,277 478,259 487,250 Z")
+    # A big head, turned straight to the viewer; the body below it as before.
+    body = P("M500,213 C514,213 525,217 529,226 C534,237 535,252 531,266 C530,274 528,280 528,284 "
+             "C531,302 530,322 526,342 C522,362 514,380 507,400 L493,400 "
+             "C486,380 478,362 474,342 C470,322 469,302 472,284 "
+             "C472,280 470,274 469,266 C465,252 466,237 471,226 C475,217 486,213 500,213 Z")
+    beak = P("M493,246 Q500,243.6 507,246 L500,262 Z")
+    forehead = P("M494,243.6 Q500,239.6 506,243.6 Q500,242.6 494,243.6 Z")
+    cap = inter(body, P("M450,200 H550 V276 Q500,266 450,276 Z"))
+    bib = P("M478,256 Q486,250 491.5,248.5 L500,264 L508.5,248.5 Q514,250 522,256 "
+            "C530,268 524,290 500,296 C476,290 470,268 478,256 Z")
     throat = inter(body, bib)
-    band = diff(inter(body, P("M462,254 C478,276 490,283 500,283 C510,283 522,276 538,254 "
-                              "V274 C522,294 510,300 500,300 C490,300 478,294 462,274 Z")),
+    band = diff(inter(body, P("M462,268 C478,290 490,297 500,297 C510,297 522,290 538,268 "
+                              "V288 C522,308 510,314 500,314 C490,314 478,308 462,288 Z")),
                 dilate(bib, 1.2))
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
     if SOLID:
         return diff(sil, dilate(throat, 2.2)), throat, sil
 
-    # The belly is pale: an outline and contour lines that wrap the flanks.
+    # The belly is pale: an outline, a few feather tips on the chest, and
+    # contour lines that wrap the flanks.
     belly_lines = [stroke(to_d(body), 1.8)]
-    # Shading only where the body turns away: a band along each flank,
-    # wider low on the body, lines closer near the edge.
     flanks = diff(body, diff(body, stroke(to_d(body), 26)))
-    for y in range(312, 398, 5):
+    for y in range(318, 398, 5):
         arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
         belly_lines.append(inter(arc, flanks))
-    for y in range(318, 390, 10):                   # a second, finer set
+    for y in range(322, 390, 10):
         arc = stroke(f"M466,{y + 2.5} Q500,{y + 11.5} 534,{y + 2.5}", 0.7, cap="butt")
         belly_lines.append(inter(arc, diff(body, diff(body, stroke(to_d(body), 12)))))
-    for y in range(384, 400, 5):                   # undertail coverts
+    for j, y in enumerate(range(318, 346, 7)):        # chest feather tips
+        for x in range(486 + (j % 2) * 4, 516, 8):
+            belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
+                                            0.6, cap="butt"), body))
+    for y in range(384, 400, 5):                     # undertail coverts
         belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
                                         cap="butt"), body))
-    # The eyes face the viewer: both seen whole, set off from the dark mask
-    # by a hairline, each with its catchlight in the same place, so the gaze
-    # meets yours. The gape runs from the corners of the bill.
-    eyes = [(486.6, 245), (513.4, 245)]
+
+    # The face, after a head-on bird portrait. The eyes are small and look
+    # straight out; a heavy brow cuts the top of each eye flat, which is
+    # what gives the stare. Pale iris in fine radial lines, dark pupil,
+    # catchlight in the same place in both.
+    import random
+    rnd = random.Random(7)
+    eyes = [(485.6, 242.6), (514.4, 242.6)]
+    R = 4.2
     face_gold = union(throat, forehead)
-    crown = diff(cap, dilate(bib, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9),
-                 # A dark eye on a dark face shows as its catchlight.
-                 *[circle(x - 0.6, y - 0.7, 0.95) for x, y in eyes],
-                 # gloss on the steel-blue crown
-                 stroke("M486,236.5 Q500,231.8 514,236.5", 0.55, cap="butt"),
-                 stroke("M489,239 Q500,235.4 511,239", 0.45, cap="butt"),
-                 # gape: from the corners of the bill toward the eyes
-                 stroke("M495,244.6 Q492.5,245.2 490.4,246.6", 0.55, cap="butt"),
-                 stroke("M505,244.6 Q507.5,245.2 509.6,246.6", 0.55, cap="butt"))
-    beak = diff(beak, circle(498, 245.2, 0.45), circle(502, 245.2, 0.45),
-                stroke("M500,245.6 L500,249.6", 0.4, cap="butt"))
+    cuts = [dilate(bib, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9)]
+    for x, y in eyes:
+        side = -1 if x < 500 else 1
+        # The brow line: from above the outer corner down toward the bill.
+        bx0, by0 = x + side * 6.5, y - 4.6
+        bx1, by1 = x - side * 6.0, y - 1.2
+        lid = poly([(bx0, by0), (bx1, by1), (bx1, y - 12), (bx0, y - 12)])
+        iris = diff(circle(x, y, R), lid)
+        pupil = circle(x, y + 0.3, 1.7)
+        lines = [taper((x + 1.9 * math.cos(a), y + 0.3 + 1.9 * math.sin(a)),
+                       (x + (R - 0.5) * math.cos(a), y + (R - 0.5) * math.sin(a)),
+                       0.45, 0.2) for a in [2 * math.pi * k / 16 for k in range(16)]]
+        cuts.append(diff(iris, pupil, *lines))                      # pale iris
+        cuts.append(circle(x - side * 0.7, y - 0.4, 0.7))           # catchlight
+        # A pale hairline just above the brow, and the lower lid's edge.
+        cuts.append(stroke(f"M{bx0 + side * 1.5:.1f},{by0 - 2.2:.1f} "
+                           f"L{bx1 - side * 0.5:.1f},{by1 - 2.6:.1f}", 0.7, cap="round"))
+        cuts.append(inter(diff(circle(x, y, R + 1.1), circle(x, y, R + 0.45)),
+                          rect(x - 8, y + 1.2, 16, 8)))
+        # Gape: the corner of the mouth folding back below the eye.
+        cuts.append(stroke(f"M{500 + side * 6.8:.1f},247 Q{500 + side * 10.5:.1f},248.4 "
+                           f"{500 + side * 13:.1f},250.8", 0.75, cap="round"))
+    # Head feathers: short irregular strokes flowing out from the bill.
+    for _ in range(170):
+        x, y = rnd.uniform(470, 530), rnd.uniform(215, 266)
+        if any(math.hypot(x - ex, y - ey) < R + 3.5 for ex, ey in eyes):
+            continue
+        if math.hypot(x - 500, y - 246) < 9:
+            continue
+        a = math.atan2(y - 250, x - 500)
+        L = rnd.uniform(2.2, 4.2)
+        cuts.append(taper((x, y), (x + math.cos(a) * L, y + math.sin(a) * L),
+                          rnd.uniform(0.35, 0.6), 0.1))
+    crown = diff(cap, *cuts)
+    beak = diff(beak, taper((500, 247.5), (500, 259), 1.2, 0.3),
+                circle(496.8, 248.2, 0.7), circle(503.2, 248.2, 0.7))
+    # The throat's feathers: fine strokes falling from the chin.
+    tips = []
+    for _ in range(120):
+        x, y = rnd.uniform(474, 526), rnd.uniform(258, 294)
+        L = rnd.uniform(2.5, 5)
+        a = math.pi / 2 + (x - 500) * 0.02
+        tips.append(taper((x, y), (x + math.cos(a) * L, y + math.sin(a) * L),
+                          rnd.uniform(0.35, 0.55), 0.1))
+    face_gold = diff(face_gold, *tips)
     # The breast band: short strokes that follow its curve.
     marks = []
     for i in range(15):
         t = i / 14
         x = 470 + 60 * t
-        y = 262 + 22 * (1 - (2 * t - 1) ** 2)
+        y = 276 + 22 * (1 - (2 * t - 1) ** 2)
         marks.append(stroke(f"M{x:.1f},{y:.1f} L{x + (x - 500) * .08:.1f},{y + 12:.1f}",
                             0.9, cap="butt"))
     band = diff(band, *marks)
