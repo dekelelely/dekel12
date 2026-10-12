@@ -262,18 +262,39 @@ def swallow():
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
-    head = P("M500,230 C519,230 531,243 531,261 C531,278 520,292 500,294 "
-             "C480,292 469,278 469,261 C469,243 481,230 500,230 Z")
+    # The head is a low dome, widest at the base where it sits on the wings.
+    # Its lower rim, under the chestnut throat, is the dark breast band.
+    head = P("M500,231 C517,231 528,241 531,255 C533,265 533,278 530,288 "
+             "C522,295 511,298.5 500,298.5 C489,298.5 478,295 470,288 "
+             "C467,278 467,265 469,255 C472,241 483,231 500,231 Z")
     torso = P("M522,286 C531,300 532,320 528,342 C524,370 514,400 507,428 "
               "Q503,440 500,446 Q497,440 493,428 C486,400 476,370 472,342 "
               "C468,320 469,300 478,286 Z")
     body = union(head, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
 
-    forehead = P("M489,251 Q500,241 511,251 Q500,247.5 489,251 Z")
-    beak = P("M494.5,252 Q500,250.4 505.5,252 L500,259.5 Z")
-    throat = inter(body, P("M484,258 L494.5,254 L500,262 L505.5,254 L516,258 "
-                           "C525,268 521,287 500,293 C479,287 475,268 484,258 Z"))
+    # As in the photograph: a chestnut shield on the forehead narrowing to
+    # the bill, a short wide bill with the gape spread to the sides, and a
+    # broad chestnut throat below it.
+    beak = P("M492,263.6 L496.6,260.8 L503.4,260.8 L508,263.6 "
+             "Q503.2,264.6 500,270.2 Q496.8,264.6 492,263.6 Z")
+    forehead = diff(P("M487.6,247.8 Q500,245.6 512.4,247.8 C511,252 508.6,256.6 505.6,260.6 "
+                      "L494.4,260.6 C491.4,256.6 489,252 487.6,247.8 Z"), dilate(beak, 1.3))
+    throat = diff(inter(body, P("M492,263.6 C487,264.6 481.5,265.2 477.5,268.2 "
+                                "C474.5,273.5 476.8,280.6 483.5,284.4 C490,287.6 510,287.6 516.5,284.4 "
+                                "C523.2,280.6 525.5,273.5 522.5,268.2 C518.5,265.2 513,264.6 508,263.6 "
+                                "L500,270.2 Z")), dilate(beak, 1.3))
+    notches = []
+    for k in range(22):
+        a = math.radians(-8 + k * 196 / 21)
+        bx, by = 500 + 24.5 * math.cos(a), 276.4 + 11.6 * math.sin(a)
+        nx, ny = math.cos(a) / 24.5, math.sin(a) / 11.6
+        n = math.hypot(nx, ny); nx, ny = nx / n, ny / n
+        d_ = rnd.uniform(2.6, 4.2)
+        notches.append(poly([(bx + nx * 2 - ny * 1.3, by + ny * 2 + nx * 1.3),
+                             (bx - nx * d_, by - ny * d_),
+                             (bx + nx * 2 + ny * 1.3, by + ny * 2 - nx * 1.3)]))
+    throat = diff(throat, *notches)
     # The cinnamon lower belly begins in a ragged line of feather tips.
     edge, x = [], 550.0
     while x > 450:
@@ -287,24 +308,35 @@ def swallow():
         face = union(throat, forehead)
         return diff(sil, dilate(face, 2)), face, sil
 
-    # The face: dark eyes in the blue mask with a hairline ring and the
-    # catchlight in the same place in both, gloss on the crown, and the
-    # gape running back from the corners of the bill.
-    eyes = [(486.5, 252.5), (513.5, 252.5)]
-    crown = diff(head, dilate(throat, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9),
-                 *[diff(circle(x, y, 4.1), circle(x, y, 3.4)) for x, y in eyes],
-                 *[circle(x - 1.0, y - 1.2, 1.0) for x, y in eyes],
-                 stroke("M482,240 Q500,232 518,240", 0.6, cap="butt"),
-                 stroke("M486,244 Q500,238 514,244", 0.5, cap="butt"),
-                 stroke("M494.5,252.4 Q491.5,254 489.6,256.4", 0.6, cap="butt"),
-                 stroke("M505.5,252.4 Q508.5,254 510.4,256.4", 0.6, cap="butt"))
-    beak = diff(beak, circle(498, 253.4, 0.45), circle(502, 253.4, 0.45))
+    # The face: dark masks run from the forehead shield out through the eyes;
+    # each eye is marked only by a lower lid and a catchlight in the same
+    # place in both. The crown above is lighter, cut with fine feather ticks.
+    eyes = [(484.2, 254.2), (515.8, 254.2)]
+    mask = P("M488.4,248.2 C484.5,247 478.5,247.8 473.6,250.6 C469.8,253.4 469,258 470,262.4 "
+             "C475.5,260.4 481.5,260.8 486.5,262.4 C489,263.2 490.8,263.6 492,263.6 "
+             "C493,259.5 491,253.5 488.4,248.2 Z")
+    mask = union(mask, mirror(mask))
+    ticks = []
+    for gy in range(0, 34):
+        for gx in range(0, 32):
+            x = 468 + gx * 2.1 + (gy % 2) * 1.05 + rnd.uniform(-.5, .5)
+            y = 232 + gy * 1.9 + rnd.uniform(-.4, .4)
+            ang = math.atan2(y - 266, x - 500)
+            L = rnd.uniform(1.1, 1.7)
+            ticks.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
+                               0.34, 0.06))
+    gloss = diff(inter(union(*ticks), head), dilate(mask, 1.2),
+                 dilate(forehead, 1.4), dilate(throat, 1.4), dilate(beak, 1.4),
+                 *[circle(x, y, 5.2) for x, y in eyes],
+                 P("M466,288 C478,297 490,301 500,301 C510,301 522,297 534,288 V310 H466 Z"))
+    crown = diff(head, dilate(throat, 0.6), dilate(forehead, 0.6), dilate(beak, 1.1), gloss,
+                 *[circle(x - 0.8, y - 0.7, 1.25) for x, y in eyes],
+                 *[circle(x + 1.3, y + 1.0, 0.45) for x, y in eyes])
+    # The bill is pale: drawn as an outline with the ridge down its middle.
+    beak = union(diff(beak, diff(beak, stroke(to_d(beak), 1.5))),
+                 inter(stroke("M500,261.6 L500,266.6", 0.6, cap="butt"), beak))
     head_ink = union(crown, beak)
 
-    # A thin dark breast band under the throat, then the pale chest.
-    band = diff(inter(torso, P("M462,284 C478,298 490,301 500,301 C510,301 522,298 538,284 "
-                               "V290 C522,305 510,309 500,309 C490,309 478,305 462,290 Z")),
-                dilate(throat, 1.2))
     belly_lines = [stroke(to_d(body), 1.8)]
     flanks = diff(torso, diff(torso, stroke(to_d(torso), 13)))
     for y in range(318, 380, 6):
@@ -325,15 +357,16 @@ def swallow():
             strokes_.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
                                   rnd.uniform(0.35, 0.55), 0.1))
         return diff(region, *strokes_)
-    throat = feathered(throat, 70, 258, 292)
+    throat = feathered(throat, 80, 266, 288)
+    forehead = feathered(forehead, 14, 248, 258)
     belly_gold = feathered(belly_gold, 110, 366, 446)
     face_gold = union(throat, forehead, belly_gold)
 
     bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
     bird = lay(bird, tail, 1.6)
     bird = diff(bird, dilate(body, 1.2))
-    bird = union(bird, head_ink, band, *belly_lines)
-    bird = diff(bird, dilate(face_gold, 0.9))
+    bird = union(bird, head_ink, *belly_lines)
+    bird = diff(bird, dilate(face_gold, 0.6))
     return bird, face_gold, sil
 
 
