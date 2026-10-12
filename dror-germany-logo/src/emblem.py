@@ -5,6 +5,7 @@ Everything is a filled path; gaps between parts are cut, so the one-color
 versions keep every separation.
 """
 import math
+from pathlib import Path
 
 import pathops
 
@@ -537,6 +538,15 @@ def guilloche(keep_out):
     return union(*lines)
 
 
+def school_bird(cx, cy, width=80):
+    """The school's own bird, traced from its logo (src/school-bird.path)."""
+    p = P(open(Path(__file__).with_name("school-bird.path")).read())
+    p.fillType = pathops.FillType.EVEN_ODD
+    p = pathops.simplify(p, clockwise=True)
+    k = width / 100
+    return p.transform(k, 0, 0, k, cx, cy)
+
+
 def tiny_swallow(cx, cy, k=0.16):
     global SOLID
     SOLID = True
@@ -644,9 +654,9 @@ def emblem():
                    tracking=0.03)
     bottom = arc_text("משלחת לגרמניה 2026", "Rubik-VF.ttf", 56, 458,
                       "bottom", wght=500, tracking=0.02)
-    diamonds = [tiny_swallow(x, C) for x in (C - 432, C + 432)]
+    diamonds = [school_bird(x, C) for x in (C - 432, C + 432)]
     text_halo = dilate(union(top, bottom), 5)
-    marks = [dilate(d, 5) for d in diamonds]
+    marks = [dilate(d, 2.8) for d in diamonds]
     band = diff(ring(384, 481), top, bottom, *marks)
     lace = guilloche(union(text_halo, *marks))
 
@@ -683,8 +693,15 @@ def write(out, prefix, layers):
         for role, shape in layers:
             if role in colors:
                 by.setdefault(colors[role], []).append(shape)
-        paths = "\n".join(f'  <path fill="{c}" d="{to_d(union(*s))}"/>'
-                          for c, s in by.items())
+        def merged(shapes):
+            # One path per colour when Skia can merge them; otherwise the
+            # shapes side by side, which paints the same.
+            try:
+                return [to_d(union(*shapes))]
+            except pathops.PathOpsError:
+                return [to_d(x) for x in shapes]
+        paths = "\n".join(f'  <path fill="{c}" d="{d}"/>'
+                          for c, s in by.items() for d in merged(s))
         (out / f"{prefix}-{name}.svg").write_text(
             '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" '
             f'role="img" aria-label="{NAME} · משלחת לגרמניה 2026">\n'
