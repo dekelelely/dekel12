@@ -42,6 +42,7 @@ def dilate(shape, g):
 
 
 SOLID = False                  # True: draw the bird as one silhouette
+MARKER = False                 # True: the ring markers' swallow silhouette
 
 
 def lay(acc, new, g=3.0):
@@ -285,6 +286,12 @@ def swallow():
               "C486,380 478,362 474,342 C470,322 469,306 473.5,290 Z")
     body = union(hood, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
+    if MARKER:
+        # The ring markers echo the central bird as a pure swallow: swept
+        # wings, forked tail, a small round head and bill, no eagle face.
+        m = union(union(wing_sil, mirror(wing_sil)), tail, torso,
+                  circle(500, 279, 15), P("M494.5,268 L500,256 L505.5,268 Z"))
+        return m, m, m
 
     # The hooked beak, seen head-on, with the cere at its base and the
     # fleshy gape running back on each side; gold eyes under a heavy brow.
@@ -578,10 +585,10 @@ def school_bird(cx, cy, width=80):
 
 
 def tiny_swallow(cx, cy, k=0.16):
-    global SOLID
-    SOLID = True
+    global SOLID, MARKER
+    SOLID = MARKER = True
     bird, throat, _ = swallow()
-    SOLID = False
+    SOLID = MARKER = False
     bird = union(bird, throat)
     return bird.transform(k, 0, 0, k, cx - 500 * k, cy - 360 * k)
 
@@ -684,7 +691,7 @@ def emblem():
                    tracking=0.03)
     bottom = arc_text("משלחת לגרמניה 2026", "Rubik-VF.ttf", 56, 458,
                       "bottom", wght=500, tracking=0.02)
-    diamonds = [school_bird(x, C) for x in (C - 432, C + 432)]
+    diamonds = [tiny_swallow(x, C, 0.15) for x in (C - 432, C + 432)]
     text_halo = dilate(union(top, bottom), 5)
     marks = [dilate(d, 2.8) for d in diamonds]
     band = diff(ring(384, 481), top, bottom, *marks)
