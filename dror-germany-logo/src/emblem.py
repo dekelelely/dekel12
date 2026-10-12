@@ -255,110 +255,112 @@ def swallow():
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
-    # A big head, turned straight to the viewer; the body below it as before.
-    body = P("M500,213 C514,213 525,217 529,226 C534,237 535,252 531,266 C530,274 528,280 528,284 "
-             "C531,302 530,322 526,342 C522,362 514,380 507,400 L493,400 "
-             "C486,380 478,362 474,342 C470,322 469,302 472,284 "
-             "C472,280 470,274 469,266 C465,252 466,237 471,226 C475,217 486,213 500,213 Z")
-    beak = P("M493,246 Q500,243.6 507,246 L500,262 Z")
-    forehead = P("M494,243.6 Q500,239.6 506,243.6 Q500,242.6 494,243.6 Z")
-    cap = inter(body, P("M450,200 H550 V276 Q500,266 450,276 Z"))
-    bib = P("M478,256 Q486,250 491.5,248.5 L500,264 L508.5,248.5 Q514,250 522,256 "
-            "C530,268 524,290 500,296 C476,290 470,268 478,256 Z")
-    throat = inter(body, bib)
-    band = diff(inter(body, P("M462,268 C478,290 490,297 500,297 C510,297 522,290 538,268 "
-                              "V288 C522,308 510,314 500,314 C490,314 478,308 462,288 Z")),
-                dilate(bib, 1.2))
-    sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
-    if SOLID:
-        return diff(sil, dilate(throat, 2.2)), throat, sil
-
-    # The belly is pale: an outline, a few feather tips on the chest, and
-    # contour lines that wrap the flanks.
-    belly_lines = [stroke(to_d(body), 1.8)]
-    flanks = diff(body, diff(body, stroke(to_d(body), 26)))
-    for y in range(318, 398, 5):
-        arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
-        belly_lines.append(inter(arc, flanks))
-    for y in range(322, 390, 10):
-        arc = stroke(f"M466,{y + 2.5} Q500,{y + 11.5} 534,{y + 2.5}", 0.7, cap="butt")
-        belly_lines.append(inter(arc, diff(body, diff(body, stroke(to_d(body), 12)))))
-    for j, y in enumerate(range(318, 346, 7)):        # chest feather tips
-        for x in range(486 + (j % 2) * 4, 516, 8):
-            belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
-                                            0.6, cap="butt"), body))
-    for y in range(384, 400, 5):                     # undertail coverts
-        belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
-                                        cap="butt"), body))
-
-    # The face, after a head-on bird portrait. The eyes are small and look
-    # straight out; a heavy brow cuts the top of each eye flat, which is
-    # what gives the stare. Pale iris in fine radial lines, dark pupil,
-    # catchlight in the same place in both.
+    # An eagle's head on a swallow's body. The head and neck are white,
+    # engraved in fine feather strokes, and end in a ragged fringe over the
+    # dark breast band, as on a bald eagle; below that the body is the
+    # swallow's.
     import random
-    rnd = random.Random(7)
-    eyes = [(485.6, 242.6), (514.4, 242.6)]
-    R = 4.2
-    face_gold = union(throat, forehead)
-    cuts = [dilate(bib, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9)]
+    rnd = random.Random(11)
+    # Ragged lower edge: feather tips of uneven length, notches between.
+    fringe, x = [], 538.0
+    while x > 462:
+        step = rnd.uniform(2.6, 4.2)
+        fringe.append((x - step * .5, 300 + rnd.uniform(5, 15)))      # tip
+        fringe.append((x - step, 298 + rnd.uniform(-2, 2.5)))           # notch
+        x -= step
+    R_ = lambda pts: [(1000 - px, py) for px, py in reversed(pts)]
+    right = ([bezier((500, 203), (521, 203), (533, 213), (535, 229), k / 10) for k in range(1, 11)]
+             + [bezier((535, 229), (538, 243), (541, 256), (538, 266), k / 8) for k in range(1, 9)]
+             + [bezier((538, 266), (535, 275), (533, 283), (538, 298), k / 8) for k in range(1, 9)])
+    hood_pts = [(500, 203)] + right + fringe + R_(right)[1:]
+    hood = poly(hood_pts)
+    torso = P("M530,290 C532,306 530,322 526,342 C522,362 514,380 507,400 L493,400 "
+              "C486,380 478,362 474,342 C470,322 468,306 470,290 Z")
+    body = union(hood, torso)
+    sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
+
+    # The hooked beak, seen head-on, with the cere at its base and the
+    # fleshy gape running back on each side; gold eyes under a heavy brow.
+    beak_g = P("M490.5,238.5 C490.5,232.5 509.5,232.5 509.5,238.5 "
+               "C510.5,249 506.5,260 500,271 C493.5,260 489.5,249 490.5,238.5 Z")
+    gapes = [P(f"M{500 + s_ * 9.6:.1f},246 Q{500 + s_ * 15:.1f},246.6 {500 + s_ * 19:.1f},250.2 "
+               f"Q{500 + s_ * 14.6:.1f},249.6 {500 + s_ * 9.2:.1f},250.4 Z") for s_ in (-1, 1)]
+    eyes = [(483.4, 236.4), (516.6, 236.4)]
+    R = 4.8
+    irises, brows, lids = [], [], []
     for x, y in eyes:
         side = -1 if x < 500 else 1
-        # The brow line: from above the outer corner down toward the bill.
-        bx0, by0 = x + side * 6.5, y - 4.6
-        bx1, by1 = x - side * 6.0, y - 1.2
-        lid = poly([(bx0, by0), (bx1, by1), (bx1, y - 12), (bx0, y - 12)])
-        iris = diff(circle(x, y, R), lid)
-        pupil = circle(x, y + 0.3, 1.7)
-        lines = [taper((x + 1.9 * math.cos(a), y + 0.3 + 1.9 * math.sin(a)),
-                       (x + (R - 0.5) * math.cos(a), y + (R - 0.5) * math.sin(a)),
-                       0.45, 0.2) for a in [2 * math.pi * k / 16 for k in range(16)]]
-        cuts.append(diff(iris, pupil, *lines))                      # pale iris
-        cuts.append(circle(x - side * 0.7, y - 0.4, 0.7))           # catchlight
-        # A pale hairline just above the brow, and the lower lid's edge.
-        cuts.append(stroke(f"M{bx0 + side * 1.5:.1f},{by0 - 2.2:.1f} "
-                           f"L{bx1 - side * 0.5:.1f},{by1 - 2.6:.1f}", 0.7, cap="round"))
-        cuts.append(inter(diff(circle(x, y, R + 1.1), circle(x, y, R + 0.45)),
-                          rect(x - 8, y + 1.2, 16, 8)))
-        # Gape: the corner of the mouth folding back below the eye.
-        cuts.append(stroke(f"M{500 + side * 6.8:.1f},247 Q{500 + side * 10.5:.1f},248.4 "
-                           f"{500 + side * 13:.1f},250.8", 0.75, cap="round"))
-    # Head feathers: short irregular strokes flowing out from the bill.
-    for _ in range(170):
-        x, y = rnd.uniform(470, 530), rnd.uniform(215, 266)
-        if any(math.hypot(x - ex, y - ey) < R + 3.5 for ex, ey in eyes):
+        bx0, by0 = x + side * 8.5, y - 5.6
+        bx1, by1 = x - side * 7.5, y - 1.0
+        lid = poly([(bx0, by0), (bx1, by1), (bx1, y - 14), (bx0, y - 14)])
+        lids.append(lid)
+        irises.append(diff(circle(x, y, R), lid, circle(x, y + 0.4, 2.8)))
+        brows.append(diff(poly([(bx0 + side * 1.5, by0 + 0.4), (bx1 - side * 0.5, by1 + 0.3),
+                                (bx1 - side * 1.5, by1 - 4.2), (bx0 + side * 2, by0 - 3.6)]),
+                          *[stroke(f"M{bx0 + side * k:.1f},{by0 - 3:.1f} L{bx0 + side * (k - 3):.1f},"
+                                   f"{by0 + 0.2:.1f}", 0.45, cap="butt")
+                            for k in range(-2, 16, 3)]))
+    face_gold = union(beak_g, *gapes, *irises)
+    if SOLID:
+        return diff(sil, dilate(face_gold, 2)), face_gold, sil
+
+    def outline(shape, w0=0.7, w1=1.9):
+        return diff(dilate(shape, w1), dilate(shape, w0))
+
+    ink = [stroke(to_d(hood), 1.6), outline(beak_g)]
+    ink += [outline(g, 0.6, 1.5) for g in gapes]
+    for (x, y), iris in zip(eyes, irises):
+        ink.append(outline(diff(circle(x, y, R), lids[eyes.index((x, y))]), 0.5, 1.4))
+        ink.append(diff(circle(x, y + 0.4, 2.2), circle(x - 1.1, y - 0.6, 0.85)))
+    ink += brows
+    # Cere line, nostrils and the ridge of the bill, cut into the gold.
+    face_gold = diff(face_gold,
+                     inter(stroke("M490.6,242.5 Q500,239.5 509.4,242.5", 0.9, cap="butt"),
+                           beak_g),
+                     *[P(f"M{x - 1.5},244.6 Q{x},242.8 {x + 1.5},244.6 Q{x},246.2 {x - 1.5},244.6 Z")
+                       for x in (495.4, 504.6)],
+                     taper((500, 246), (500, 266), 1.0, 0.2))
+    # Feathers: fine strokes falling from the crown and down the neck, set
+    # closer toward the sides, where the head turns away.
+    keep_out = union(dilate(beak_g, 3), *[dilate(g, 2.5) for g in gapes],
+                     *[circle(x, y, R + 3.2) for x, y in eyes], *[dilate(b_, 1) for b_ in brows])
+    strokes_ = []
+    for _ in range(520):
+        x, y = rnd.uniform(462, 538), rnd.uniform(203, 306)
+        edge = abs(x - 500) / 38
+        if rnd.random() > 0.18 + 0.82 * edge ** 1.4:
             continue
-        if math.hypot(x - 500, y - 246) < 9:
-            continue
-        a = math.atan2(y - 250, x - 500)
-        L = rnd.uniform(2.2, 4.2)
-        cuts.append(taper((x, y), (x + math.cos(a) * L, y + math.sin(a) * L),
-                          rnd.uniform(0.35, 0.6), 0.1))
-    crown = diff(cap, *cuts)
-    beak = diff(beak, taper((500, 247.5), (500, 259), 1.2, 0.3),
-                circle(496.8, 248.2, 0.7), circle(503.2, 248.2, 0.7))
-    # The throat's feathers: fine strokes falling from the chin.
-    tips = []
-    for _ in range(120):
-        x, y = rnd.uniform(474, 526), rnd.uniform(258, 294)
-        L = rnd.uniform(2.5, 5)
-        a = math.pi / 2 + (x - 500) * 0.02
-        tips.append(taper((x, y), (x + math.cos(a) * L, y + math.sin(a) * L),
-                          rnd.uniform(0.35, 0.55), 0.1))
-    face_gold = diff(face_gold, *tips)
-    # The breast band: short strokes that follow its curve.
-    marks = []
-    for i in range(15):
-        t = i / 14
-        x = 470 + 60 * t
-        y = 276 + 22 * (1 - (2 * t - 1) ** 2)
-        marks.append(stroke(f"M{x:.1f},{y:.1f} L{x + (x - 500) * .08:.1f},{y + 12:.1f}",
-                            0.9, cap="butt"))
-    band = diff(band, *marks)
+        ang = math.pi / 2 + (x - 500) * 0.022 + rnd.uniform(-0.18, 0.18)
+        if y < 232:
+            ang = math.atan2(y - 236, x - 500) * 0.35 + math.pi / 2 * 0.65
+        L = rnd.uniform(2.4, 5.2)
+        strokes_.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
+                              rnd.uniform(0.35, 0.6), 0.08))
+    hood_in = diff(hood, stroke(to_d(hood), 3))
+    crown = union(*ink, diff(inter(union(*strokes_), hood_in), keep_out))
+
+    # The breast band under the fringe, and the pale belly below it.
+    band = diff(inter(torso, P("M450,290 H550 V310 Q500,334 450,310 Z")), dilate(hood, 1.4),
+                *[stroke(f"M{x},{294 + (x % 3)} L{x + (x - 500) * .05:.1f},"
+                         f"{310 + 12 * (1 - ((x - 500) / 32) ** 2):.1f}", 0.7,
+                         cap="butt") for x in range(468, 534, 4)])
+    belly_lines = [diff(stroke(to_d(torso), 1.8), dilate(hood, 1.2))]
+    flanks = diff(torso, diff(torso, stroke(to_d(torso), 26)))
+    for y in range(326, 398, 5):
+        arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
+        belly_lines.append(inter(arc, flanks))
+    for j, y in enumerate(range(328, 350, 7)):        # chest feather tips
+        for x in range(486 + (j % 2) * 4, 516, 8):
+            belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
+                                            0.6, cap="butt"), torso))
+    for y in range(384, 400, 5):                     # undertail coverts
+        belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
+                                        cap="butt"), torso))
     bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
     bird = lay(bird, tail, 1.6)
     bird = diff(bird, dilate(body, 2.4))
-    bird = union(bird, crown, band, beak, *belly_lines)
-    bird = diff(bird, dilate(face_gold, 1.5))
+    bird = union(bird, crown, band, *belly_lines)
+    bird = diff(bird, dilate(face_gold, 0.4))
     return bird, face_gold, sil
 
 

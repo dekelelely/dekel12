@@ -1,6 +1,6 @@
 # קריית חינוך דרור · משלחת לגרמניה 2026: logo concepts, round 1
 
-**Emblem (lead mark):** `emblem/` holds the delegation seal: `emblem-{color,black,white}.svg` for 40mm / 300px and up, `emblem-small-*.svg` for 24–96px, and 2048px PNGs in `emblem/png/`. Built by `python3 src/emblem.py`: an engraved barn swallow seen from below, a stone arch bridge, a memorial flame with a sprout, the Dome of the Rock and the Witten synagogue on the far banks, and the Hebrew name set along a guilloche ring.
+**Emblem (lead mark):** `emblem/` holds the delegation seal: `emblem-{color,black,white}.svg` for 40mm / 300px and up, `emblem-small-*.svg` for 24–96px, and 2048px PNGs in `emblem/png/`. Built by `python3 src/emblem.py`: an eagle-headed barn swallow seen from below, a stone arch bridge, a memorial flame with a sprout, the Dome of the Rock and the Witten synagogue on the far banks, and the Hebrew name set along a guilloche ring.
 
 Brand guide: https://claude.ai/artifact/1fteou2y4ZPJA12cun1MaQ · Mockup board: https://claude.ai/artifact/1nXB2ToUP7QG5mFv7zPHLp (private until shared).
 
