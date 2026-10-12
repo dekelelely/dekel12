@@ -263,11 +263,11 @@ def swallow():
     tail = None
     # Streamers leave the body almost parallel and thin; the inner tail
     # feathers make a shallow fork between them.
-    for base, tip, w, spot in (((492, 410), (468, 524), 9, None),
-                               ((493, 413), (480, 468), 12, .74),
-                               ((495, 415), (485, 461), 12, .72),
-                               ((497, 416), (490, 455), 11, .7),
-                               ((499, 417), (495, 450), 10, .68)):
+    for base, tip, w, spot in (((493, 396), (468, 524), 9, None),
+                               ((494, 399), (480, 468), 12, .74),
+                               ((496, 401), (485, 461), 12, .72),
+                               ((497, 402), (490, 455), 11, .7),
+                               ((499, 403), (495, 450), 10, .68)):
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
@@ -296,8 +296,11 @@ def swallow():
     DY = 12      # sit the head low, so the wings meet the neck
     T = lambda p: _as_path(p).transform(K, 0, 0, K, 500 - 500 * K, 300 - 300 * K + DY)
     hood = T(hood0)
-    torso = P("M519,288 C527,306 528,328 525,350 C522,374 514,398 506,420 L494,420 "
-              "C486,398 478,374 475,350 C472,328 473,306 481,288 Z")
+    # Streamlined: widest at the shoulders, tapering in one line to the
+    # undertail coverts, which come to a point over the base of the tail.
+    torso = P("M519,288 C527,297 529,312 527,328 C524,356 516,386 509,410 "
+              "Q503,428 500,436 Q497,428 491,410 C484,386 476,356 473,328 "
+              "C471,312 473,297 481,288 Z")
     body = union(hood, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
     if MARKER:
@@ -382,20 +385,20 @@ def swallow():
                 *[taper((x_, 318 + rnd.uniform(-3, 3)), (x_ + (x_ - 500) * .04, 344), 0.7, 0.15)
                   for x_ in [rnd.uniform(468, 532) for _ in range(26)]])
     belly_lines = [stroke(to_d(body), 1.8)]          # one contour, head to tail
-    flanks = diff(torso, diff(torso, stroke(to_d(torso), 26)))
-    for y in range(344, 418, 5):
+    flanks = diff(torso, diff(torso, stroke(to_d(torso), 13)))
+    for y in range(342, 420, 6):
         arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
         belly_lines.append(inter(arc, flanks))
     for j, y in enumerate(range(350, 372, 7)):        # chest feather tips
         for x in range(486 + (j % 2) * 4, 516, 8):
             belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
                                             0.6, cap="butt"), torso))
-    for y in range(402, 420, 5):                     # undertail coverts
+    for y in range(406, 432, 5):                     # undertail coverts
         belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
                                         cap="butt"), torso))
     bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
     bird = lay(bird, tail, 1.6)
-    bird = diff(bird, dilate(body, 2.4))
+    bird = diff(bird, dilate(body, 1.2))
     bird = union(bird, crown, band, *belly_lines)
     bird = diff(bird, dilate(face_gold, 0.4))
     return bird, face_gold, sil
