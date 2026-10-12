@@ -1,5 +1,7 @@
 # קריית חינוך דרור · משלחת לגרמניה 2026: logo concepts, round 1
 
+Round 2 (concepts 1 and 2, refined, with T-shirt, badge and WhatsApp mockups): open `round2.html`.
+
 Open `preview.html` in a browser to see all four concepts side by side on light and dark backgrounds, and at 64px avatar size.
 
 ## Concepts
@@ -44,6 +46,7 @@ Requires Python 3 with `fonttools`, `uharfbuzz` and `skia-pathops`, plus Node wi
 ```sh
 python3 src/build.py          # SVGs for every concept and variant
 python3 src/preview.py        # preview.html
+python3 src/round2.py         # round2.html
 node src/render.mjs 1024 1-swallow-bridge/png/logo-color.png 1-swallow-bridge/logo-color.svg   # PNGs, in pairs
 ```
 
