@@ -229,7 +229,7 @@ figcaption {{ font-size: .82rem; color: var(--muted); }}
   <header>
     <p class="eyebrow">Logo concepts · round 1</p>
     <h1><span class="he" lang="he" dir="rtl">{NAME} · משלחת לגרמניה 2026</span>
-      Dror Educational Campus, delegation to Germany</h1>
+      Dror School, delegation to Germany</h1>
     <p>Four directions, each holding friendship and remembrance together. No
       flags, eagles, blackletter or wartime imagery. The blue is sampled from
       the school’s current logo. All text is converted to outlines.</p>

@@ -89,3 +89,48 @@ def line_path(text, font, size, x, y, anchor="middle", wght=None,
                                tracking, d)[0])
         cursor -= gap
     return " ".join(parts), total
+
+
+def glyph_run(text, font, size, wght=None, tracking=0.0):
+    """Glyphs of one line in visual order, for setting text along a curve.
+
+    Returns ([(path, x, advance)], total_width): each glyph's outline at its
+    place on a baseline at y=0, runs ordered as line_path orders them.
+    """
+    import pathops
+
+    hbfont, upem = _font(font, wght)
+    scale = size / upem
+    track = tracking * upem
+    if re.search("[֐-׿]", text):
+        runs = [r for r in _LTR.split(text) if r]
+        runs = [(r, "ltr" if _LTR.fullmatch(r) else "rtl") for r in runs]
+    else:
+        runs = [(text, "ltr")]
+    shaped = []
+    for r, d in runs:
+        buf = hb.Buffer()
+        buf.add_str(r)
+        buf.guess_segment_properties()
+        buf.direction = d
+        hb.shape(hbfont, buf, {"kern": True, "liga": True})
+        w = (sum(p.x_advance for p in buf.glyph_positions) + track * len(buf.glyph_positions)) * scale
+        shaped.append((buf, w))
+    total = sum(w for _, w in shaped)
+    # An RTL line puts its first run at the right edge; an LTR line at the left.
+    rtl = runs[0][1] == "rtl" or len(runs) > 1
+    out, cursor = [], total
+    order = shaped if rtl else list(reversed(shaped))
+    for buf, w in order:
+        cursor -= w
+        cx = 0
+        for info, pos in zip(buf.glyph_infos, buf.glyph_positions):
+            p = pathops.Path()
+            x = cursor + (cx + pos.x_offset) * scale
+            hbfont.draw_glyph_with_pen(
+                info.codepoint,
+                TransformPen(p.getPen(), (scale, 0, 0, -scale, x, -pos.y_offset * scale)))
+            adv = (pos.x_advance + track) * scale
+            out.append((p, x, adv))
+            cx += pos.x_advance + track
+    return out, total

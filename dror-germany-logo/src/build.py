@@ -141,7 +141,7 @@ CONCEPTS = [
         "lines": [
             (NAME, 86, 700, 740, "text", 0.0),
             ("משלחת לגרמניה 2026", 54, 400, 820, "sub", 0.0),
-            ("Dror Educational Campus · Delegation to Germany 2026",
+            ("Dror School · Delegation to Germany 2026",
              24, 400, 880, "sub", 0.06),
         ],
     },
@@ -176,7 +176,7 @@ CONCEPTS = [
         "lines": [
             (NAME, 90, 800, 700, "text", 0.0),
             ("מסע לגרמניה 2026", 56, 400, 784, "sub", 0.0),
-            ("Dror Educational Campus · Delegation to Germany 2026",
+            ("Dror School · Delegation to Germany 2026",
              24, 600, 846, "sub", 0.06),
         ],
     },
