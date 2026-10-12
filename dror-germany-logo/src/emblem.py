@@ -710,7 +710,8 @@ def emblem():
                    tracking=0.03)
     bottom = arc_text("משלחת לגרמניה 2026", "Rubik-VF.ttf", 56, 458,
                       "bottom", wght=500, tracking=0.02)
-    diamonds = [tiny_swallow(x, C, 0.15) for x in (C - 432, C + 432)]
+    # The school's own bird, traced from its logo, on both sides.
+    diamonds = [school_bird(x, C, 88) for x in (C - 432, C + 432)]
     text_halo = dilate(union(top, bottom), 5)
     marks = [dilate(d, 2.8) for d in diamonds]
     band = diff(ring(384, 481), top, bottom, *marks)
