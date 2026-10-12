@@ -29,14 +29,16 @@ NAME = "קריית חינוך דרור"
 # --- Concept 1: the swallow bridge -----------------------------------------
 
 def swallow(heavy=False):
-    wing = P("M488,252 C402,172 248,188 150,452 "
-             "C255,282 396,262 488,308 Z")
-    body = P("M500,168 C524,168 538,188 536,214 C534,252 528,300 522,342 "
+    # Wings root at the shoulders, just under the head.
+    wing = P("M492,226 C402,158 248,182 150,452 "
+             "C255,280 398,252 494,292 Z")
+    head = circle(500, 196, 33)
+    body = P("M500,190 C522,190 534,206 533,232 C531,268 527,306 522,342 "
              "L566,508 C544,462 522,418 500,392 "
              "C478,418 456,462 434,508 L478,342 "
-             "C472,300 466,252 464,214 C462,188 476,168 500,168 Z")
-    bird = union(wing, mirror(wing), body)
-    deck = rect(190, 548, 620, 14, 7) if not heavy else rect(240, 548, 520, 28, 14)
+             "C473,306 469,268 467,232 C466,206 478,190 500,190 Z")
+    bird = union(wing, mirror(wing), body, head)
+    deck = rect(190, 548, 620, 14, 7) if not heavy else rect(250, 530, 500, 28, 14)
     return [("primary", bird), ("accent", deck)]
 
 
@@ -47,12 +49,12 @@ def flame(heavy=False):
               "C416,584 352,514 352,414 C352,318 382,252 408,184 "
               "C424,236 446,266 472,280 C466,206 486,146 526,76 Z")
     w = 22 if not heavy else 30
-    stem = rect(500 - w / 2, 318, w, 222, w / 2)
-    leaf_l = P("M502,452 C462,458 418,430 400,372 C452,364 492,392 502,438 Z")
-    leaf_r = P("M498,402 C540,404 584,374 600,312 C548,308 508,338 498,384 Z")
+    stem = rect(500 - w / 2, 372, w, 168, w / 2)
+    leaf_l = P("M504,420 C462,428 416,400 398,342 C452,334 494,362 504,404 Z")
+    leaf_r = P("M496,404 C540,404 586,372 602,310 C548,306 506,336 496,384 Z")
     if heavy:
-        leaf_l = union(leaf_l, stroke("M498,446 C462,450 424,424 408,376", 8))
-        leaf_r = union(leaf_r, stroke("M502,396 C540,396 578,370 592,318", 8))
+        leaf_l = union(leaf_l, stroke("M500,414 C462,420 424,394 406,346", 8))
+        leaf_r = union(leaf_r, stroke("M500,398 C540,398 580,368 594,316", 8))
     sprout = union(stem, leaf_l, leaf_r)
     base = rect(400, 624, 200, 20 if not heavy else 30, 10 if not heavy else 15)
     return [("primary", diff(outer, sprout)), ("accent", base)]

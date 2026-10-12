@@ -1,5 +1,7 @@
 # קריית חינוך דרור · משלחת לגרמניה 2026: logo concepts, round 1
 
+Brand guide: https://claude.ai/artifact/1fteou2y4ZPJA12cun1MaQ · Mockup board: https://claude.ai/artifact/1nXB2ToUP7QG5mFv7zPHLp (private until shared).
+
 Round 2 (concepts 1 and 2, refined, with T-shirt, badge and WhatsApp mockups): open `round2.html`.
 
 Open `preview.html` in a browser to see all four concepts side by side on light and dark backgrounds, and at 64px avatar size.
@@ -25,6 +27,7 @@ A Jerusalem stone gate and citadel on one side, the Reichstag's glass dome and B
 | `logo-color.svg` | Full lockup, blue and gold, for light backgrounds |
 | `logo-reverse.svg` | White and gold, for dark backgrounds |
 | `logo-black.svg` / `logo-white.svg` | One-color versions |
+| `logo-horizontal-*.svg` | Concepts 1 and 2 only: symbol on the right, text beside it, for banners and letterheads |
 | `mark-*.svg` | Symbol only, heavier, padded for round crops (avatars, badges) |
 | `png/*.png` | Every SVG above rendered at 1024px, transparent background |
 

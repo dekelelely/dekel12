@@ -1,7 +1,8 @@
 """Round 2 prototype: concepts 1 and 2, refined, with simple mockups."""
 from html import escape
 
-from build import CONCEPTS, BLUE, GOLD, GOLD_LT, INK, ROOT, shapes
+from build import (CONCEPTS, BLUE, GOLD, GOLD_LT, INK, NAME, ROOT, VARIANTS,
+                   layers_for, shapes, svg)
 from geo import P, to_d, union
 from textpath import line_path
 
@@ -55,6 +56,10 @@ def main():
     for i, c in enumerate(PICKS, 1):
         lockup, mark, (x, y, s) = shapes(c)
         hz, hview = horizontal(c)
+        for vname, colors in VARIANTS.items():
+            (ROOT / c["slug"] / f"logo-horizontal-{vname}.svg").write_text(
+                svg(hview, layers_for(hz, colors, vname in ("black", "white")),
+                    f"{NAME} · {c['title']}"), encoding="utf-8")
         lv, mv = "0 0 1000 1000", f"{x:.1f} {y:.1f} {s:.1f} {s:.1f}"
         n = c["slug"][0]
         syms += [symbol(f"l{n}", lv, lockup), symbol(f"m{n}", mv, mark),
