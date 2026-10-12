@@ -263,11 +263,11 @@ def swallow():
     tail = None
     # Streamers leave the body almost parallel and thin; the inner tail
     # feathers make a shallow fork between them.
-    for base, tip, w, spot in (((492, 390), (468, 506), 9, None),
-                               ((493, 393), (479, 450), 12, .74),
-                               ((495, 395), (484, 442), 12, .72),
-                               ((497, 396), (489, 435), 11, .7),
-                               ((499, 397), (494, 430), 10, .68)):
+    for base, tip, w, spot in (((492, 410), (468, 524), 9, None),
+                               ((493, 413), (480, 468), 12, .74),
+                               ((495, 415), (485, 461), 12, .72),
+                               ((497, 416), (490, 455), 11, .7),
+                               ((499, 417), (495, 450), 10, .68)):
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
@@ -292,12 +292,12 @@ def swallow():
     hood0 = poly(hood_pts)
     # The head is drawn at full size, then scaled down about the neck so
     # it sits in proportion on the swallow's body.
-    K = 0.6
+    K = 0.48    # head about three quarters of the chest's width
     DY = 12      # sit the head low, so the wings meet the neck
     T = lambda p: _as_path(p).transform(K, 0, 0, K, 500 - 500 * K, 300 - 300 * K + DY)
     hood = T(hood0)
-    torso = P("M521,288 C526,306 525,322 522,342 C519,362 512,380 506,398 L494,398 "
-              "C488,380 481,362 478,342 C475,322 474,306 479,288 Z")
+    torso = P("M519,288 C527,306 528,328 525,350 C522,374 514,398 506,420 L494,420 "
+              "C486,398 478,374 475,350 C472,328 473,306 481,288 Z")
     body = union(hood, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
     if MARKER:
@@ -383,14 +383,14 @@ def swallow():
                   for x_ in [rnd.uniform(468, 532) for _ in range(26)]])
     belly_lines = [stroke(to_d(body), 1.8)]          # one contour, head to tail
     flanks = diff(torso, diff(torso, stroke(to_d(torso), 26)))
-    for y in range(344, 398, 5):
+    for y in range(344, 418, 5):
         arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
         belly_lines.append(inter(arc, flanks))
     for j, y in enumerate(range(350, 372, 7)):        # chest feather tips
         for x in range(486 + (j % 2) * 4, 516, 8):
             belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
                                             0.6, cap="butt"), torso))
-    for y in range(384, 400, 5):                     # undertail coverts
+    for y in range(402, 420, 5):                     # undertail coverts
         belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
                                         cap="butt"), torso))
     bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
@@ -683,6 +683,8 @@ def emblem_small():
 def emblem():
     field = circle(C, C, FIELD)
     bird, throat, sil = swallow()
+    lift = lambda p: _as_path(p).transform(1, 0, 0, 1, 0, -16)
+    bird, throat, sil = lift(bird), lift(throat), lift(sil)
     deck, openings = bridge()
     fl = memorial_flame()
     bird_halo = dilate(sil, 9)
