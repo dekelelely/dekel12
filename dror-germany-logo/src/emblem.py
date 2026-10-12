@@ -185,12 +185,12 @@ def flight_feather(base, tip, w, spot=None):
     return diff(f, *cuts)
 
 
-# Left wing outline, seen from below: leading edge shoulder -> wrist -> tip,
-# then the trailing edge back to the body. Long, narrow, swept at the wrist.
-LEAD = [((478, 300), (442, 282), (406, 272), (372, 276)),
-        ((372, 276), (330, 282), (270, 308), (214, 350))]
-TRAIL = [((214, 350), (256, 347), (296, 354), (328, 366)),
-         ((328, 366), (372, 382), (432, 372), (482, 356))]
+# Left wing outline, seen from below, after a photograph of a barn swallow
+# with its wings fully spread: held out flat and broad, the tip just raised.
+LEAD = [((478, 298), (440, 286), (390, 280), (350, 280)),
+        ((350, 280), (318, 280), (290, 282), (270, 288))]
+TRAIL = [((270, 288), (276, 304), (292, 330), (318, 350)),
+         ((318, 350), (360, 376), (430, 384), (482, 370))]
 
 
 def along(segs, t):
@@ -204,42 +204,31 @@ def wing_outline():
     return poly(pts)
 
 
-WING_SCALE = 0.8    # wing length in proportion to the body, as on a barn swallow
-
-
-def _wing_scaled(p):
-    if p is None:
-        return None
-    k = WING_SCALE
-    return _as_path(p).transform(k, 0, 0, k, 480 - 480 * k, 302 - 302 * k)
-
-
 def left_wing():
     """Returns (dark parts, pale-lining lines, silhouette)."""
     outline = wing_outline()
     acc = None
-    # Nine primaries fanning from the hand to the pointed tip.
+    # Nine primaries fanning from the hand to the tip.
     for i in range(9):
         t = i / 8
-        base = (334 + 38 * t, 290 + 2 * t)
+        base = (360 + 36 * t, 288 + 10 * t)
         tip = along(TRAIL, 0.5 * t ** 0.9)
-        acc = lay(acc, flight_feather(base, tip, 14 + 6 * t), 1.4)
-    # Eight secondaries along the arm, tips on the trailing edge.
-    for i in range(8):
-        t = i / 7
-        base = (380 + 96 * t, 294 + 22 * t)
+        acc = lay(acc, flight_feather(base, tip, 14 + 5 * t), 1.4)
+    # Nine secondaries along the arm, tips on the trailing edge.
+    for i in range(9):
+        t = i / 8
+        base = (400 + 76 * t, 300 + 18 * t)
         tip = along(TRAIL, 0.53 + 0.45 * t)
-        acc = lay(acc, flight_feather(base, tip, 20), 1.4)
+        acc = lay(acc, flight_feather(base, tip, 19), 1.4)
     acc = inter(acc, dilate(outline, 1))
-    # The underwing lining: pale coverts between the leading edge and the
-    # flight feathers, drawn as outlines and small scallops only.
-    depth = lambda f: 2 + 32 * (1 - f) ** 0.7
+    # The underwing lining: pale coverts along the leading edge, drawn as
+    # outlines and small scallops only.
+    depth = lambda f: 2 + 30 * (1 - f) ** 0.7
     top = [along(LEAD, t / 30 * .86) for t in range(31)]
     bottom = [(x, y + depth(t / 30)) for t, (x, y) in zip(range(31), top)]
     lining = poly(top + list(reversed(bottom)))
     if SOLID:
-        return (_wing_scaled(union(acc, lining)), None,
-                _wing_scaled(union(outline, lining)))
+        return union(acc, lining), None, union(outline, lining)
     acc = diff(acc, dilate(lining, 1.6))
     lines = [stroke(to_d(lining), 1.5)]
     for row, frac in enumerate((.42, .78)):
@@ -250,157 +239,101 @@ def left_wing():
             lines.append(stroke(f"M{cx - r:.1f},{cy - 2:.1f} Q{cx:.1f},{cy + r:.1f} "
                                 f"{cx + r:.1f},{cy - 2:.1f}", 1.0, cap="butt"))
     lead_line = stroke("M" + " L".join(f"{x:.1f},{y:.1f}" for x, y in top), 2.6)
-    return (_wing_scaled(acc), _wing_scaled(union(*lines, lead_line)),
-            _wing_scaled(union(outline, lining)))
+    return acc, union(*lines, lead_line), union(outline, lining)
 
 
 def swallow():
-    """A barn swallow seen from below, engraved. Returns
+    """A barn swallow seen from below with its face turned to the viewer,
+    after a photograph: wings spread wide, blue crown, chestnut forehead and
+    throat, pale chest, cinnamon belly and long streamers. Returns
     (blue parts, gold parts, silhouette)."""
+    import random
+    rnd = random.Random(5)
     wing, wing_lines, wing_sil = left_wing()
-    # Tail: the long outer streamer and four inner feathers, each with the
-    # white spot of a barn swallow's tail.
+
+    # Tail: thin streamers, almost parallel, and a shallow inner fork whose
+    # feathers carry the white spots.
     tail = None
-    # Streamers leave the body almost parallel and thin; the inner tail
-    # feathers make a shallow fork between them.
-    for base, tip, w, spot in (((493, 396), (468, 524), 9, None),
-                               ((494, 399), (480, 468), 12, .74),
-                               ((496, 401), (485, 461), 12, .72),
-                               ((497, 402), (490, 455), 11, .7),
-                               ((499, 403), (495, 450), 10, .68)):
+    for base, tip, w, spot in (((493, 420), (465, 522), 8, None),
+                               ((494, 423), (482, 468), 11, .72),
+                               ((496, 425), (486, 462), 11, .7),
+                               ((497, 426), (490, 457), 10, .68),
+                               ((499, 427), (495, 452), 9, .66)):
         tail = lay(tail, flight_feather(base, tip, w, spot), 1.4)
     tail = union(tail, mirror(tail))
 
-    # An eagle's head on a swallow's body. The head and neck are white,
-    # engraved in fine feather strokes, and end in a ragged fringe over the
-    # dark breast band, as on a bald eagle; below that the body is the
-    # swallow's.
-    import random
-    rnd = random.Random(11)
-    # Ragged lower edge: feather tips of uneven length, notches between.
-    fringe, x = [], 538.0
-    while x > 462:
-        step = rnd.uniform(2.6, 4.2)
-        fringe.append((x - step * .5, 300 + rnd.uniform(5, 15)))      # tip
-        fringe.append((x - step, 298 + rnd.uniform(-2, 2.5)))           # notch
-        x -= step
-    R_ = lambda pts: [(1000 - px, py) for px, py in reversed(pts)]
-    right = ([bezier((500, 203), (521, 203), (533, 213), (535, 229), k / 10) for k in range(1, 11)]
-             + [bezier((535, 229), (538, 243), (541, 256), (538, 266), k / 8) for k in range(1, 9)]
-             + [bezier((538, 266), (535, 275), (533, 283), (538, 298), k / 8) for k in range(1, 9)])
-    hood_pts = [(500, 203)] + right + fringe + R_(right)[1:]
-    hood0 = poly(hood_pts)
-    # The head is drawn at full size, then scaled down about the neck so
-    # it sits in proportion on the swallow's body.
-    K = 0.48    # head about three quarters of the chest's width
-    DY = 12      # sit the head low, so the wings meet the neck
-    T = lambda p: _as_path(p).transform(K, 0, 0, K, 500 - 500 * K, 300 - 300 * K + DY)
-    hood = T(hood0)
-    # Streamlined: widest at the shoulders, tapering in one line to the
-    # undertail coverts, which come to a point over the base of the tail.
-    torso = P("M519,288 C527,297 529,312 527,328 C524,356 516,386 509,410 "
-              "Q503,428 500,436 Q497,428 491,410 C484,386 476,356 473,328 "
-              "C471,312 473,297 481,288 Z")
-    body = union(hood, torso)
+    head = P("M500,230 C519,230 531,243 531,261 C531,278 520,292 500,294 "
+             "C480,292 469,278 469,261 C469,243 481,230 500,230 Z")
+    torso = P("M522,286 C531,300 532,320 528,342 C524,370 514,400 507,428 "
+              "Q503,440 500,446 Q497,440 493,428 C486,400 476,370 472,342 "
+              "C468,320 469,300 478,286 Z")
+    body = union(head, torso)
     sil = union(union(wing_sil, mirror(wing_sil)), tail, body)
-    if MARKER:
-        # The ring markers echo the central bird as a pure swallow: swept
-        # wings, forked tail, a small round head and bill, no eagle face.
-        m = union(union(wing_sil, mirror(wing_sil)), tail, torso,
-                  circle(500, 279, 15), P("M494.5,268 L500,256 L505.5,268 Z"))
-        return m, m, m
 
-    # The hooked beak, seen head-on, with the cere at its base and the
-    # fleshy gape running back on each side; gold eyes under a heavy brow.
-    beak_g = P("M490.5,238.5 C490.5,232.5 509.5,232.5 509.5,238.5 "
-               "C510.5,249 506.5,260 500,271 C493.5,260 489.5,249 490.5,238.5 Z")
-    gapes = [P(f"M{500 + s_ * 9.6:.1f},246 Q{500 + s_ * 15:.1f},246.6 {500 + s_ * 19:.1f},250.2 "
-               f"Q{500 + s_ * 14.6:.1f},249.6 {500 + s_ * 9.2:.1f},250.4 Z") for s_ in (-1, 1)]
-    eyes = [(483.4, 236.4), (516.6, 236.4)]
-    R = 4.8
-    irises, brows, lids = [], [], []
-    for x, y in eyes:
-        side = -1 if x < 500 else 1
-        bx0, by0 = x + side * 8.5, y - 5.6
-        bx1, by1 = x - side * 7.5, y - 1.0
-        lid = poly([(bx0, by0), (bx1, by1), (bx1, y - 14), (bx0, y - 14)])
-        lids.append(lid)
-        irises.append(diff(circle(x, y, R), lid, circle(x, y + 0.4, 2.8)))
-        brows.append(diff(poly([(bx0 + side * 1.5, by0 + 0.4), (bx1 - side * 0.5, by1 + 0.3),
-                                (bx1 - side * 1.5, by1 - 4.2), (bx0 + side * 2, by0 - 3.6)]),
-                          *[stroke(f"M{bx0 + side * k:.1f},{by0 - 3:.1f} L{bx0 + side * (k - 3):.1f},"
-                                   f"{by0 + 0.2:.1f}", 0.45, cap="butt")
-                            for k in range(-2, 16, 3)]))
-    face_gold = union(beak_g, *gapes, *irises)
-    if SOLID:
-        return diff(sil, dilate(T(face_gold), 2)), T(face_gold), sil
-
-    def outline(shape, w0=0.7, w1=1.9):
-        return diff(dilate(shape, w1), dilate(shape, w0))
-
-    ink = [outline(beak_g)]
-    ink += [outline(g, 0.6, 1.5) for g in gapes]
-    for (x, y), iris in zip(eyes, irises):
-        ink.append(outline(diff(circle(x, y, R), lids[eyes.index((x, y))]), 0.5, 1.4))
-        ink.append(diff(circle(x, y + 0.4, 2.2), circle(x - 1.1, y - 0.6, 0.85)))
-    ink += brows
-    # Cere line, nostrils and the ridge of the bill, cut into the gold.
-    face_gold = diff(face_gold,
-                     inter(stroke("M490.6,242.5 Q500,239.5 509.4,242.5", 0.9, cap="butt"),
-                           beak_g),
-                     *[P(f"M{x - 1.5},244.6 Q{x},242.8 {x + 1.5},244.6 Q{x},246.2 {x - 1.5},244.6 Z")
-                       for x in (495.4, 504.6)],
-                     taper((500, 246), (500, 266), 1.0, 0.2))
-    # Feathers: fine strokes falling from the crown and down the neck, set
-    # closer toward the sides, where the head turns away.
-    keep_out = union(dilate(beak_g, 3), *[dilate(g, 2.5) for g in gapes],
-                     *[circle(x, y, R + 3.2) for x, y in eyes], *[dilate(b_, 1) for b_ in brows])
-    strokes_ = []
-    for _ in range(520):
-        x, y = rnd.uniform(462, 538), rnd.uniform(203, 306)
-        edge = abs(x - 500) / 38
-        if rnd.random() > 0.18 + 0.82 * edge ** 1.4:
-            continue
-        ang = math.pi / 2 + (x - 500) * 0.022 + rnd.uniform(-0.18, 0.18)
-        if y < 232:
-            ang = math.atan2(y - 236, x - 500) * 0.35 + math.pi / 2 * 0.65
-        L = rnd.uniform(2.4, 5.2)
-        strokes_.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
-                              rnd.uniform(0.35, 0.6), 0.08))
-    hood_in = diff(hood0, stroke(to_d(hood0), 3))
-    crown = T(union(*ink, diff(inter(union(*strokes_), hood_in), keep_out)))
-    face_gold = T(face_gold)
-
-    # The breast band under the fringe, and the pale belly below it.
-    # The dark breast feathers end in their own ragged edge, so the white
-    # hood, the dark band and the pale belly read as one plumage.
-    low, x = [], 536.0
-    while x > 464:
-        step = rnd.uniform(2.8, 4.4)
-        low.append((x - step * .5, 338 + rnd.uniform(3, 10)))
-        low.append((x - step, 336 + rnd.uniform(-2, 2)))
+    forehead = P("M489,251 Q500,241 511,251 Q500,247.5 489,251 Z")
+    beak = P("M494.5,252 Q500,250.4 505.5,252 L500,259.5 Z")
+    throat = inter(body, P("M484,258 L494.5,254 L500,262 L505.5,254 L516,258 "
+                           "C525,268 521,287 500,293 C479,287 475,268 484,258 Z"))
+    # The cinnamon lower belly begins in a ragged line of feather tips.
+    edge, x = [], 550.0
+    while x > 450:
+        step = rnd.uniform(3.2, 4.8)
+        arc = 6 * (1 - ((x - 500) / 30) ** 2) if abs(x - 500) < 30 else 0
+        edge.append((x - step * .5, 382 + rnd.uniform(4, 9) - arc))
+        edge.append((x - step, 380 + rnd.uniform(-1.5, 1.5) - arc))
         x -= step
-    band_shape = poly([(464, 286), (536, 286), (538, 336)] + low + [(462, 336)])
-    band = diff(inter(torso, band_shape), dilate(hood, 1.0),
-                *[taper((x_, 318 + rnd.uniform(-3, 3)), (x_ + (x_ - 500) * .04, 344), 0.7, 0.15)
-                  for x_ in [rnd.uniform(468, 532) for _ in range(26)]])
-    belly_lines = [stroke(to_d(body), 1.8)]          # one contour, head to tail
+    belly_gold = inter(torso, poly([(550, 470), (550, 380)] + edge + [(450, 380), (450, 470)]))
+    if SOLID:
+        face = union(throat, forehead)
+        return diff(sil, dilate(face, 2)), face, sil
+
+    # The face: dark eyes in the blue mask with a hairline ring and the
+    # catchlight in the same place in both, gloss on the crown, and the
+    # gape running back from the corners of the bill.
+    eyes = [(486.5, 252.5), (513.5, 252.5)]
+    crown = diff(head, dilate(throat, 1.1), dilate(forehead, 0.9), dilate(beak, 0.9),
+                 *[diff(circle(x, y, 4.1), circle(x, y, 3.4)) for x, y in eyes],
+                 *[circle(x - 1.0, y - 1.2, 1.0) for x, y in eyes],
+                 stroke("M482,240 Q500,232 518,240", 0.6, cap="butt"),
+                 stroke("M486,244 Q500,238 514,244", 0.5, cap="butt"),
+                 stroke("M494.5,252.4 Q491.5,254 489.6,256.4", 0.6, cap="butt"),
+                 stroke("M505.5,252.4 Q508.5,254 510.4,256.4", 0.6, cap="butt"))
+    beak = diff(beak, circle(498, 253.4, 0.45), circle(502, 253.4, 0.45))
+    head_ink = union(crown, beak)
+
+    # A thin dark breast band under the throat, then the pale chest.
+    band = diff(inter(torso, P("M462,284 C478,298 490,301 500,301 C510,301 522,298 538,284 "
+                               "V290 C522,305 510,309 500,309 C490,309 478,305 462,290 Z")),
+                dilate(throat, 1.2))
+    belly_lines = [stroke(to_d(body), 1.8)]
     flanks = diff(torso, diff(torso, stroke(to_d(torso), 13)))
-    for y in range(342, 420, 6):
+    for y in range(318, 380, 6):
         arc = stroke(f"M466,{y} Q500,{y + 9} 534,{y}", 0.85, cap="butt")
         belly_lines.append(inter(arc, flanks))
-    for j, y in enumerate(range(350, 372, 7)):        # chest feather tips
-        for x in range(486 + (j % 2) * 4, 516, 8):
+    for j, y in enumerate(range(322, 360, 7)):         # chest feather tips
+        for x in range(484 + (j % 2) * 4, 518, 8):
             belly_lines.append(inter(stroke(f"M{x - 3},{y} Q{x},{y + 3.2} {x + 3},{y}",
                                             0.6, cap="butt"), torso))
-    for y in range(406, 432, 5):                     # undertail coverts
-        belly_lines.append(inter(stroke(f"M488,{y} Q500,{y + 6} 512,{y}", 0.9,
-                                        cap="butt"), torso))
+
+    # Chestnut and cinnamon, engraved: fine strokes falling through the gold.
+    def feathered(region, n, y0, y1):
+        strokes_ = []
+        for _ in range(n):
+            x, y = rnd.uniform(468, 532), rnd.uniform(y0, y1)
+            L = rnd.uniform(2.5, 5)
+            ang = math.pi / 2 + (x - 500) * 0.02
+            strokes_.append(taper((x, y), (x + math.cos(ang) * L, y + math.sin(ang) * L),
+                                  rnd.uniform(0.35, 0.55), 0.1))
+        return diff(region, *strokes_)
+    throat = feathered(throat, 70, 258, 292)
+    belly_gold = feathered(belly_gold, 110, 366, 446)
+    face_gold = union(throat, forehead, belly_gold)
+
     bird = union(wing, mirror(wing), wing_lines, mirror(wing_lines))
     bird = lay(bird, tail, 1.6)
     bird = diff(bird, dilate(body, 1.2))
-    bird = union(bird, crown, band, *belly_lines)
-    bird = diff(bird, dilate(face_gold, 0.4))
+    bird = union(bird, head_ink, band, *belly_lines)
+    bird = diff(bird, dilate(face_gold, 0.9))
     return bird, face_gold, sil
 
 
