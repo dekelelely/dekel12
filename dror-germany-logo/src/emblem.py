@@ -439,43 +439,36 @@ def soffits(arches):
 
 
 def skylines():
-    """Left bank: the Old City wall with the Dome of the Rock behind it.
+    """Left bank: the Knesset with the Knesset Menorah before it.
     Right bank: the Witten synagogue (1885, destroyed 1938): a two-colour
     brick hall in round-arch style with a central dome on a drum.
-    Returns (blue silhouettes, gold dome)."""
+    Returns (blue silhouettes, gold menorah)."""
     b = DECK
-    # Jerusalem ----------------------------------------------------------
-    wall = union(rect(170, b - 16, 148, 16),
-                 *[rect(x, b - 23, 7, 8) for x in range(172, 314, 12)])
-    wall = diff(wall, *[rect(x, b - 11, 3, 6, 1.5) for x in range(180, 314, 12)])
-    cx = 236
-    octa = poly([(cx - 46, b - 16), (cx - 46, b - 44), (cx - 30, b - 50),
-                 (cx + 30, b - 50), (cx + 46, b - 44), (cx + 46, b - 16)])
-    octa_cuts = [rect(cx - 47, b - 47, 94, 1.2)]            # parapet line
-    for x in range(cx - 26, cx + 27, 9):                     # arched windows
-        octa_cuts.append(P(f"M{x - 2.4},{b - 22} V{b - 32} A2.4,2.4 0 0 1 {x + 2.4},{b - 32} "
-                           f"V{b - 22} Z"))
-    for x in (cx - 39, cx + 39):                             # side faces
-        octa_cuts.append(P(f"M{x - 1.8},{b - 22} V{b - 30} A1.8,1.8 0 0 1 {x + 1.8},{b - 30} "
-                           f"V{b - 22} Z"))
-    for x in (cx - 30, cx + 30):                             # corner edges
-        octa_cuts.append(rect(x - 0.5, b - 46, 1, 30))
-    octa_cuts += [rect(cx - 46, y, 92, 0.8) for y in (b - 38, b - 36)]  # tile band
-    octa = diff(octa, *octa_cuts)
-    drum = diff(rect(cx - 22, b - 64, 44, 14),
-                *[rect(x, b - 61, 2.4, 7, 1.2) for x in range(cx - 18, cx + 18, 6)])
-    gold = P(f"M{cx - 25},{b - 64} C{cx - 27},{b - 84} {cx - 14},{b - 100} {cx},{b - 104} "
-             f"C{cx + 14},{b - 100} {cx + 27},{b - 84} {cx + 25},{b - 64} Z")
-    # Engraved light on the gold: meridians that wrap the curve of the dome.
-    gold = diff(gold, *[stroke(f"M{cx + o},{b - 64} Q{cx + o * .8},{b - 92} {cx},{b - 103}",
-                               0.8, cap="butt") for o in (-16, -8, 8, 16)],
-                stroke(f"M{cx - 25},{b - 70} Q{cx},{b - 66} {cx + 25},{b - 70}", 0.8,
-                       cap="butt"))
-    spire = union(rect(cx - 0.9, b - 118, 1.8, 15), circle(cx, b - 108, 2.2))
-    trees = [P(f"M{x - 4},{b - 16} C{x - 9},{b - 34} {x - 5},{b - 58} {x},{b - 66} "
-               f"C{x + 5},{b - 58} {x + 9},{b - 34} {x + 4},{b - 16} Z")
-             for x in (182, 296)]
-    jer = union(wall, octa, drum, spire, *trees)
+    # Jerusalem: the Knesset (1966), a long flat-roofed block behind a row
+    # of tall square pillars, on a stepped stone terrace, with the Knesset
+    # Menorah in gold before it.
+    terrace = diff(rect(166, b - 9, 154, 9), rect(166, b - 6, 154, 0.8),
+                   rect(166, b - 3, 154, 0.8))
+    x0, x1 = 202, 313
+    slab = rect(x0 - 4, b - 57, x1 - x0 + 8, 5)
+    facade = rect(x0, b - 51, x1 - x0, 42)
+    # Light stone pillars running the full height in front of dark glass,
+    # with the edge of the floor slab showing between them.
+    n = 14
+    pitch = (x1 - x0 - 6) / (n - 1)
+    pillars = [rect(x0 + 3 + k * pitch - 1.2, b - 50, 2.4, 38) for k in range(n)]
+    knesset = diff(union(slab, facade), rect(x0 - 4, b - 51.8, x1 - x0 + 8, 0.8),
+                   rect(x0 + 2, b - 31, x1 - x0 - 4, 0.7), rect(x0 + 2, b - 12, x1 - x0 - 4, 0.8),
+                   *pillars)
+    m, top = 181, b - 54
+    menorah = [stroke(f"M{m - r},{top} A{r},{r} 0 0 0 {m + r},{top}", 1.9, cap="butt")
+               for r in (3.9, 7.6, 11.3)]
+    menorah += [rect(m - 0.95, top - 1, 1.9, b - 16 - top + 1),
+                poly([(m - 7.5, b - 9.6), (m - 4, b - 18), (m + 4, b - 18), (m + 7.5, b - 9.6)])]
+    menorah += [rect(x - 1.6, top - 2.8, 3.2, 2.8) for x in
+                (m - 11.3, m - 7.6, m - 3.9, m, m + 3.9, m + 7.6, m + 11.3)]
+    gold = union(*menorah)
+    jer = diff(union(terrace, knesset), dilate(gold, 1.2))
 
     # Witten, after the photograph of the 1885 synagogue: a front block
     # framed by one great round arch with a rose window over the door,
