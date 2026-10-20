@@ -4,39 +4,36 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Martian+Mono:wght@400;600&display=swap">
 <style>
-  /* Layout: one wide stage for the scene; under it, the animation controls beside a cell-by-cell drawing of the sprite the model is built from */
+  /* Layout: one wide stage for the scene; under it, the move list beside a live readout of the current frame */
   :root {
     --bg: #e8eaed;
     --surface: #f5f6f7;
     --ink: #16181b;
     --muted: #555b64;
     --line: #cdd2d8;
-    --grid: #dfe2e6;
-    --clay: #ea7850;
+    --clay: #d77757;
     --clay-ink: #9a4526;
     --on-clay: #1a0f0a;
-    --arm: #eba084;
-    --leg: #b45c3d;
-    --eye: #1d1b1a;
     --stage-hi: #f8f9fa;
     --stage-lo: #dbdfe4;
-    --platform: #b8bec6;
-    --dust: #bfc5cd;
+    --floor: #b8bec6;
+    --floor-dots: #8d949e;
+    --dust: #a9b0ba;
     --f-display: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
     --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36; --grid: #1f2328;
-      --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a; --arm: #f0a98e; --leg: #b9603f; --eye: #0d0d0d;
-      --stage-hi: #1e2227; --stage-lo: #101215; --platform: #2b3138; --dust: #3c434c;
+      --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
+      --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
+      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36; --grid: #1f2328;
-    --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a; --arm: #f0a98e; --leg: #b9603f; --eye: #0d0d0d;
-    --stage-hi: #1e2227; --stage-lo: #101215; --platform: #2b3138; --dust: #3c434c;
+    --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
+    --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
+    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c;
     color-scheme: dark;
   }
 
@@ -81,11 +78,11 @@
 
   .stage {
     position: relative;
-    height: clamp(340px, 56vw, 620px);
+    height: clamp(340px, 52vw, 580px);
     border: 1px solid var(--line);
     border-radius: 14px;
     overflow: hidden;
-    background: radial-gradient(120% 90% at 50% 32%, var(--stage-hi), var(--stage-lo));
+    background: radial-gradient(120% 90% at 50% 30%, var(--stage-hi), var(--stage-lo));
   }
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
   .stage canvas.over { cursor: pointer; }
@@ -135,7 +132,7 @@
 
   .lower {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
     gap: 20px;
     align-items: start;
   }
@@ -158,12 +155,12 @@
     text-transform: uppercase;
     color: var(--muted);
   }
-  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  .moves { display: flex; flex-wrap: wrap; gap: 8px; }
   button {
     font-family: var(--f-display);
     font-size: 14px;
     line-height: 1.2;
-    padding: 9px 14px;
+    padding: 9px 13px;
     border: 1px solid var(--line);
     border-radius: 8px;
     background: var(--bg);
@@ -175,7 +172,6 @@
   button:focus-visible { outline: 2px solid var(--clay-ink); outline-offset: 2px; }
   button[aria-pressed="true"] { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
   button:disabled { opacity: 0.5; cursor: not-allowed; }
-  button kbd { font-family: inherit; font-size: 11px; opacity: 0.6; margin-left: 6px; }
   .auto-row {
     display: flex;
     flex-wrap: wrap;
@@ -186,23 +182,18 @@
   }
   .auto-row p { margin: 0; font-size: 14px; color: var(--muted); }
 
-  .sprite-wrap { display: flex; flex-wrap: wrap; gap: 18px 24px; align-items: flex-start; }
-  .sprite {
-    flex: 0 1 288px;
-    min-width: 0;
+  .readout {
+    margin: 0;
     display: grid;
-    grid-template-columns: repeat(18, minmax(0, 1fr));
-    gap: 2px;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 16px;
+    font-family: var(--f-display);
+    font-size: 14px;
   }
-  .cell { aspect-ratio: 1 / 2; border-radius: 1px; background: var(--grid); }
-  .cell[data-k="body"] { background: var(--clay); }
-  .cell[data-k="eye"] { background: var(--eye); }
-  .cell[data-k="arm"] { background: var(--arm); }
-  .cell[data-k="leg"] { background: var(--leg); }
-  .legend { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; font-size: 14px; }
-  .legend li { display: flex; align-items: center; gap: 10px; }
-  .legend i { width: 10px; height: 20px; border-radius: 1px; flex: none; }
-  .legend b { font-family: var(--f-display); font-weight: 400; font-variant-numeric: tabular-nums; min-width: 2ch; text-align: right; }
+  .readout dt { color: var(--muted); }
+  .readout dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .meter { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--clay); }
   .note { margin: 0; max-width: 62ch; font-size: 15px; color: var(--muted); }
 
   @media (prefers-reduced-motion: reduce) {
@@ -214,45 +205,38 @@
 <main class="wrap">
   <header class="top">
     <h1>Clawd <span>3D</span></h1>
-    <p class="lede">Claude Code's terminal mascot, rebuilt in three dimensions from its own sprite. Drag to turn the stage. Click Clawd to make it jump.</p>
+    <p class="lede">The moves Clawd makes on Claude Code's welcome screen, played in three dimensions with the same frames and timing. Drag to turn the stage. Click Clawd for a random move.</p>
   </header>
 
   <section class="stage" id="stage" aria-label="3D scene">
-    <canvas id="scene" role="img" aria-label="An animated 3D Clawd, an orange blocky creature with two dark eyes, short arms and four legs, standing on a round platform"></canvas>
-    <p class="prompt" aria-live="polite">&gt; clawd <b id="action-name">idle</b><span class="caret" aria-hidden="true"></span></p>
-    <p class="hint">Drag to orbit · keys 1–5 switch animations</p>
-    <p class="fallback" id="fallback" hidden>This browser couldn't start WebGL, so the 3D scene can't run here. The sprite it's built from is below.</p>
+    <canvas id="scene" role="img" aria-label="An animated 3D Clawd, an orange blocky creature with two square eyes, short arms and four legs"></canvas>
+    <p class="prompt" aria-live="polite">&gt; clawd <b id="move-name">idle</b><span class="caret" aria-hidden="true"></span></p>
+    <p class="hint">Drag to orbit · click Clawd for a random move</p>
+    <p class="fallback" id="fallback" hidden>This browser couldn't start WebGL, so the 3D scene can't run here.</p>
     <noscript><p class="fallback">The 3D scene needs JavaScript.</p></noscript>
   </section>
 
   <div class="lower">
-    <section class="panel" aria-labelledby="anim-label">
-      <p class="label" id="anim-label">Animation</p>
-      <div class="actions" role="group" aria-labelledby="anim-label">
-        <button type="button" id="act-idle" data-action="idle" aria-pressed="true">Idle<kbd>1</kbd></button>
-        <button type="button" id="act-scuttle" data-action="scuttle" aria-pressed="false">Scuttle<kbd>2</kbd></button>
-        <button type="button" id="act-wave" data-action="wave" aria-pressed="false">Wave<kbd>3</kbd></button>
-        <button type="button" id="act-jump" data-action="jump" aria-pressed="false">Jump<kbd>4</kbd></button>
-        <button type="button" id="act-dance" data-action="dance" aria-pressed="false">Dance<kbd>5</kbd></button>
-      </div>
+    <section class="panel" aria-labelledby="moves-label">
+      <p class="label" id="moves-label">Moves</p>
+      <div class="moves" id="moves" role="group" aria-labelledby="moves-label"></div>
       <div class="auto-row">
         <button type="button" id="auto" aria-pressed="true">Auto-play</button>
-        <p>Runs through all five in turn. Picking one stops it.</p>
+        <p>Plays every move in turn, looking around in between. Picking a move stops it.</p>
       </div>
     </section>
 
-    <section class="panel" aria-labelledby="sprite-label">
-      <p class="label" id="sprite-label">Built from the sprite</p>
-      <div class="sprite-wrap">
-        <div class="sprite" id="sprite" role="img" aria-label="Clawd's terminal sprite as an 18 by 6 grid of cells"></div>
-        <ul class="legend">
-          <li><i style="background: var(--clay)"></i><b data-count="body">0</b> body</li>
-          <li><i style="background: var(--eye)"></i><b data-count="eye">0</b> eyes</li>
-          <li><i style="background: var(--arm)"></i><b data-count="arm">0</b> arms</li>
-          <li><i style="background: var(--leg)"></i><b data-count="leg">0</b> legs</li>
-        </ul>
-      </div>
-      <p class="note">In the terminal, Clawd is three lines of block characters. Each character splits into four quadrants, so the drawing is an 18 × 6 grid of cells about twice as tall as they are wide. The model places its eyes, arms and four legs on the same columns, and takes its depth and proportions from the 3D-printed figure: a body about 4:3, square eyes raised off the face, arms at mid-height.</p>
+    <section class="panel" aria-labelledby="frame-label">
+      <p class="label" id="frame-label">Current frame</p>
+      <dl class="readout">
+        <dt>move</dt><dd id="rd-move">idle</dd>
+        <dt>frame</dt><dd id="rd-frame">1 / 22</dd>
+        <dt>pose</dt><dd id="rd-pose">default</dd>
+        <dt>offset</dt><dd id="rd-offset">0</dd>
+        <dt>x</dt><dd id="rd-x">0</dd>
+      </dl>
+      <div class="meter" aria-hidden="true"><i id="rd-meter"></i></div>
+      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. The 3D version eases between frames. Unofficial fan recreation.</p>
     </section>
   </div>
 </main>
@@ -260,39 +244,145 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (() => {
-  // The sprite as quadrant cells: # body, e eye (a gap in the body), a arm, l leg.
-  const SPRITE = [
-    "...############...",
-    "...##e######e##...",
-    ".aa############aa.",
-    "...############...",
-    "....l.l....l.l....",
-    ".................."
-  ];
-  const KIND = { "#": "body", e: "eye", a: "arm", l: "leg" };
+  // ---- Frame data, as Claude Code defines it ----
+  const FRAME_MS = 60;
+  const POSES = {
+    default: { eyes: "open", arms: "down", feet: "both" },
+    "arms-up": { eyes: "open", arms: "up", feet: "both" },
+    "look-left": { eyes: "left", arms: "down", feet: "both" },
+    "look-right": { eyes: "right", arms: "down", feet: "both" }
+  };
+  const REST = { pose: "default", offset: 0, x: 0 };
+  const run = (pose, n, { offset = 0, x = 0, poof, shadow } = {}) =>
+    Array.from({ length: n }, () => ({ pose, offset, x, poof, shadow }));
+  const turn = (names, shadow) => names.map((facing) => ({ pose: { facing }, offset: 0, x: 0, shadow }));
+  const mood = (eyes, arms = "down", feet = "both") => ({ eyes, arms, feet });
+  const crouch = () => [{ pose: "default", offset: 1, x: 0, poof: "dot" }, { pose: "default", offset: 1, x: 0, poof: "wave" }];
+  const BLINK = [...run(mood("closed"), 1), REST];
+  const JUMP = [...crouch(), ...run("arms-up", 3), ...run("default", 1), ...crouch(), ...run("arms-up", 3), ...run("default", 1)];
 
-  const spriteEl = document.getElementById("sprite");
-  const counts = { body: 0, eye: 0, arm: 0, leg: 0 };
-  for (const row of SPRITE) {
-    for (const ch of row) {
-      const cell = document.createElement("span");
-      cell.className = "cell";
-      const k = KIND[ch];
-      if (k) { cell.dataset.k = k; counts[k]++; }
-      spriteEl.appendChild(cell);
-    }
+  const MOVES = {
+    jump: JUMP,
+    look: [...run("look-right", 5), ...run("look-left", 5), ...run("default", 1)],
+    celebrate: [...JUMP, ...run("default", 3, { offset: 1 })],
+    skip: [
+      ...run("default", 1, { offset: 1, x: -9 }), ...run("arms-up", 2, { x: -6 }), ...run("default", 1, { x: -6 }),
+      ...run("default", 1, { offset: 1, x: -6 }), ...run("arms-up", 2, { x: -3 }), ...run("default", 1, { x: -3 }),
+      ...run("default", 1, { offset: 1, x: -3 }), ...run("arms-up", 2), ...crouch(), ...run("default", 1)
+    ],
+    spin: [...run("look-left", 2), ...run("look-right", 2), ...run("look-left", 2), ...run("arms-up", 3), ...run("default", 1)],
+    peekaboo: [
+      ...run("default", 1, { offset: 3 }), ...run("default", 3, { offset: 2 }), ...run("look-right", 3, { offset: 2 }),
+      ...run("look-left", 3, { offset: 2 }), ...run("default", 2, { offset: 2 }), ...run("default", 1, { offset: 1 }),
+      ...run("arms-up", 4), ...run("default", 2), ...BLINK
+    ],
+    drop: [
+      ...run("arms-up", 1, { offset: -3 }), ...run("arms-up", 2, { offset: -2 }), ...run("arms-up", 2, { offset: -1 }),
+      ...run("arms-up", 1), ...crouch(), ...run("default", 3), ...BLINK
+    ],
+    waddle: [
+      ...run("look-right", 1, { x: -9 }),
+      ...[-6, -5, -4, -3, -2, -1].flatMap((x) => run(mood("right", "down", x % 2 === 0 ? "left" : "right"), 2, { x })),
+      ...run("look-right", 2), ...run("default", 2), ...BLINK
+    ],
+    peek: [
+      ...run("look-right", 1, { x: -9 }), ...run("look-right", 5, { x: -6 }), ...run("look-right", 3, { x: -9 }),
+      ...run("look-right", 4, { x: -5 }), ...run("arms-up", 2, { x: -3 }), ...run("arms-up", 2), ...crouch(), REST
+    ],
+    wink: [...run(mood("wink"), 5), REST],
+    boop: [
+      ...run(mood("closed"), 1, { offset: 1, poof: "dot" }), ...run(mood("closed"), 2, { offset: 1, poof: "wave" }),
+      ...run("look-left", 4), ...run("default", 2), ...BLINK
+    ],
+    tap: [
+      ...run(mood("open", "down", "left"), 2), ...run(mood("open", "down", "right"), 2),
+      ...run(mood("open", "down", "left"), 2), ...run(mood("open", "down", "right"), 2),
+      ...run(mood("open", "down", "left"), 1), ...run(mood("open", "down", "right"), 1),
+      ...run("arms-up", 3), REST
+    ],
+    sneeze: [
+      ...run(mood("closed", "up"), 4), ...run(mood("closed"), 2, { offset: 1, poof: "wave" }),
+      ...run(mood("closed"), 2), ...run("default", 2), ...BLINK
+    ],
+    turn: [
+      ...turn(["right-12", "right-30", "right-55", "right-75", "edge"]),
+      ...turn(["back-105", "back-125", "back-150", "back", "back"]),
+      ...turn(["back-150", "back-125", "back-105", "edge"]),
+      ...turn(["left-75", "left-55", "left-30", "left-12"]), REST
+    ],
+    "coin-hop": [
+      ...run("default", 2, { offset: 1 }), ...run("arms-up", 1, { shadow: "wide" }),
+      ...turn(["right-55", "edge", "back-125", "back"], "narrow"),
+      ...turn(["back-125", "edge", "left-55"], "narrow"),
+      ...run("arms-up", 1, { shadow: "wide" }), ...crouch(), REST
+    ]
+  };
+  const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
+  const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
+  const ON_CLICK = ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0);
+  const ALL = Object.keys(MOVES);
+
+  // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
+  function angleChoices(name) {
+    const [side, deg] = name.split("-");
+    const n = Number(deg);
+    if (name === "edge") return [90, 270];
+    if (name === "back") return [180];
+    if (side === "right") return [n];
+    if (side === "left") return [360 - n];
+    return [n, 360 - n];
   }
-  for (const k in counts) {
-    const el = document.querySelector(`[data-count="${k}"]`);
-    if (el) el.textContent = counts[k];
+  for (const frames of [...Object.values(MOVES), IDLE]) {
+    let prev = 0;
+    let hopRun = 0;
+    frames.forEach((f, i) => {
+      if (typeof f.pose === "object" && f.pose.facing) {
+        const options = angleChoices(f.pose.facing);
+        prev = options.find((a) => a >= prev) ?? options[options.length - 1];
+        f.angle = prev;
+      } else {
+        prev = 0;
+        f.angle = 0;
+      }
+      // Arms-up right after a crouch reads as a hop; mark the run so the 3D version can leave the ground.
+      const before = frames[i - 1];
+      if (f.pose === "arms-up" && f.offset === 0 && !f.shadow && before && (before.offset === 1 || hopRun)) hopRun++;
+      else hopRun = 0;
+      f.hop = hopRun;
+    });
+    frames.forEach((f, i) => {
+      if (!f.hop) return;
+      let end = i;
+      while (frames[end + 1] && frames[end + 1].hop) end++;
+      f.lift = Math.sin(Math.PI * (f.hop - 0.5) / (end - i + f.hop));
+    });
   }
 
+  // ---- Page ----
   const canvas = document.getElementById("scene");
   const stage = document.getElementById("stage");
-  const nameEl = document.getElementById("action-name");
-  const buttons = [...document.querySelectorAll("[data-action]")];
+  const nameEl = document.getElementById("move-name");
+  const movesEl = document.getElementById("moves");
   const autoBtn = document.getElementById("auto");
+  const rd = {
+    move: document.getElementById("rd-move"),
+    frame: document.getElementById("rd-frame"),
+    pose: document.getElementById("rd-pose"),
+    offset: document.getElementById("rd-offset"),
+    x: document.getElementById("rd-x"),
+    meter: document.getElementById("rd-meter")
+  };
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const buttons = ALL.map((name) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = `move-${name}`;
+    b.textContent = name;
+    b.dataset.move = name;
+    b.setAttribute("aria-pressed", "false");
+    movesEl.appendChild(b);
+    return b;
+  });
 
   function fail() {
     document.getElementById("fallback").hidden = false;
@@ -309,25 +399,20 @@
   renderer.outputEncoding = THREE.sRGBEncoding;
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.localClippingEnabled = true;
 
   const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
   const scene = new THREE.Scene();
-  const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 300);
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.5, 400);
 
-  // ---- Model: columns from the sprite grid, proportions from the printed figure ----
-  const cols = SPRITE[0].length;
-  const cells = [];
-  SPRITE.forEach((row, r) => [...row].forEach((ch, c) => { if (KIND[ch]) cells.push({ r, c, k: KIND[ch] }); }));
-  const colX = (c) => c + 0.5 - cols / 2;
-  const ofKind = (k) => cells.filter((x) => x.k === k);
-  const BODY_H = 9;                      // the body is about 4:3, wider than tall
-  const LEG_H = 2.8;
-  const DEPTH = 5.5;
-  const EYE = 1.4;                       // square eyes, raised off the face
+  // ---- Model: the sprite's columns, the printed figure's proportions ----
+  const COL = 2;                         // one terminal column is two sprite quadrants wide
+  const BODY_W = 12, BODY_H = 9, LEG_H = 2.8, DEPTH = 5.5, EYE = 1.4, ARM_LEN = 2.7;
+  const floorClip = [new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)];   // the floor line hides whatever sinks below it
 
-  const clayMat = new THREE.MeshStandardMaterial({ color: lin("#ec7a50"), roughness: 0.62 });
-  const legMat = new THREE.MeshStandardMaterial({ color: lin("#dc6e46"), roughness: 0.7 });
-  const eyeMat = new THREE.MeshStandardMaterial({ color: lin("#1c1a19"), roughness: 0.4 });
+  const clayMat = new THREE.MeshStandardMaterial({ color: lin("#d77757"), roughness: 0.62, clippingPlanes: floorClip });
+  const legMat = new THREE.MeshStandardMaterial({ color: lin("#c86a4b"), roughness: 0.7, clippingPlanes: floorClip });
+  const eyeMat = new THREE.MeshStandardMaterial({ color: lin("#1c1a19"), roughness: 0.4, clippingPlanes: floorClip });
   const pickable = [];
   function box(w, h, d, mat) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
@@ -337,68 +422,71 @@
     return m;
   }
 
-  const root = new THREE.Group();        // position and turn on the floor
-  const body = new THREE.Group();        // squash and stretch about the feet
-  root.add(body);
+  const root = new THREE.Group();        // place on the floor and turn
+  const body = new THREE.Group();        // everything above the legs, lowered when crouching
   scene.add(root);
+  root.add(body);
+  body.position.y = LEG_H;
 
-  const torsoCells = ofKind("body");
-  const c0 = Math.min(...torsoCells.map((x) => x.c)), c1 = Math.max(...torsoCells.map((x) => x.c));
-  const torso = box(c1 - c0 + 1, BODY_H, DEPTH, clayMat);
-  torso.position.set((colX(c0) + colX(c1)) / 2, LEG_H + BODY_H / 2, 0);
+  const torso = box(BODY_W, BODY_H, DEPTH, clayMat);
+  torso.position.y = BODY_H / 2;
   body.add(torso);
 
-  const eyes = ofKind("eye").map(({ c }) => {
+  const eyes = [-3.5, 3.5].map((x) => {
     const pivot = new THREE.Group();
-    pivot.position.set(colX(c), LEG_H + BODY_H * 0.74, DEPTH / 2 + 0.25);
+    pivot.position.set(x, BODY_H * 0.74, DEPTH / 2 + 0.25);
     pivot.add(box(EYE, EYE, 0.6, eyeMat));
     pivot.userData.home = pivot.position.clone();
     body.add(pivot);
     return pivot;
   });
 
-  const arms = {};
-  for (const side of [-1, 1]) {
-    const len = ofKind("arm").filter((x) => Math.sign(colX(x.c)) === side).length * 1.35;
+  const arms = [-1, 1].map((side) => {
     const pivot = new THREE.Group();
-    pivot.position.set(side < 0 ? colX(c0) - 0.5 : colX(c1) + 0.5, LEG_H + BODY_H * 0.5, 0);
-    const m = box(len, 2.6, 2.2, clayMat);
-    m.position.x = side * len / 2;
-    pivot.add(m);
-    body.add(pivot);
-    arms[side < 0 ? "L" : "R"] = pivot;
-  }
-
-  const legs = ofKind("leg").map(({ c }) => {
-    const pivot = new THREE.Group();
-    pivot.position.set(colX(c), LEG_H, 0);
-    pivot.userData.top = LEG_H;
-    pivot.userData.left = colX(c) < 0;
-    const m = box(1.3, LEG_H, 2.2, legMat);
-    m.position.y = -LEG_H / 2;
+    pivot.position.set(side * BODY_W / 2, BODY_H * 0.5, 0);
+    const m = box(ARM_LEN, 2.6, 2.2, clayMat);
+    m.position.x = side * ARM_LEN / 2;
     pivot.add(m);
     body.add(pivot);
     return pivot;
   });
 
-  // ---- Stage ----
-  const platformMat = new THREE.MeshStandardMaterial({ color: lin("#b8bec6"), roughness: 0.9 });
-  const platform = new THREE.Mesh(new THREE.CylinderGeometry(15, 15.4, 0.8, 72), platformMat);
-  platform.position.y = -0.4;
-  platform.receiveShadow = true;
-  scene.add(platform);
+  const legs = [-4.5, -2.5, 2.5, 4.5].map((x) => {
+    const pivot = new THREE.Group();
+    pivot.position.set(x, LEG_H, 0);
+    const m = box(1.3, LEG_H, 2.2, legMat);
+    m.position.y = -LEG_H / 2;
+    pivot.add(m);
+    pivot.userData.left = x < 0;
+    root.add(pivot);
+    return pivot;
+  });
 
-  const hemi = new THREE.HemisphereLight(lin("#ffffff"), lin("#6f625a"), 0.5);
-  scene.add(hemi);
-  const key = new THREE.DirectionalLight(lin("#fff3e8"), 0.95);
-  key.position.set(14, 26, 18);
-  key.target.position.set(0, 3, 0);
-  key.castShadow = true;
-  key.shadow.mapSize.set(2048, 2048);
-  Object.assign(key.shadow.camera, { left: -19, right: 19, top: 19, bottom: -19, near: 1, far: 80 });
-  key.shadow.bias = -0.0006;
-  key.shadow.normalBias = 0.03;
-  scene.add(key, key.target);
+  // ---- Stage: a floor strip with the dotted line from the welcome screen ----
+  const floorMat = new THREE.MeshStandardMaterial({ color: lin("#b8bec6"), roughness: 0.9 });
+  const floor = new THREE.Mesh(new THREE.BoxGeometry(90, 0.8, 18), floorMat);
+  floor.position.y = -0.4;
+  floor.receiveShadow = true;
+  scene.add(floor);
+  const dotMat = new THREE.MeshStandardMaterial({ color: lin("#8d949e"), roughness: 0.9 });
+  const dotGeo = new THREE.BoxGeometry(0.45, 0.06, 0.45);
+  for (let x = -44; x <= 44; x += 1.6) {
+    const d = new THREE.Mesh(dotGeo, dotMat);
+    d.position.set(x, 0.03, 7.6);
+    d.receiveShadow = true;
+    scene.add(d);
+  }
+
+  scene.add(new THREE.HemisphereLight(lin("#ffffff"), lin("#6f625a"), 0.5));
+  const sun = new THREE.DirectionalLight(lin("#fff3e8"), 0.95);
+  sun.position.set(14, 26, 18);
+  sun.target.position.set(-6, 3, 0);
+  sun.castShadow = true;
+  sun.shadow.mapSize.set(2048, 2048);
+  Object.assign(sun.shadow.camera, { left: -32, right: 24, top: 24, bottom: -24, near: 1, far: 90 });
+  sun.shadow.bias = -0.0006;
+  sun.shadow.normalBias = 0.03;
+  scene.add(sun, sun.target);
   const fill = new THREE.DirectionalLight(lin("#cbd8ff"), 0.35);
   fill.position.set(-18, 10, -4);
   scene.add(fill);
@@ -406,157 +494,110 @@
   rim.position.set(0, 14, -22);
   scene.add(rim);
 
-  // Dust puffs on landing.
-  const dustMat = new THREE.MeshStandardMaterial({ color: lin("#bfc5cd"), roughness: 1 });
-  const dustGeo = new THREE.BoxGeometry(0.7, 0.7, 0.7);
-  const dust = Array.from({ length: 16 }, () => {
+  // Puffs at the feet: "·" is a small one, "~" a wider one.
+  const dustMat = new THREE.MeshStandardMaterial({ color: lin("#a9b0ba"), roughness: 1 });
+  const dustGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
+  const dust = Array.from({ length: 28 }, () => {
     const m = new THREE.Mesh(dustGeo, dustMat);
     m.visible = false;
     m.userData = { v: new THREE.Vector3(), life: 0 };
     scene.add(m);
     return m;
   });
-  function puff(x) {
+  function puff(kind) {
+    const count = kind === "wave" ? 10 : 4;
+    const spread = kind === "wave" ? 7 : 4;
+    let made = 0;
     for (const m of dust) {
-      const a = Math.random() * Math.PI * 2;
-      const sp = 4 + Math.random() * 4;
-      m.position.set(x + Math.cos(a) * 5, 0.4, Math.sin(a) * 3.5);
-      m.userData.v.set(Math.cos(a) * sp, 1.5 + Math.random() * 2.5, Math.sin(a) * sp * 0.7);
-      m.userData.life = 0.7 + Math.random() * 0.3;
-      m.rotation.set(Math.random() * 3, Math.random() * 3, 0);
+      if (m.visible) continue;
+      const side = made % 2 ? 1 : -1;
+      m.position.set(root.position.x + side * (BODY_W / 2 - 0.5), 0.35, (Math.random() - 0.5) * DEPTH);
+      m.userData.v.set(side * (2 + Math.random() * spread), 1 + Math.random() * 2, (Math.random() - 0.5) * 3);
+      m.userData.life = 0.6 + Math.random() * 0.3;
       m.visible = true;
+      if (++made === count) break;
     }
   }
 
   function applyTheme() {
     const cs = getComputedStyle(document.documentElement);
-    const get = (n, d) => (cs.getPropertyValue(n).trim() || d);
-    platformMat.color.copy(lin(get("--platform", "#b8bec6")));
-    dustMat.color.copy(lin(get("--dust", "#bfc5cd")));
+    const get = (n, d) => cs.getPropertyValue(n).trim() || d;
+    floorMat.color.copy(lin(get("--floor", "#b8bec6")));
+    dotMat.color.copy(lin(get("--floor-dots", "#8d949e")));
+    dustMat.color.copy(lin(get("--dust", "#a9b0ba")));
   }
   applyTheme();
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
   new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
 
-  // ---- Poses ----
+  // ---- Turning a frame into 3D targets ----
   const TAU = Math.PI * 2;
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
-  const smooth = (x) => { x = clamp(x, 0, 1); return x * x * (3 - 2 * x); };
-  const easeInOut = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
-  const view = { theta: 0.42, phi: 1.34, tTheta: 0.42, tPhi: 1.34, r: 40 };
+  const wrap = (a) => a - TAU * Math.round(a / TAU);
+  const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
+  const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1 };
+  const goal = { ...state };
 
-  function pose() {
-    return { px: 0, py: 0, ry: 0, rz: 0, sy: 1, aL: 0, aR: 0, legs: new Array(legs.length).fill(0) };
+  function targetsFor(f) {
+    const p = typeof f.pose === "string" ? POSES[f.pose] : f.pose.facing ? POSES.default : f.pose;
+    goal.x = (f.x || 0) * COL;
+    goal.ry = f.angle * Math.PI / 180;
+    goal.crouch = f.offset === 1 ? 1 : 0;
+    let y = 0;
+    if (f.offset >= 2) y = -SINK[Math.min(f.offset, 3)];
+    if (f.offset < 0) y = -f.offset * BODY_H / 2;
+    if (f.shadow === "wide") y += 3;
+    if (f.shadow === "narrow") y += 6;
+    if (f.lift) y += 3.2 * f.lift;
+    goal.y = y;
+    goal.squash = f.offset === 1 ? 0.94 : f.lift || f.shadow ? 1.04 : 1;
+    goal.armL = p.arms === "up" ? 0.95 : 0;
+    goal.armR = p.arms === "up" || p.arms === "one-up" ? 0.95 : 0;
+    goal.liftL = p.feet === "right" ? 1 : 0;
+    goal.liftR = p.feet === "left" ? 1 : 0;
+    goal.eyeX = p.eyes === "left" ? -1 : p.eyes === "right" ? 1 : 0;
+    goal.eyeY = p.eyes === "left" || p.eyes === "right" ? 0.8 : 0;
+    goal.lidL = p.eyes === "closed" ? 1 : 0;
+    goal.lidR = p.eyes === "closed" || p.eyes === "wink" ? 1 : 0;
   }
-  function breathe(p, t) {
-    p.sy = 1 + 0.025 * Math.sin(t * TAU / 2.6);
-    return p;
-  }
-  const JUMP = { period: 1.6, crouch: 0.28, air: 0.7, land: 0.2, height: 5.5 };
-
-  const ACTIONS = {
-    idle(t) {
-      const p = breathe(pose(), t);
-      p.ry = 0.12 * Math.sin(t * 0.7);
-      p.aL = 0.08 * Math.sin(t * 2.4);
-      p.aR = 0.08 * Math.sin(t * 2.4 + 1.3);
-      return p;
-    },
-    scuttle(t) {
-      // Crabs go sideways: across the platform and back.
-      const p = pose();
-      const w = TAU / 5;
-      const dir = Math.cos(w * t);
-      const step = t * 15;
-      p.px = 5 * Math.sin(w * t);
-      p.py = 0.22 * Math.abs(Math.sin(step));
-      p.rz = -0.07 * dir;
-      p.sy = 1 - 0.03 * Math.abs(Math.sin(step));
-      p.aL = 0.25 + 0.2 * Math.sin(step);
-      p.aR = 0.25 + 0.2 * Math.sin(step + Math.PI);
-      const gait = Math.min(1, Math.abs(dir) * 1.5 + 0.2);
-      p.legs = legs.map((_, i) => {
-        const phase = step + (i % 2 ? Math.PI : 0);
-        return 0.55 * Math.max(0, Math.sin(phase)) * gait;
-      });
-      return p;
-    },
-    wave(t) {
-      const p = breathe(pose(), t);
-      const up = smooth(t / 0.45);
-      p.ry = view.theta * up;            // turn to whoever is watching
-      p.rz = -0.06 * up;
-      p.aR = up * (2.0 + 0.35 * Math.sin(t * 10));
-      p.aL = 0.1 * up;
-      return p;
-    },
-    jump(t) {
-      const p = pose();
-      const n = Math.floor(t / JUMP.period);
-      const s = t - n * JUMP.period;
-      const airEnd = JUMP.crouch + JUMP.air, landEnd = airEnd + JUMP.land;
-      if (s < JUMP.crouch) {
-        const k = easeInOut(s / JUMP.crouch);
-        p.sy = 1 - 0.22 * k;
-        p.aL = p.aR = -0.35 * k;
-      } else if (s < airEnd) {
-        const k = (s - JUMP.crouch) / JUMP.air;
-        p.py = JUMP.height * Math.sin(Math.PI * k);
-        p.sy = 0.98 + 0.16 * Math.max(0, 1 - 2 * k);
-        p.ry = n % 2 ? TAU * easeInOut(k) : 0;   // every second jump is a spin
-        p.aL = p.aR = 1.1 * Math.sin(Math.PI * k);
-        p.legs.fill(0.45 * Math.sin(Math.PI * k));
-      } else if (s < landEnd) {
-        p.sy = 1 - 0.24 * Math.sin(Math.PI * (s - airEnd) / JUMP.land);
-        p.aL = p.aR = -0.2 * Math.sin(Math.PI * (s - airEnd) / JUMP.land);
-      } else {
-        breathe(p, s - landEnd);
-      }
-      return p;
-    },
-    dance(t) {
-      const p = pose();
-      const b = Math.PI * t / 0.48;      // one beat every 0.48 s
-      const s = Math.sin(b);
-      p.py = 0.7 * Math.abs(s);
-      p.sy = 1 - 0.06 * (1 - Math.abs(s));
-      p.rz = 0.14 * s;
-      p.ry = 0.5 * Math.sin(b / 4);
-      p.aL = 1.0 + 0.8 * s;
-      p.aR = 1.0 - 0.8 * s;
-      p.legs = legs.map((leg) => 0.4 * Math.max(0, leg.userData.left ? s : -s));
-      return p;
-    }
-  };
-  const ORDER = ["idle", "scuttle", "wave", "jump", "dance"];
-  const AUTO_LENGTH = { idle: 4, scuttle: 5, wave: 3.6, jump: JUMP.period * 2, dance: 4.8 };
-
-  function wrapAngle(a) { return a - TAU * Math.round(a / TAU); }
-  function mix(a, b, w) {
-    const out = pose();
-    for (const k of ["px", "py", "rz", "sy", "aL", "aR"]) out[k] = a[k] + (b[k] - a[k]) * w;
-    out.ry = a.ry + wrapAngle(b.ry - a.ry) * w;
-    out.legs = a.legs.map((v, i) => v + (b.legs[i] - v) * w);
-    return out;
+  function describe(f) {
+    if (typeof f.pose === "string") return f.pose;
+    if (f.pose.facing) return `turn ${f.pose.facing} (${Math.round(f.angle) % 360}°)`;
+    const p = f.pose;
+    return `eyes ${p.eyes} · arms ${p.arms} · feet ${p.feet}`;
   }
 
-  // ---- Action state ----
-  let T = 0;
-  let current = { name: "idle", start: 0 };
-  let previous = null;
-  let blendStart = -10;
-  let once = null;                       // a single jump from a click, then back
-  let auto = !reduceMotion.matches;
-  let lastJumpS = 0;
+  // ---- Playback ----
+  let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
+  let auto = !reduceMotion.matches, autoNext = 0;
 
-  function setAction(name) {
-    if (current.name === name) return;
-    previous = current;
-    current = { name, start: T };
-    blendStart = T;
-    lastJumpS = 0;
+  function enterFrame() {
+    const f = seq[idx];
+    targetsFor(f);
+    if (f.poof) puff(f.poof);
+    rd.frame.textContent = `${idx + 1} / ${seq.length}`;
+    rd.pose.textContent = describe(f);
+    rd.offset.textContent = f.offset > 0 ? `${f.offset} below` : f.offset < 0 ? `${-f.offset} above` : "0";
+    rd.x.textContent = f.x ? `${-f.x} columns left` : "0";
+    rd.meter.style.width = `${((idx + 1) / seq.length) * 100}%`;
+  }
+  function play(name) {
+    seqName = name;
+    seq = name === "idle" ? IDLE : MOVES[name];
+    idx = 0;
+    acc = 0;
     nameEl.textContent = name;
-    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.action === name)));
+    rd.move.textContent = name;
+    buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
+    enterFrame();
+  }
+  function finished() {
+    if (seqName === "idle" && auto) {
+      play(ALL[autoNext]);
+      autoNext = (autoNext + 1) % ALL.length;
+    } else {
+      play("idle");
+    }
   }
   function setAuto(on) {
     auto = on;
@@ -564,30 +605,13 @@
   }
   setAuto(auto);
 
-  buttons.forEach((b) => b.addEventListener("click", () => {
-    once = null;
-    setAuto(false);
-    setAction(b.dataset.action);
-  }));
-  autoBtn.addEventListener("click", () => {
-    setAuto(!auto);
-    if (auto) blendStart = T, current.start = T - 0.001;
-  });
-  document.addEventListener("keydown", (e) => {
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const i = Number(e.key) - 1;
-    if (i >= 0 && i < ORDER.length) { buttons[i].click(); }
-  });
-  function jumpOnce() {
-    if (current.name === "jump") return;
-    once = { resume: current.name };
-    setAction("jump");
-  }
+  buttons.forEach((b) => b.addEventListener("click", () => { setAuto(false); play(b.dataset.move); }));
+  autoBtn.addEventListener("click", () => setAuto(!auto));
 
   // ---- Camera, pointer and picking ----
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
-  const look = { x: 0, y: 0, tx: 0, ty: 0 };
+  const view = { theta: 0.38, phi: 1.36, tTheta: 0.38, tPhi: 1.36, r: 60 };
   let drag = null;
 
   function toNdc(e) {
@@ -596,7 +620,7 @@
   }
   function hitsClawd() {
     raycaster.setFromCamera(ndc, camera);
-    return raycaster.intersectObjects(pickable, false).length > 0;
+    return raycaster.intersectObjects(pickable, false).some((h) => h.point.y >= 0);
   }
   canvas.addEventListener("pointerdown", (e) => {
     drag = { x: e.clientX, y: e.clientY, sx: e.clientX, sy: e.clientY, moved: false };
@@ -604,13 +628,11 @@
   });
   canvas.addEventListener("pointermove", (e) => {
     toNdc(e);
-    look.tx = clamp(ndc.x, -1, 1) * 0.22;
-    look.ty = clamp(ndc.y, -1, 1) * 0.2;
     if (drag) {
       const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
       drag.x = e.clientX; drag.y = e.clientY;
       view.tTheta -= dx * 0.008;
-      if (e.pointerType === "mouse") view.tPhi = clamp(view.tPhi - dy * 0.006, 0.8, 1.45);
+      if (e.pointerType === "mouse") view.tPhi = clamp(view.tPhi - dy * 0.006, 0.85, 1.48);
       if (Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > 6) {
         drag.moved = true;
         canvas.classList.add("dragging");
@@ -621,22 +643,29 @@
   });
   function endDrag(e, cancelled) {
     if (!drag) return;
-    if (!cancelled && !drag.moved) { toNdc(e); if (hitsClawd()) jumpOnce(); }
+    if (!cancelled && !drag.moved) {
+      toNdc(e);
+      // As in the terminal, a click starts a random move only while Clawd is idle.
+      if (hitsClawd() && seqName === "idle") {
+        setAuto(false);
+        play(ON_CLICK[Math.floor(Math.random() * ON_CLICK.length)]);
+      }
+    }
     drag = null;
     canvas.classList.remove("dragging");
   }
   canvas.addEventListener("pointerup", (e) => endDrag(e, false));
   canvas.addEventListener("pointercancel", (e) => endDrag(e, true));
-  canvas.addEventListener("pointerleave", () => { look.tx = 0; look.ty = 0; canvas.classList.remove("over"); });
+  canvas.addEventListener("pointerleave", () => canvas.classList.remove("over"));
 
-  const target = new THREE.Vector3(0, 5.8, 0);
+  const target = new THREE.Vector3(-3, 6, 0);
   function resize() {
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
-    view.r = Math.max(11.5 / tanHalf, 15.5 / (tanHalf * camera.aspect));
+    view.r = Math.max(12 / tanHalf, 23 / (tanHalf * camera.aspect));
     camera.updateProjectionMatrix();
   }
   if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
@@ -644,60 +673,47 @@
   resize();
 
   // ---- Loop ----
-  let nextBlink = 1.5, blinkAt = -1;
   let last = performance.now();
-
   function update(dt) {
-    T += dt;
-
-    if (once && T - current.start >= JUMP.period - 0.4) {
-      const resume = once.resume;
-      once = null;
-      setAction(resume);
-    } else if (auto && !once && T - current.start >= AUTO_LENGTH[current.name]) {
-      setAction(ORDER[(ORDER.indexOf(current.name) + 1) % ORDER.length]);
+    acc += dt * 1000;
+    while (acc >= FRAME_MS) {
+      acc -= FRAME_MS;
+      idx++;
+      if (idx >= seq.length) finished();
+      else enterFrame();
     }
 
-    if (current.name === "jump") {
-      const s = (T - current.start) % JUMP.period;
-      const touchdown = JUMP.crouch + JUMP.air;
-      if (lastJumpS < touchdown && s >= touchdown) puff(root.position.x);
-      lastJumpS = s;
+    const k = 1 - Math.exp(-dt / 0.045);
+    for (const prop of Object.keys(state)) {
+      if (prop === "ry") state.ry += wrap(goal.ry - state.ry) * k;
+      else state[prop] += (goal[prop] - state[prop]) * k;
     }
 
-    const now = ACTIONS[current.name](T - current.start);
-    const w = smooth((T - blendStart) / 0.4);
-    const p = previous && w < 1 ? mix(ACTIONS[previous.name](T - previous.start), now, w) : now;
-
-    root.position.set(p.px, p.py, 0);
-    root.rotation.set(0, p.ry, p.rz);
-    const side = 1 / Math.sqrt(p.sy);
-    body.scale.set(side, p.sy, side);
-    arms.L.rotation.z = -p.aL;
-    arms.R.rotation.z = p.aR;
-    legs.forEach((leg, i) => { leg.position.y = leg.userData.top + p.legs[i]; });
-
-    if (T > nextBlink) {
-      blinkAt = T;
-      nextBlink = T + (Math.random() < 0.2 ? 0.25 : 2.4 + Math.random() * 3.2);
-    }
-    const bt = (T - blinkAt) / 0.16;
-    const lid = bt >= 0 && bt <= 1 ? Math.sin(Math.PI * bt) : 0;
-    look.x += (look.tx - look.x) * Math.min(1, dt * 6);
-    look.y += (look.ty - look.y) * Math.min(1, dt * 6);
-    for (const eye of eyes) {
-      eye.scale.y = 1 - 0.9 * lid;
-      eye.position.x = eye.userData.home.x + look.x;
-      eye.position.y = eye.userData.home.y + look.y;
-    }
+    root.position.set(state.x, state.y, 0);
+    root.rotation.y = state.ry;
+    const legScale = 1 - 0.85 * state.crouch;
+    body.position.y = LEG_H * legScale;
+    body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
+    legs.forEach((leg) => {
+      leg.scale.y = legScale;
+      leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR);
+    });
+    arms[0].rotation.z = -state.armL;
+    arms[1].rotation.z = state.armR;
+    eyes.forEach((eye, i) => {
+      const lid = i === 0 ? state.lidL : state.lidR;
+      eye.scale.y = 1 - 0.82 * lid;
+      eye.position.x = eye.userData.home.x + state.eyeX;
+      eye.position.y = eye.userData.home.y + state.eyeY - 0.45 * lid;
+    });
 
     for (const m of dust) {
       if (!m.visible) continue;
       const d = m.userData;
-      d.life -= dt * 1.6;
+      d.life -= dt * 1.7;
       if (d.life <= 0) { m.visible = false; continue; }
-      d.v.y -= 6 * dt;
-      d.v.multiplyScalar(1 - 2.2 * dt);
+      d.v.y -= 5 * dt;
+      d.v.multiplyScalar(1 - 2.4 * dt);
       m.position.addScaledVector(d.v, dt);
       m.position.y = Math.max(0.3, m.position.y);
       m.scale.setScalar(d.life);
@@ -714,6 +730,11 @@
     );
     camera.lookAt(target);
   }
+
+  // First launch: a random entrance, as Claude Code does after an update.
+  if (reduceMotion.matches) play("idle");
+  else play(ENTRANCES[Math.floor(Math.random() * ENTRANCES.length)]);
+  for (const prop of Object.keys(state)) state[prop] = goal[prop];
 
   function frame(now) {
     const dt = Math.min(0.05, (now - last) / 1000);
