@@ -18,6 +18,94 @@
   const BLINK = [...run(mood("closed"), 1), REST];
   const JUMP = [...crouch(), ...run("arms-up", 3), ...run("default", 1), ...crouch(), ...run("arms-up", 3), ...run("default", 1)];
 
+  // The ultracode guitar routine as compact entries, each lasting n frames: label, eyes, arms, offset, x (columns),
+  // lift, turnTo (degrees), lean, kick, strum, bang, fret, windmill, zap, notes, flash. Choreographed by three
+  // designers (jumps, travel, dance) and merged into one song-shaped routine.
+  const ULTRA_ROUTINE = [
+    { n: 2, label: "headbang stomp", eyes: "closed", offset: 0, x: 0, strum: 1, bang: 1, fret: 0.35, zap: true, notes: "above" },
+    { n: 1, label: "headbang stomp", eyes: "closed", offset: 1, x: 0, strum: 1, bang: 1, fret: 0.5, zap: true, notes: "above" },
+    { n: 2, label: "headbang stomp", eyes: "closed", offset: 0, x: 0, lean: -0.12, strum: 1, bang: 1, fret: 0.65, zap: true, notes: "above" },
+    { n: 1, label: "headbang stomp", eyes: "closed", offset: 1, x: 0, strum: 1, bang: 1, fret: 0.5, zap: true, notes: "above" },
+    { n: 2, label: "headbang stomp", eyes: "closed", offset: 0, x: 0, lean: 0.12, strum: 1, bang: 1, fret: 0.35, zap: true, notes: "above" },
+    { n: 2, label: "winds up", eyes: "open", offset: 1, x: 0, strum: 0.4, fret: 0.7 },
+    { n: 1, label: "launch jump", eyes: "open", offset: 0, x: 0, lift: 0.6, kick: 0.5, strum: 1, fret: 0.7 },
+    { n: 1, label: "launch jump", eyes: "open", offset: 0, x: 0, lift: 1.1, kick: 1, strum: 1, fret: 0.7, zap: true },
+    { n: 1, label: "launch jump", eyes: "closed", offset: 0, x: 0, lift: 1.4, kick: 1, strum: 1, fret: 0.7, zap: true, notes: "above" },
+    { n: 1, label: "launch jump", eyes: "closed", offset: 0, x: 0, lift: 1.4, kick: 1, strum: 1, fret: 0.7, zap: true, notes: "above" },
+    { n: 1, label: "launch jump", eyes: "open", offset: 0, x: 0, lift: 1, kick: 0.5, strum: 1, fret: 0.7 },
+    { n: 1, label: "launch jump", eyes: "open", offset: 0, x: 0, lift: 0.5, kick: 0, strum: 1, fret: 0.7 },
+    { n: 1, label: "lands", eyes: "closed", offset: 1, x: 0, strum: 0.5, fret: 0.6 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 0.5, lift: 0.5, turnTo: 20, kick: 0.3, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "closed", offset: 0, x: 1, lift: 0.8, turnTo: 20, kick: 0.6, strum: 1, fret: 0.5, zap: true, notes: "side" },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 1.2, lift: 0.4, turnTo: 20, kick: 0.2, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 1, x: 1.2, strum: 0.5, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 1.7, lift: 0.6, turnTo: -20, kick: 0.3, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "closed", offset: 0, x: 2.2, lift: 1, turnTo: -20, kick: 0.6, strum: 1, fret: 0.5, zap: true, notes: "side" },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 2.4, lift: 0.5, turnTo: -20, kick: 0.2, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 1, x: 2.4, strum: 0.5, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 2.9, lift: 0.7, turnTo: 20, kick: 0.3, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "closed", offset: 0, x: 3.4, lift: 1.2, turnTo: 20, kick: 0.6, strum: 1, fret: 0.5, zap: true, notes: "side" },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 0, x: 3.5, lift: 0.6, turnTo: 20, kick: 0.2, strum: 1, fret: 0.5 },
+    { n: 1, label: "hop hop hop", eyes: "open", offset: 1, x: 3.5, strum: 0.5, fret: 0.5 },
+    { n: 2, label: "edge shred", eyes: "left", offset: 0, x: 3.5, turnTo: -35, lean: -0.15, strum: 1, bang: 0.6, fret: 0.8, zap: true, notes: "side" },
+    { n: 2, label: "edge shred", eyes: "closed", offset: 0, x: 3.5, turnTo: -35, lean: -0.2, strum: 1, bang: 0.9, fret: 0.95, zap: true, notes: "side" },
+    { n: 2, label: "crouches", eyes: "open", offset: 1, x: 3.5, turnTo: 0, strum: 0.3, fret: 0.6 },
+    { n: 1, label: "spin jump", eyes: "open", offset: 0, x: 3, lift: 0.7, turnTo: 75, kick: 0.3, strum: 0.6, fret: 0.6 },
+    { n: 1, label: "spin jump", eyes: "open", offset: 0, x: 2.5, lift: 1.2, turnTo: 150, kick: 0.6, strum: 0.6, fret: 0.6 },
+    { n: 1, label: "spin jump", eyes: "open", offset: 0, x: 2, lift: 1.6, turnTo: 225, kick: 0.8, strum: 0.8, fret: 0.6, zap: true },
+    { n: 1, label: "spin jump", eyes: "closed", offset: 0, x: 1.5, lift: 1.8, turnTo: 300, kick: 1, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "spin jump", eyes: "closed", arms: "up", offset: 0, x: 1, lift: 1.8, turnTo: 360, kick: 1, strum: 1, fret: 0.6, zap: true, notes: "above", flash: true },
+    { n: 1, label: "spin jump", eyes: "closed", offset: 0, x: 0.6, lift: 1.3, turnTo: 360, kick: 0.5, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "spin jump", eyes: "open", offset: 0, x: 0.3, lift: 0.6, turnTo: 360, kick: 0.2, strum: 0.6, fret: 0.6 },
+    { n: 1, label: "lands", eyes: "open", offset: 1, x: 0, turnTo: 0, strum: 0.4, fret: 0.6 },
+    { n: 1, label: "charges", eyes: "open", offset: 0, x: -0.5, turnTo: 0, lean: 0.15, strum: 0.8, fret: 0.6 },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -1.2, turnTo: 20, lean: -0.2, strum: 1, bang: 0.3, fret: 0.5, zap: true, notes: "side" },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -1.8, turnTo: 20, lean: -0.26, strum: 1, bang: 0.3, fret: 0.55, zap: true, notes: "side" },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -2.4, turnTo: 20, lean: -0.3, strum: 1, bang: 0.3, fret: 0.6, zap: true, notes: "side" },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -2.9, turnTo: 20, lean: -0.33, strum: 1, bang: 0.3, fret: 0.65, zap: true, notes: "side" },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -3.3, turnTo: 20, lean: -0.35, strum: 1, bang: 0.3, fret: 0.7, zap: true, notes: "side" },
+    { n: 1, label: "knee slide", eyes: "closed", offset: 1, x: -3.6, turnTo: 20, lean: -0.35, strum: 1, bang: 0.3, fret: 0.75, zap: true, notes: "side" },
+    { n: 1, label: "slide finish", eyes: "closed", offset: 1, x: -3.6, lean: -0.35, strum: 1, fret: 0.9, zap: true, flash: true },
+    { n: 2, label: "on his knees", eyes: "closed", offset: 1, x: -3.6, lean: -0.3, strum: 1, bang: 1, fret: 0.8, zap: true, notes: "above" },
+    { n: 1, label: "pops up", eyes: "open", offset: 0, x: -3.6, strum: 0.6, fret: 0.6 },
+    { n: 1, label: "scissor kick", eyes: "open", offset: 1, x: -3.6, strum: 0.3, fret: 0.6 },
+    { n: 1, label: "scissor kick", eyes: "open", offset: 0, x: -3.4, lift: 0.7, lean: 0.1, kick: 0.5, strum: 0.8, fret: 0.6 },
+    { n: 1, label: "scissor kick", eyes: "open", offset: 0, x: -3.1, lift: 1.3, lean: 0.2, kick: 1, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "scissor kick", eyes: "closed", offset: 0, x: -2.8, lift: 1.7, lean: 0.25, kick: 1, strum: 1, fret: 0.6, zap: true, flash: true },
+    { n: 1, label: "scissor kick", eyes: "closed", offset: 0, x: -2.5, lift: 1.7, lean: 0.05, kick: 0.1, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "scissor kick", eyes: "closed", offset: 0, x: -2.3, lift: 1.3, lean: 0.2, kick: 1, strum: 1, fret: 0.6 },
+    { n: 1, label: "scissor kick", eyes: "open", offset: 0, x: -2.1, lift: 0.6, lean: 0.1, kick: 0.3, strum: 0.8, fret: 0.6 },
+    { n: 1, label: "lands", eyes: "open", offset: 1, x: -2, strum: 0.4, fret: 0.6 },
+    { n: 2, label: "duck walk", eyes: "right", offset: 0, x: -1.6, turnTo: 30, lean: 0.15, kick: 0, strum: 1, bang: 0.4, fret: 0.5, notes: "side" },
+    { n: 2, label: "duck walk", eyes: "right", offset: 1, x: -1.2, turnTo: 30, lean: -0.1, kick: 1, strum: 1, bang: 0.4, fret: 0.5, zap: true, notes: "side" },
+    { n: 2, label: "duck walk", eyes: "closed", offset: 0, x: -0.8, turnTo: 30, lean: 0.15, kick: 0, strum: 1, bang: 0.4, fret: 0.5, notes: "side" },
+    { n: 2, label: "duck walk", eyes: "right", offset: 1, x: -0.4, turnTo: 30, lean: -0.1, kick: 1, strum: 1, bang: 0.4, fret: 0.5, zap: true, notes: "side" },
+    { n: 2, label: "duck walk", eyes: "right", offset: 0, x: 0, turnTo: 0, lean: 0.15, kick: 0, strum: 1, bang: 0.4, fret: 0.5, notes: "side" },
+    { n: 4, label: "windmill", eyes: "closed", arms: "up", offset: 0, x: 0, lean: 0.12, strum: 1, bang: 0.5, fret: 0.4, windmill: true, zap: true, notes: "above" },
+    { n: 4, label: "windmill", eyes: "closed", arms: "up", offset: 0, x: 0, lean: -0.12, strum: 1, bang: 0.8, fret: 0.3, windmill: true, zap: true, notes: "above" },
+    { n: 2, label: "side sway", eyes: "left", offset: 0, x: -1, turnTo: -20, lean: 0.25, strum: 0.8, bang: 0.3, fret: 0.5, notes: "side" },
+    { n: 2, label: "side sway", eyes: "right", offset: 0, x: 1, turnTo: 20, lean: -0.25, strum: 0.8, bang: 0.3, fret: 0.5, notes: "side" },
+    { n: 2, label: "side sway", eyes: "left", offset: 0, x: -1, turnTo: -20, lean: 0.25, strum: 0.8, bang: 0.3, fret: 0.5, notes: "side" },
+    { n: 2, label: "side sway", eyes: "right", offset: 0, x: 1, turnTo: 20, lean: -0.25, strum: 0.8, bang: 0.3, fret: 0.5, notes: "side" },
+    { n: 3, label: "headbang", eyes: "closed", offset: 0, x: 0, strum: 1, bang: 1, fret: 0.3, zap: true, notes: "above" },
+    { n: 3, label: "headbang", eyes: "closed", offset: 0, x: 0, strum: 1, bang: 1, fret: 0.9, zap: true, notes: "above" },
+    { n: 2, label: "big leap", eyes: "open", offset: 1, x: 0, strum: 0.2, fret: 0.6 },
+    { n: 1, label: "big leap", eyes: "open", offset: 0, x: 0, lift: 0.6, strum: 0.8, fret: 0.6 },
+    { n: 1, label: "big leap", eyes: "open", offset: 0, x: 0, lift: 1.2, kick: 0.4, strum: 1, fret: 0.6 },
+    { n: 1, label: "big leap", eyes: "closed", offset: 0, x: 0, lift: 1.6, kick: 0.8, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "power chord!", eyes: "closed", arms: "up", offset: 0, x: 0, lift: 1.8, lean: -0.12, kick: 1, strum: 1, fret: 0.6, windmill: true, zap: true, notes: "above", flash: true },
+    { n: 1, label: "power chord!", eyes: "closed", arms: "up", offset: 0, x: 0, lift: 1.8, lean: -0.12, kick: 1, strum: 1, fret: 0.6, windmill: true, zap: true, notes: "above" },
+    { n: 1, label: "power chord!", eyes: "closed", offset: 0, x: 0, lift: 1.7, lean: -0.06, kick: 0.6, strum: 1, fret: 0.6, zap: true },
+    { n: 1, label: "power chord!", eyes: "open", offset: 0, x: 0, lift: 1.2, kick: 0.2, strum: 0.8, fret: 0.6 },
+    { n: 1, label: "power chord!", eyes: "open", offset: 0, x: 0, lift: 0.6, strum: 0.6, fret: 0.6 },
+    { n: 1, label: "lands", eyes: "open", offset: 1, x: 0, strum: 0.4, fret: 0.6, notes: "above" },
+    { n: 3, label: "shreds", eyes: "closed", offset: 0, x: 0, lean: -0.15, strum: 1, bang: 0.6, fret: 0.95, zap: true, notes: "side" },
+    { n: 3, label: "rock kick", eyes: "closed", offset: 0, x: 0, lean: 0.2, kick: 1, strum: 1, bang: 0.9, fret: 0.5, zap: true, notes: "above" },
+    { n: 2, label: "final pose", eyes: "wink", offset: 0, x: 0, turnTo: 0, lean: 0, kick: 0, strum: 0.3, fret: 0.6, notes: "above" }
+  ];
+  const fromEntries = (entries) => entries.flatMap(({ n, eyes = "open", arms = "down", ...rest }) =>
+    Array.from({ length: n }, () => ({ pose: mood(eyes, arms), offset: 0, x: 0, guitar: 1, ...rest })));
+
   const MOVES = {
     jump: JUMP,
     look: [...run("look-right", 5), ...run("look-left", 5), ...run("default", 1)],
@@ -103,30 +191,18 @@
       ...run("default", 2), ...BLINK
     ],
     // Ultra effort, after the Claude app's Ultracode effort row: Clawd plays a lavender electric guitar in front of a
-    // pulsing pixel wall, eyes shut at first, with yellow sparks and pixel music notes, a leaning kick and a jump.
-    ultracode: (() => {
-      const g = (n, extra) => Array.from({ length: n }, () => ({ pose: "default", offset: 0, x: 0, guitar: 1, ...extra }));
-      const rock = { strum: 1, bang: 0.6, fret: 0.45, zap: true };
-      return [
-        ...run("look-right", 2),
-        { pose: "default", offset: 0, x: 0, guitar: 0.5, label: "grabs a guitar" },
-        { pose: "default", offset: 0, x: 0, guitar: 1, label: "grabs a guitar" },
-        ...g(18, { ...rock, pose: mood("closed"), label: "rocks, eyes shut" }),
-        ...g(12, { ...rock, notes: "above", label: "plays" }),
-        ...g(10, { ...rock, lean: 0.2, kick: 1, notes: "side", label: "leans into it" }),
-        ...g(3, { offset: 1, strum: 0.3, fret: 0.6, label: "power chord" }),
-        ...[0.55, 0.95, 0.95, 0.55].map((lift, i) => ({
-          pose: "default", offset: 0, x: 0, guitar: 1, fret: 0.6, lift, kick: 0.6, label: "power chord",
-          ...(i === 1 ? { flash: true } : {})
-        })),
-        { pose: "default", offset: 1, x: 0, guitar: 1, fret: 0.6, poof: "wave", label: "power chord" },
-        ...g(1, { offset: 1, fret: 0.6, label: "power chord" }),
-        ...g(12, { ...rock, notes: "above", label: "plays" }),
-        { pose: "default", offset: 0, x: 0, guitar: 0.4, label: "puts the guitar down" },
-        { pose: "default", offset: 0, x: 0, guitar: 0, label: "puts the guitar down" },
-        ...run("default", 2), ...BLINK
-      ];
-    })()
+    // pulsing pixel wall, with yellow sparks and pixel music notes, and goes all out: a stomping headbang, a launch jump,
+    // hops across the stage, a spin jump, a knee slide, a scissor kick, a duck walk, a windmill dance break and a huge
+    // final power-chord leap.
+    ultracode: [
+      ...run("look-right", 2),
+      { pose: "default", offset: 0, x: 0, guitar: 0.5, label: "grabs a guitar" },
+      { pose: "default", offset: 0, x: 0, guitar: 1, label: "grabs a guitar" },
+      ...fromEntries(ULTRA_ROUTINE),
+      { pose: "default", offset: 0, x: 0, guitar: 0.4, label: "puts the guitar down" },
+      { pose: "default", offset: 0, x: 0, guitar: 0, label: "puts the guitar down" },
+      ...run("default", 2), ...BLINK
+    ]
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
