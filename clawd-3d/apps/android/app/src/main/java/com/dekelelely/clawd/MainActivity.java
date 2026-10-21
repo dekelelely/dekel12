@@ -27,6 +27,7 @@ public class MainActivity extends Activity {
     private WebView web;
     private boolean bubbleAfterPermission = false;
     private String firstMove = "";   // the move the person last picked in the app, played first by the bubble
+    private boolean floatAuto = false;   // whether the app was on Auto-play when the bubble was asked for
     private Updater updater;
     private boolean installAfterPermission = false;
     private boolean resumed = false;
@@ -86,7 +87,9 @@ public class MainActivity extends Activity {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
             return;
         }
-        startForegroundService(new Intent(this, BubbleService.class).putExtra(BubbleService.EXTRA_FIRST_MOVE, firstMove));
+        startForegroundService(new Intent(this, BubbleService.class)
+                .putExtra(BubbleService.EXTRA_FIRST_MOVE, firstMove)
+                .putExtra(BubbleService.EXTRA_AUTO, floatAuto));
         moveTaskToBack(true);
     }
 
@@ -104,6 +107,13 @@ public class MainActivity extends Activity {
     private void showUpdateState(String json) {
         if (isDestroyed()) return;
         web.evaluateJavascript("window.clawdUpdate && window.clawdUpdate(" + JSONObject.quote(json) + ")", null);
+    }
+
+    /** A message from the bubble for the app's page to match (see BubbleService.relay). Main thread. */
+    static void deliver(String json) {
+        MainActivity activity = current.get();
+        if (activity == null || activity.isDestroyed()) return;
+        activity.web.evaluateJavascript("window.clawdSync && window.clawdSync(" + JSONObject.quote(json) + ")", null);
     }
 
     /** Android's answer about an update install (from UpdateReceiver). Main thread. */
@@ -158,11 +168,12 @@ public class MainActivity extends Activity {
 
     /** Calls the page can make (window.ClawdNative). They arrive on a background thread. */
     private class Bridge {
-        /** first: a move to open with, or "" for a random one. */
+        /** first: a move to open with, or "" for a random one. auto: whether the app is on Auto-play. */
         @JavascriptInterface
-        public void startBubble(String first) {
+        public void startBubble(String first, boolean auto) {
             runOnUiThread(() -> {
                 firstMove = first == null ? "" : first;
+                floatAuto = auto;
                 MainActivity.this.startBubble();
             });
         }
@@ -201,6 +212,21 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setHitRect(float x, float y, float w, float h) {
             // Only the bubble has a touch pad.
+        }
+
+        /** A move the app started, or its Auto-play switch, for the bubble to match (see BubbleService.relay). */
+        @JavascriptInterface
+        public void sync(String json) {
+            runOnUiThread(() -> {
+                String message = BubbleService.relay(json);
+                if (message != null) BubbleService.deliver(message);
+            });
+        }
+
+        /** The Auto-play switch the app and the bubble share, for an app screen that opens while he floats. */
+        @JavascriptInterface
+        public boolean linkedAuto() {
+            return BubbleService.linkedAuto;
         }
 
         /** The update button's state, as JSON (see Updater.stateJson). */

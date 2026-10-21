@@ -27,6 +27,9 @@ import android.webkit.JavascriptInterface;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 /**
  * Clawd floating over other apps. Two windows: a large one that draws him, with room for his jumps and travel, and a
  * small invisible touch pad that the page keeps over his body. With "taps through" on, the large window lets touches
@@ -37,10 +40,13 @@ import android.webkit.WebView;
  */
 public class BubbleService extends Service {
     static volatile boolean running = false;
+    private static BubbleService instance;   // main thread only
+    static volatile boolean linkedAuto = false;   // the Auto-play switch the app and the bubble share
     private static final String CHANNEL = "clawd";
     private static final String ACTION_STOP = "com.dekelelely.clawd.STOP";
     static final String ACTION_SETTINGS = "com.dekelelely.clawd.SETTINGS";
     static final String EXTRA_FIRST_MOVE = "firstMove";
+    static final String EXTRA_AUTO = "auto";
     private static final String PREFS = "clawd";
     private static final String PREF_TOUCH_THROUGH = "touchThrough";
 
@@ -88,6 +94,7 @@ public class BubbleService extends Service {
         startInForeground();
         String first = moveName(intent == null ? null : intent.getStringExtra(EXTRA_FIRST_MOVE));
         if (web == null) {
+            linkedAuto = intent != null && intent.getBooleanExtra(EXTRA_AUTO, false);
             showBubble(first);
         } else if (first != null) {
             web.evaluateJavascript("window.clawdPet && window.clawdPet.play('" + first + "')", null);
@@ -127,6 +134,7 @@ public class BubbleService extends Service {
     @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
     private void showBubble(String first) {
         running = true;
+        instance = this;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         DisplayMetrics metrics = getResources().getDisplayMetrics();
         density = metrics.density;
@@ -146,7 +154,8 @@ public class BubbleService extends Service {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         web.addJavascriptInterface(new Bridge(), "ClawdNative");
-        web.loadUrl("file:///android_asset/www/index.html#mode=pet&platform=android" + (first == null ? "" : "&first=" + first));
+        web.loadUrl("file:///android_asset/www/index.html#mode=pet&platform=android"
+                + (first == null ? "" : "&first=" + first) + (linkedAuto ? "&auto=1" : ""));
         windowManager.addView(web, stageParams);
 
         // The touch pad starts where he stands (bottom middle of the stage); the page then keeps it on him.
@@ -178,6 +187,33 @@ public class BubbleService extends Service {
         Intent intent = new Intent(this, MainActivity.class);
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         startActivity(intent);
+    }
+
+    /**
+     * The app and the bubble stay matched: a message from one page (a move it started, its Auto-play switch) is played
+     * by the other. Called on the main thread with the message as JSON; the Auto-play switch is remembered for an app
+     * screen that opens later.
+     */
+    static String relay(String json) {
+        try {
+            JSONObject in = new JSONObject(json);
+            JSONObject out = new JSONObject();
+            String move = moveName(in.optString("move", null));
+            if (move != null) out.put("move", move);
+            if (in.has("auto")) {
+                linkedAuto = in.optBoolean("auto");
+                out.put("auto", linkedAuto);
+            }
+            return out.length() > 0 ? out.toString() : null;
+        } catch (JSONException e) {
+            return null;
+        }
+    }
+
+    static void deliver(String json) {
+        if (instance != null && instance.web != null) {
+            instance.web.evaluateJavascript("window.clawdSync && window.clawdSync(" + JSONObject.quote(json) + ")", null);
+        }
     }
 
     /** Triple-tap: close the app and the bubble. */
@@ -285,8 +321,17 @@ public class BubbleService extends Service {
         }
 
         @JavascriptInterface
-        public void startBubble(String first) {
+        public void startBubble(String first, boolean auto) {
             // Already floating.
+        }
+
+        /** A move the bubble started, or its Auto-play switch, for the app to match (see relay). */
+        @JavascriptInterface
+        public void sync(String json) {
+            main.post(() -> {
+                String message = relay(json);
+                if (message != null) MainActivity.deliver(message);
+            });
         }
 
         @JavascriptInterface
@@ -337,6 +382,7 @@ public class BubbleService extends Service {
     @Override
     public void onDestroy() {
         running = false;
+        if (instance == this) instance = null;
         if (pad != null) {
             windowManager.removeView(pad);
             pad = null;

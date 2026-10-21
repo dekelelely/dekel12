@@ -100,8 +100,8 @@ function savedBounds() {
   return onScreen(b) ? b : cornerBounds();
 }
 
-// first: a move to open with (the one last picked in the app), or "" for a random one.
-function startFloating(first = "") {
+// first: a move to open with (the one last picked in the app), or "" for a random one. auto: start on Auto-play.
+function startFloating(first = "", auto = false) {
   if (petWin) return;
   petWin = new BrowserWindow({
     ...savedBounds(),
@@ -126,7 +126,7 @@ function startFloating(first = "") {
   });
   petWin.setAlwaysOnTop(true, "floating");
   petWin.setIgnoreMouseEvents(true, { forward: true });
-  const hash = "mode=pet&platform=electron" + (/^[a-z]+(-[a-z]+)*$/.test(first) ? `&first=${first}` : "");
+  const hash = "mode=pet&platform=electron" + (/^[a-z]+(-[a-z]+)*$/.test(first) ? `&first=${first}` : "") + (auto ? "&auto=1" : "");
   petWin.loadFile(PAGE, { hash });
   petWin.once("ready-to-show", () => petWin.showInactive());
   petWin.webContents.on("did-finish-load", () => sendState(petWin));
@@ -168,10 +168,12 @@ function toCorner() {
   rememberPosition();
 }
 
-// What a page needs when it loads: whether Clawd is floating, and the update button's state.
+// What a page needs when it loads: whether Clawd is floating, the update button's state, and (for an app window
+// opened while he floats) the Auto-play switch the two share.
 function sendState(w) {
   w.webContents.send("floating", !!petWin);
   w.webContents.send("update-state", update);
+  if (w === appWin && petWin) w.webContents.send("sync", { auto: autoOn });
 }
 
 // ---- Start with Windows ----
@@ -261,7 +263,7 @@ function menuTemplate() {
   const updateItem = updateMenuItem();
   return [
     { label: "Open Clawd", click: showApp },
-    { label: petWin ? "Hide floating Clawd" : "Float on screen", click: () => (petWin ? stopFloating() : startFloating()) },
+    { label: petWin ? "Hide floating Clawd" : "Float on screen", click: () => (petWin ? stopFloating() : startFloating("", autoOn)) },
     { type: "separator" },
     { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => moveTarget() && moveTarget().webContents.send("play", name) })) },
     { label: "Auto-play random moves", type: "checkbox", checked: autoOn, click: (item) => moveTarget() && moveTarget().webContents.send("auto", item.checked) },
@@ -292,7 +294,16 @@ ipcMain.on("menu", (e) => {
   const w = BrowserWindow.fromWebContents(e.sender);
   if (w) Menu.buildFromTemplate(menuTemplate()).popup({ window: w });
 });
-ipcMain.on("start-floating", (_e, first) => startFloating(typeof first === "string" ? first : ""));
+ipcMain.on("start-floating", (_e, first, auto) => startFloating(typeof first === "string" ? first : "", auto === true));
+// The app window and floating Clawd stay matched: each one's moves and Auto-play switch go to the other.
+ipcMain.on("sync", (e, message) => {
+  if (!message || typeof message !== "object") return;
+  const m = {};
+  if (typeof message.move === "string" && MOVES.includes(message.move)) m.move = message.move;
+  if (typeof message.auto === "boolean") m.auto = message.auto;
+  const other = appWin && e.sender === appWin.webContents ? petWin : petWin && e.sender === petWin.webContents ? appWin : null;
+  if (other && Object.keys(m).length) other.webContents.send("sync", m);
+});
 ipcMain.on("stop-floating", stopFloating);
 ipcMain.on("open-app", showApp);
 ipcMain.on("quit", () => app.quit());

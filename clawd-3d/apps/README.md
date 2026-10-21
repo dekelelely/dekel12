@@ -26,7 +26,9 @@ The update check reads the public Releases page; it needs no account, key or pai
 
 Clawd for Windows works like the Android app. Open **Clawd** for the app window with every move. Click **Float on screen** and Clawd stands on the taskbar in the bottom-right corner, always on top, with no window around him. If you picked a move in the app first, he opens with that one; otherwise with a random one. His invisible window is wide enough for his jumps and travel, and clicks pass through it to whatever is behind him except on Clawd himself.
 
-On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping.
+On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping. With **Auto-play** on he plays random moves back to back instead, with no rest.
+
+The app window and floating Clawd stay matched: a move started in one plays in the other too, and they share the **Auto-play** switch. Floating Clawd picks the random moves (only moves that start where he stands, so none slide in from off the window).
 
 | | |
 |---|---|
@@ -42,7 +44,9 @@ Closing the app window while he floats keeps him out; the tray icon brings the a
 
 ## Android
 
-Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one. After that he loops on his own: a random move, five seconds of rest after it ends, then the next. Tapping him takes over, and each tap plays a new move right away. Once you stop, he finishes the move, waits five more seconds and goes back to looping.
+Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one. After that he loops on his own: a random move, five seconds of rest after it ends, then the next. Tapping him takes over, and each tap plays a new move right away. Once you stop, he finishes the move, waits five more seconds and goes back to looping. If **Auto-play** was on in the app, he plays random moves back to back instead.
+
+The app and the bubble stay matched, as on Windows: a move started in one plays in the other, and they share the **Auto-play** switch.
 
 **Taps through** in the app decides what happens to taps on the space just around him. Off (the default): he is drawn in full colour, and that space takes your taps. On: taps there go to the app below, but on Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through. Either way, taps on Clawd himself are his.
 

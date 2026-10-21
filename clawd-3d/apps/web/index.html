@@ -140,6 +140,24 @@
   let floating = false;   // Windows: whether Clawd is floating on the desktop (the app tells this page)
   const hint = document.getElementById("hint");
 
+  // The app and floating Clawd (Windows and Android) stay matched: each sends the other the moves it starts and its
+  // Auto-play switch, and plays what it receives. While he floats, floating Clawd chooses the random moves and the
+  // app follows, making no random picks of its own.
+  const link = desk ? (m) => desk.sync(m) : droid && droid.sync ? (m) => droid.sync(JSON.stringify(m)) : null;
+  let applying = null;   // the message from the other view being played here, so it isn't sent straight back
+  function sendToOther(m) {
+    if (link) link(m);
+  }
+  function fromOther(m) {
+    applying = m;
+    try {
+      if (typeof m.auto === "boolean" && m.auto !== clawd.auto) clawd.setAuto(m.auto);
+      if (typeof m.move === "string" && E.MOVES[m.move]) clawd.play(m.move);
+    } finally {
+      applying = null;
+    }
+  }
+
   const buttons = (E ? E.ALL : []).map((name) => {
     const b = document.createElement("button");
     b.type = "button";
@@ -155,10 +173,14 @@
     canvas: document.getElementById("scene"),
     fx: document.getElementById("fx"),
     mode: mode === "pet" ? "pet" : "stage",
-    onMove(name) { buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name))); },
+    onMove(name) {
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
+      if (name !== "idle" && !(applying && applying.move === name)) sendToOther({ move: name });
+    },
     onAuto(on) {
       autoBtn.setAttribute("aria-pressed", String(on));
       if (desk) desk.reportAuto(on);
+      if (!(applying && "auto" in applying)) sendToOther({ auto: on });
     },
     onUltra(on) {
       if (!desk) return;
@@ -200,6 +222,7 @@
 
   function refreshControls() {
     secondary.hidden = true;
+    clawd.setFollowing(mode === "full" && (platform === "electron" ? floating : platform === "android" && droid.bubbleRunning()));
     if (platform === "electron") {
       primary.textContent = floating ? "Hide floating Clawd" : "Float on screen";
       hint.textContent = "Drag to turn · click Clawd for a move · “Float on screen” puts him on your desktop";
@@ -243,10 +266,10 @@
   primary.addEventListener("click", () => {
     if (platform === "electron") {
       if (floating) desk.stopFloating();
-      else desk.startFloating(picked);
+      else desk.startFloating(picked, clawd.auto);
     } else if (platform === "android") {
       if (droid.bubbleRunning()) droid.stopBubble();
-      else droid.startBubble(picked);
+      else droid.startBubble(picked, clawd.auto);
       setTimeout(refreshControls, 400);
     } else if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen().catch(() => {});
@@ -262,6 +285,10 @@
     if (desk) desk.showMenu();
   });
 
+  if (link) {
+    window.clawdSync = (m) => fromOther(typeof m === "string" ? JSON.parse(m) : m);
+    if (desk) desk.onSync(window.clawdSync);
+  }
   if (desk) {
     desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
     desk.onAuto((on) => clawd.setAuto(on));
@@ -332,6 +359,9 @@
   else if (first && E.MOVES[first]) clawd.play(first, { snap: true });
   else if (reduceMotion) clawd.play("idle", { snap: true });
   else clawd.entrance({ snap: true });
+  // Floating Clawd starts with the app's Auto-play switch; an app opened while he floats takes his.
+  if (mode === "pet" && params.get("auto") === "1") clawd.setAuto(true);
+  if (mode === "full" && droid && droid.linkedAuto && droid.bubbleRunning()) fromOther({ auto: droid.linkedAuto() });
 })();
 </script>
 </body>

@@ -255,8 +255,10 @@
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
-  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode", "back-flip", "front-flip", "side-flip", "dumbbell-curl"];
   const ALL = Object.keys(MOVES);
+  // Moves that start where he stands, not sliding in from the side: clicks, and everything floating Clawd plays on
+  // his own (the 5-second loop and Auto-play), pick from these, since his window only has room around him.
+  const ON_CLICK = ALL.filter((n) => (MOVES[n][0].x || 0) === 0);
 
   // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
   function angleChoices(name) {
@@ -835,6 +837,7 @@
     // ---- Playback ----
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
     let auto = false;
+    let following = false;   // another view (floating Clawd) picks the random moves and this one plays them
     // Pet mode loops on its own: a random move AMBIENT_GAP seconds after the last one ends. Tapping takes over,
     // and the loop picks up again once he has finished and AMBIENT_GAP seconds have passed since the last tap.
     let ambient = false, nextAmbient = 0, lastTapAt = -Infinity;
@@ -866,10 +869,11 @@
     }
     const pick = (list) => list[Math.floor(Math.random() * list.length)];
     const pickOther = (list) => pick(list.filter((name) => name !== seqName));
+    const autoMoves = () => (mode === "pet" ? ON_CLICK : ALL);
     function scheduleAmbient() { nextAmbient = clock + AMBIENT_GAP; }
     function finished() {
       // Auto-play: a random move straight after each one ends, never the same one twice in a row.
-      if (auto) play(pickOther(ALL));
+      if (auto && !following) play(pickOther(autoMoves()));
       else {
         if (seqName !== "idle") scheduleAmbient();   // a move just ended: the next random one is due in 5 s
         play("idle");
@@ -878,7 +882,10 @@
     function setAuto(value) {
       auto = !!value;
       on("onAuto", auto);
-      if (auto && seqName === "idle") play(pickOther(ALL));
+      if (auto && !following && seqName === "idle") play(pickOther(autoMoves()));
+    }
+    function setFollowing(value) {
+      following = !!value;
     }
     // Switching to ultra effort starts the guitar move right away, like changing the setting in Claude Code.
     function setUltra(value) {
@@ -1064,7 +1071,7 @@
       }
       // Pet mode: once he has idled AMBIENT_GAP seconds since his last move and the last tap, start a random one
       // (mid look-around is fine).
-      if (ambient && !auto && seqName === "idle" && clock >= nextAmbient && clock >= lastTapAt + AMBIENT_GAP) play(pick(ON_CLICK));
+      if (ambient && !auto && !following && seqName === "idle" && clock >= nextAmbient && clock >= lastTapAt + AMBIENT_GAP) play(pick(ON_CLICK));
 
       const k = 1 - Math.exp(-dt / 0.045);
       for (const prop of Object.keys(state)) {
@@ -1234,6 +1241,7 @@
       get auto() { return auto; },
       get move() { return seqName; },
       setAmbient,
+      setFollowing,
       setUltra,
       get ultra() { return ultra; },
       setMode,

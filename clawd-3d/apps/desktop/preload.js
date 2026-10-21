@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld("clawdDesktop", {
   dragEnd: () => ipcRenderer.send("drag-end"),
   setClickThrough: (through) => ipcRenderer.send("click-through", through),
   showMenu: () => ipcRenderer.send("menu"),
-  startFloating: (first) => ipcRenderer.send("start-floating", first),
+  startFloating: (first, auto) => ipcRenderer.send("start-floating", first, auto),
   stopFloating: () => ipcRenderer.send("stop-floating"),
   openApp: () => ipcRenderer.send("open-app"),
   quit: () => ipcRenderer.send("quit"),
@@ -16,6 +16,8 @@ contextBridge.exposeInMainWorld("clawdDesktop", {
   onAuto: (fn) => ipcRenderer.on("auto", (_e, on) => fn(on)),
   onUltra: (fn) => ipcRenderer.on("ultra", (_e, on) => fn(on)),
   onFloating: (fn) => ipcRenderer.on("floating", (_e, on) => fn(on)),
+  sync: (message) => ipcRenderer.send("sync", message),
+  onSync: (fn) => ipcRenderer.on("sync", (_e, message) => fn(message)),
   checkUpdates: () => ipcRenderer.send("check-updates"),
   installUpdate: () => ipcRenderer.send("install-update"),
   onUpdate: (fn) => ipcRenderer.on("update-state", (_e, state) => fn(state))
