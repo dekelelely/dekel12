@@ -17,6 +17,8 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import org.json.JSONObject;
+
 import java.lang.ref.WeakReference;
 
 /** Clawd fullscreen, with a button that sends him off to float over other apps. */
@@ -25,11 +27,16 @@ public class MainActivity extends Activity {
     private WebView web;
     private boolean bubbleAfterPermission = false;
     private String firstMove = "";   // the move the person last picked in the app, played first by the bubble
+    private Updater updater;
+    private boolean installAfterPermission = false;
+    private boolean resumed = false;
+    private Intent pendingConfirm = null;   // Android's "Update this app?" screen, waiting for the app to be in front
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         current = new WeakReference<>(this);
+        updater = new Updater(this, this::showUpdateState);
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -39,6 +46,7 @@ public class MainActivity extends Activity {
         web.loadUrl("file:///android_asset/www/index.html#mode=full&platform=android");
         setContentView(web);
         hideSystemBars();
+        updater.check();   // the update button shows the result
 
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -83,18 +91,54 @@ public class MainActivity extends Activity {
         moveTaskToBack(true);
     }
 
+    /** Installs the new version, first sending the person to "Install unknown apps" if Clawd may not install yet. */
+    private void installUpdate() {
+        if (!getPackageManager().canRequestPackageInstalls()) {
+            installAfterPermission = true;
+            Toast.makeText(this, "Allow Clawd to install updates, then come back", Toast.LENGTH_LONG).show();
+            startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:" + getPackageName())));
+            return;
+        }
+        updater.install();
+    }
+
+    private void showUpdateState(String json) {
+        if (isDestroyed()) return;
+        web.evaluateJavascript("window.clawdUpdate && window.clawdUpdate(" + JSONObject.quote(json) + ")", null);
+    }
+
+    /** Android's answer about an update install (from UpdateReceiver). Main thread. */
+    static void updateStatus(Intent intent) {
+        MainActivity activity = current.get();
+        if (activity == null) return;
+        Intent confirm = activity.updater.onStatus(intent);
+        if (confirm == null) return;
+        if (activity.resumed) activity.startActivity(confirm);
+        else activity.pendingConfirm = confirm;
+    }
+
     @Override
     protected void onResume() {
         super.onResume();
+        resumed = true;
         web.onResume();
         if (bubbleAfterPermission && Settings.canDrawOverlays(this)) {
             bubbleAfterPermission = false;
             startBubble();
         }
+        if (installAfterPermission && getPackageManager().canRequestPackageInstalls()) {
+            installAfterPermission = false;
+            updater.install();
+        }
+        if (pendingConfirm != null) {
+            startActivity(pendingConfirm);
+            pendingConfirm = null;
+        }
     }
 
     @Override
     protected void onPause() {
+        resumed = false;
         web.onPause();
         super.onPause();
     }
@@ -157,6 +201,22 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void setHitRect(float x, float y, float w, float h) {
             // Only the bubble has a touch pad.
+        }
+
+        /** The update button's state, as JSON (see Updater.stateJson). */
+        @JavascriptInterface
+        public String updateState() {
+            return updater.stateJson();
+        }
+
+        @JavascriptInterface
+        public void checkUpdates() {
+            runOnUiThread(() -> updater.check());
+        }
+
+        @JavascriptInterface
+        public void installUpdate() {
+            runOnUiThread(() -> MainActivity.this.installUpdate());
         }
     }
 }

@@ -1,7 +1,8 @@
 name: Clawd apps
 
-# Builds the Windows app (installer + portable .exe) and the Android app (.apk) from clawd-3d/.
-# Download them from the run's "Artifacts" section. No secrets or paid services are used.
+# Builds the Windows app (installer + portable .exe) and the Android app (.apk) from clawd-3d/, and publishes them
+# as GitHub Release v1.<run number>.0, where the apps' update buttons find them. Each build is version
+# 1.<run number>. No secrets or paid services are used: the release is made with the workflow's own token.
 on:
   push:
     paths:
@@ -27,15 +28,20 @@ jobs:
           npm run prepare-web
       - name: Build Clawd for Windows
         working-directory: clawd-3d/apps/desktop
+        shell: bash
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           npm ci --no-audit --no-fund
-          npm run dist
+          npm run dist -- -c.extraMetadata.version=1.${{ github.run_number }}.0
+          test -f dist/latest.yml   # what the installed app reads to find updates
       - uses: actions/upload-artifact@v4
         with:
           name: Clawd-Windows
-          path: clawd-3d/apps/desktop/dist/*.exe
+          path: |
+            clawd-3d/apps/desktop/dist/*.exe
+            clawd-3d/apps/desktop/dist/*.blockmap
+            clawd-3d/apps/desktop/dist/latest.yml
           if-no-files-found: error
 
   android:
@@ -59,7 +65,7 @@ jobs:
           gradle-version: "8.9"
       - name: Build Clawd for Android
         working-directory: clawd-3d/apps/android
-        run: gradle assembleDebug --no-daemon
+        run: gradle assembleDebug --no-daemon -PclawdBuild=${{ github.run_number }}
       - name: Name the APK
         run: cp clawd-3d/apps/android/app/build/outputs/apk/debug/app-debug.apk Clawd.apk
       - uses: actions/upload-artifact@v4
@@ -67,3 +73,34 @@ jobs:
           name: Clawd-Android
           path: Clawd.apk
           if-no-files-found: error
+
+  release:
+    needs: [windows, android]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: out
+          merge-multiple: true
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.${{ github.run_number }}.0
+          TITLE: Clawd 1.${{ github.run_number }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+        run: |
+          ls -l out
+          {
+            printf '%s\n' "${COMMIT_MESSAGE:-Built from $GITHUB_SHA}" | grep -v -E '^(Co-Authored-By|Claude-Session):' || true
+            echo
+            echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows."
+            echo
+            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't)."
+          } > notes.md
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber   # a re-run of the same build
+          else
+            gh release create "$TAG" out/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "$TITLE" --notes-file notes.md --latest
+          fi

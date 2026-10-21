@@ -4,12 +4,21 @@ Clawd sits in the corner of your screen while you work, doing the same moves as 
 
 ## Getting the apps
 
-Every push that touches `clawd-3d/` builds both apps on GitHub (workflow `.github/workflows/clawd-apps.yml`). Open the repository's **Actions** tab, pick the latest **Clawd apps** run, and download from **Artifacts**:
+Every push that touches `clawd-3d/` builds both apps on GitHub (workflow `.github/workflows/clawd-apps.yml`) and publishes them as a release, version 1.*N* where *N* is the build number. Download from the repository's **Releases** page (the latest one), no GitHub login needed:
 
-- **Clawd-Windows**: `Clawd-Setup-1.0.0.exe` installs Clawd; `Clawd-Portable-1.0.0.exe` runs without installing.
-- **Clawd-Android**: `Clawd.apk`.
+- **Windows**: `Clawd-Setup-1.N.0.exe` installs Clawd and keeps it up to date; `Clawd-Portable-1.N.0.exe` runs without installing but can't update itself.
+- **Android**: `Clawd.apk`.
 
 The apps aren't code-signed, so Windows SmartScreen asks before the first run (**More info → Run anyway**) and Android asks you to allow installs from your browser or file manager.
+
+## Updates
+
+You only download Clawd once. After that, each app checks for a new version when it opens:
+
+- **Android**: the button at the top right of the app says **Update to 1.N** when there is one. Tap it, and Android asks **Update this app?**; tap **Update**. The first time, Android first asks you to let Clawd install apps (**Allow from this source**). The button also shows **Up to date** or lets you check again.
+- **Windows** (installed version): Clawd downloads a new version in the background. **Restart to update** in the tray or right-click menu installs it and starts him again; otherwise it installs the next time Clawd quits. **Check for updates** in the menu checks right away. The portable .exe opens the Releases page instead.
+
+The update check reads the public Releases page; it needs no account, key or paid service.
 
 ## Windows
 
@@ -20,7 +29,7 @@ Clawd stands on the taskbar in the bottom-right corner, always on top, with no w
 | Click Clawd | A new random move right away, even in the middle of one |
 | Drag Clawd | Move him anywhere; he remembers the spot |
 | Double-click Clawd | Fullscreen (Esc or **Back to corner** to return) |
-| Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, quit |
+| Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, check for updates, quit |
 
 On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
 
@@ -41,7 +50,7 @@ Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**,
 
 The **ultracode** button plays the electric-guitar routine once.
 
-Builds made after October 21, 2026 are all signed with the same key (`android/app/debug.keystore`), so a new APK installs over the previous one. If Android says "App not installed" when updating from an older build, uninstall Clawd once and install again.
+Builds made after October 21, 2026 are all signed with the same key (`android/app/debug.keystore`), so a new APK installs over the previous one and the update button works. If Android says "App not installed" when updating from an older build, uninstall Clawd once and install again.
 
 ## Building them yourself
 
@@ -53,10 +62,10 @@ npm run prepare-web        # copies index.html, clawd-engine.js and three.js int
 cd desktop                 # Windows (needs Node.js 20)
 npm install
 npm start                  # try it
-npm run dist               # installer + portable .exe in desktop/dist
+npm run dist               # installer + portable .exe in desktop/dist (version 1.0.0, so any release counts as newer)
 
 cd ../android              # Android (needs JDK 17 and the Android SDK, e.g. from Android Studio)
-gradle assembleDebug       # Gradle 8.7 or newer; APK in app/build/outputs/apk/debug
+gradle assembleDebug       # Gradle 8.7 or newer; APK in app/build/outputs/apk/debug (version 1.1)
 ```
 
 Edit the page in `web/` and the scene in `../clawd-engine.js`; the copies inside `desktop/web` and `android/.../assets/www` are generated.

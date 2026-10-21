@@ -70,6 +70,28 @@
   }
   .bar button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
   .bar button[aria-pressed="true"], .bar button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  /* Update button (Windows and Android apps), top right in the fullscreen view. */
+  .update {
+    display: none;
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    font: 600 12px ui-monospace, Menlo, Consolas, monospace;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--chip);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  body.full .update:not([hidden]) { display: block; }
+  .update.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  .update:disabled { cursor: default; }
+  .update:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  body.has-update .hint { right: calc(max(16px, env(safe-area-inset-right)) + 230px); }
+  @media (max-width: 600px) {
+    body.has-update .hint { top: calc(max(8px, env(safe-area-inset-top)) + 40px); right: max(16px, env(safe-area-inset-right)); }
+  }
   .fallback { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center; color: var(--muted); }
 </style>
 </head>
@@ -79,6 +101,7 @@
   <canvas id="fx" aria-hidden="true"></canvas>
 </div>
 <p class="hint" id="hint"></p>
+<button type="button" class="update" id="update" hidden></button>
 <div class="bar">
   <div class="chips" id="chips" role="group" aria-label="Moves"></div>
   <button type="button" id="auto" aria-pressed="false">Auto-play</button>
@@ -238,6 +261,46 @@
       const r = clawd.screenRect();
       if (r) droid.setHitRect(r.x, r.y, r.w, r.h);
     }, 150);
+  }
+
+  // Updates (Windows and Android apps): the app checks when it opens and reports here; the button checks again,
+  // or installs the new version once there is one.
+  const updateBtn = document.getElementById("update");
+  const updater = desk
+    ? { check: () => desk.checkUpdates(), install: () => desk.installUpdate() }
+    : droid && droid.updateState ? { check: () => droid.checkUpdates(), install: () => droid.installUpdate() } : null;
+  let update = { state: "off" };
+  const shortVersion = (v) => String(v || "").replace(/\.0$/, "");
+  function showUpdate(next) {
+    update = next || { state: "off" };
+    const v = shortVersion(update.version);
+    const label = {
+      idle: "Check for updates",
+      checking: "Checking for updates…",
+      none: `Up to date · ${shortVersion(update.current)}`,
+      available: `Update to ${v}`,
+      downloading: `Downloading ${v}… ${update.percent || 0}%`,
+      installing: `Installing ${v}…`,
+      ready: `Restart to update to ${v}`,
+      error: "Update failed · try again",
+      portable: "Get the latest version"
+    }[update.state];
+    updateBtn.hidden = !label;
+    document.body.classList.toggle("has-update", !!label);
+    if (!label) return;
+    updateBtn.textContent = label;
+    updateBtn.title = update.message || (update.current ? `Clawd ${shortVersion(update.current)}` : "");
+    updateBtn.disabled = update.state === "checking" || update.state === "downloading";
+    updateBtn.classList.toggle("main", update.state === "available" || update.state === "ready");
+  }
+  if (updater) {
+    window.clawdUpdate = (next) => showUpdate(typeof next === "string" ? JSON.parse(next) : next);
+    updateBtn.addEventListener("click", () => {
+      if (update.state === "available" || update.state === "ready") updater.install();
+      else updater.check();
+    });
+    if (desk) desk.onUpdate(window.clawdUpdate);
+    else window.clawdUpdate(droid.updateState());
   }
 
   applyMode(mode);

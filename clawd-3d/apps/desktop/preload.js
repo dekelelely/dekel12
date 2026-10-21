@@ -12,5 +12,8 @@ contextBridge.exposeInMainWorld("clawdDesktop", {
   onPlay: (fn) => ipcRenderer.on("play", (_e, name) => fn(name)),
   onAuto: (fn) => ipcRenderer.on("auto", (_e, on) => fn(on)),
   onUltra: (fn) => ipcRenderer.on("ultra", (_e, on) => fn(on)),
-  onMode: (fn) => ipcRenderer.on("mode", (_e, mode) => fn(mode))
+  onMode: (fn) => ipcRenderer.on("mode", (_e, mode) => fn(mode)),
+  checkUpdates: () => ipcRenderer.send("check-updates"),
+  installUpdate: () => ipcRenderer.send("install-update"),
+  onUpdate: (fn) => ipcRenderer.on("update-state", (_e, state) => fn(state))
 });

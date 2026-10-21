@@ -1,6 +1,7 @@
 // Clawd for Windows: a borderless, always-on-top window in the corner of the screen with Clawd in it.
-// Clicks pass through everywhere except Clawd himself. Tray icon and right-click menu for moves, size and fullscreen.
-const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require("electron");
+// Clicks pass through everywhere except Clawd himself. Tray icon and right-click menu for moves, size, fullscreen
+// and updates.
+const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
@@ -80,6 +81,7 @@ function createWindow() {
   win.setIgnoreMouseEvents(true, { forward: true });
   win.loadFile(path.join(__dirname, "web", "index.html"), { hash: "mode=pet&platform=electron" });
   win.once("ready-to-show", () => win.showInactive());
+  win.webContents.on("did-finish-load", () => win && win.webContents.send("update-state", update));
   win.on("closed", () => { win = null; });
 }
 
@@ -133,7 +135,68 @@ function toCorner() {
   rememberPosition();
 }
 
+// ---- Updates ----
+// The "Clawd apps" workflow publishes every build as a GitHub Release. The installed app checks when it opens and
+// from the menu, downloads a new version in the background, and installs it on restart (or whenever Clawd quits).
+// The portable .exe can't replace itself, so there "updates" opens the releases page instead.
+const RELEASES_URL = "https://github.com/dekelelely/dekel12/releases/latest";
+const shortVersion = (v) => String(v || "").replace(/\.0$/, "");
+let updater = null;
+let update = { state: "off" };   // off, portable, idle, checking, none, downloading, ready or error
+let checkFromMenu = false;
+
+function setUpdate(next) {
+  update = { current: app.getVersion(), ...next };
+  if (win) win.webContents.send("update-state", update);
+  refreshTray();
+}
+function initUpdates() {
+  if (!app.isPackaged) return;   // npm start
+  if (process.env.PORTABLE_EXECUTABLE_FILE) return setUpdate({ state: "portable" });
+  updater = require("electron-updater").autoUpdater;
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.on("checking-for-update", () => setUpdate({ state: "checking" }));
+  updater.on("update-available", (info) => setUpdate({ state: "downloading", version: info.version, percent: 0 }));
+  updater.on("download-progress", (p) => setUpdate({ state: "downloading", version: update.version, percent: Math.floor(p.percent) }));
+  updater.on("update-downloaded", (info) => setUpdate({ state: "ready", version: info.version }));
+  updater.on("update-not-available", () => {
+    setUpdate({ state: "none" });
+    if (checkFromMenu) dialog.showMessageBox({ title: "Clawd", message: `Clawd ${shortVersion(app.getVersion())} is the latest version.` });
+    checkFromMenu = false;
+  });
+  updater.on("error", (err) => {
+    const message = String((err && err.message) || err).split("\n")[0];
+    setUpdate({ state: "error", message });
+    if (checkFromMenu) dialog.showMessageBox({ type: "warning", title: "Clawd", message: "Couldn't check for updates.", detail: message });
+    checkFromMenu = false;
+  });
+  setUpdate({ state: "idle" });
+  checkUpdates(false);
+}
+function checkUpdates(fromMenu) {
+  if (update.state === "portable") return shell.openExternal(RELEASES_URL);
+  if (!updater || ["checking", "downloading", "ready"].includes(update.state)) return;
+  checkFromMenu = fromMenu;
+  updater.checkForUpdates().catch(() => { /* reported through the "error" event */ });
+}
+function installUpdate() {
+  if (updater && update.state === "ready") updater.quitAndInstall(true, true);   // silent install, then start again
+}
+function updateMenuItem() {
+  const v = shortVersion(update.version);
+  switch (update.state) {
+    case "off": return null;
+    case "portable": return { label: "Get the latest version…", click: () => checkUpdates(true) };
+    case "checking": return { label: "Checking for updates…", enabled: false };
+    case "downloading": return { label: `Downloading Clawd ${v}… ${update.percent || 0}%`, enabled: false };
+    case "ready": return { label: `Restart to update to ${v}`, click: installUpdate };
+    default: return { label: `Check for updates (Clawd ${shortVersion(app.getVersion())})`, click: () => checkUpdates(true) };
+  }
+}
+
 function menuTemplate() {
+  const updateItem = updateMenuItem();
   return [
     { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => win && win.webContents.send("play", name) })) },
     { label: "Auto-play every move", type: "checkbox", checked: autoOn, click: (item) => win && win.webContents.send("auto", item.checked) },
@@ -144,6 +207,7 @@ function menuTemplate() {
     { label: "Move to corner", click: toCorner },
     { label: "Start with Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
     { type: "separator" },
+    ...(updateItem ? [updateItem] : []),
     { label: "Quit Clawd", click: () => app.quit() }
   ];
 }
@@ -166,6 +230,8 @@ ipcMain.on("menu", () => {
 ipcMain.on("set-fullscreen", (_e, on) => setFull(!!on));
 ipcMain.on("auto-changed", (_e, on) => { autoOn = !!on; refreshTray(); });
 ipcMain.on("ultra-changed", (_e, on) => { ultraOn = !!on; refreshTray(); });
+ipcMain.on("check-updates", () => checkUpdates(false));
+ipcMain.on("install-update", installUpdate);
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();
@@ -180,6 +246,7 @@ if (!app.requestSingleInstanceLock()) {
     tray.setToolTip("Clawd");
     tray.on("click", () => setFull(!full));
     refreshTray();
+    initUpdates();
     screen.on("display-metrics-changed", () => { if (win && !full) win.setBounds(savedBounds()); });
   });
   app.on("window-all-closed", () => app.quit());
