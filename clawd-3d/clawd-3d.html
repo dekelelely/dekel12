@@ -483,7 +483,7 @@
   });
 
   // ---- Laptop for the laptop move: opens in front of Clawd, screen facing it ----
-  const LT = { W: 10, D: 5, BASE: 1.2, LID: 0.25 };   // wide enough for both arms; the base height puts the keys under Clawd's hands
+  const LT = { W: 8.5, D: 5, BASE: 1.2, LID: 0.25 };   // the base height puts the keys under Clawd's hands
   const laptopMat = new THREE.MeshStandardMaterial({ color: lin("#d5d8dd"), roughness: 0.45, metalness: 0.15, clippingPlanes: floorClip });
   const keysMat = new THREE.MeshStandardMaterial({ color: lin("#3a3f46"), roughness: 0.8, clippingPlanes: floorClip });
   const screenCanvas = document.createElement("canvas");
@@ -840,14 +840,16 @@
       leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR);
     });
     // Typing: as in the app, the arms stay flat stubs, now pointing straight out of the front face at the laptop, tapping in turn.
-    const tap = state.type * 0.06 * Math.sin(clock * 30);
+    // Hands sit close together over the middle of the keys, angled in a little, tapping in turn and drifting along the rows.
+    const tap = state.type * 0.08 * Math.sin(clock * 34);
     arms.forEach((arm, i) => {
       const side = i ? 1 : -1;
-      arm.position.x = side * (BODY_W / 2 - 1.2 * state.type);
+      const drift = state.type * 0.07 * Math.sin(clock * 5.3 + i * 2.1);
+      arm.position.x = side * (BODY_W / 2 - 2.6 * state.type);
       arm.position.y = BODY_H * (0.5 - 0.25 * state.type);
       arm.position.z = state.type * (DEPTH / 2 - 0.1);
-      arm.rotation.y = -side * Math.PI / 2 * state.type;
-      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 0.62) + tap;   // at 0.62 rad the hands rest on the keys
+      arm.rotation.y = -side * (Math.PI / 2 + 0.25) * state.type + drift;
+      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 0.56) + tap;   // 0.56 rad, tapping down to the keys
     });
     const shown = clamp(state.laptop * 2.5, 0, 1);
     laptop.visible = shown > 0.01;
