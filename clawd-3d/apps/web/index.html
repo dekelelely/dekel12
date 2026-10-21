@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clawd</title>
+<style>
+  :root {
+    --ink: #eceef1;
+    --muted: #9ba2ac;
+    --line: #39404a;
+    --chip: #1b1f24;
+    --clay: #d77757;
+    --on-clay: #1a0f0a;
+    --stage-hi: #1e2227;
+    --stage-lo: #0d0f12;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  body.full { background: radial-gradient(120% 90% at 50% 30%, var(--stage-hi), var(--stage-lo)); }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #stage canvas.over { cursor: pointer; }
+  #stage canvas.dragging { cursor: grabbing; }
+  #fx { pointer-events: none; }
+  .hint, .bar { display: none; }
+  body.full .hint, body.full .bar { display: flex; }
+  .hint {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    margin: 0;
+    font: 12px ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    gap: 10px;
+    align-items: center;
+    padding: 28px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  }
+  .chips { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .bar button {
+    flex: none;
+    font: 600 13px ui-monospace, Menlo, Consolas, monospace;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--chip);
+    color: var(--ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .bar button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  .bar button[aria-pressed="true"], .bar button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  .fallback { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene" aria-label="Clawd"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+</div>
+<p class="hint" id="hint"></p>
+<div class="bar">
+  <div class="chips" id="chips" role="group" aria-label="Moves"></div>
+  <button type="button" id="auto" aria-pressed="false">Auto-play</button>
+  <button type="button" id="secondary" hidden></button>
+  <button type="button" id="primary" class="main"></button>
+</div>
+<p class="fallback" id="fallback" hidden>This device couldn't start 3D graphics, so Clawd can't appear.</p>
+
+<script src="three.min.js"></script>
+<script src="clawd-engine.js"></script>
+<script>
+(() => {
+  // How the page was opened: "#mode=pet|full&platform=electron|android|web" (a hash, since Android asset URLs drop queries).
+  const params = new URLSearchParams(location.hash.replace(/^#/, "") || location.search.replace(/^\?/, ""));
+  const desk = window.clawdDesktop;   // Windows app (Electron preload)
+  const droid = window.ClawdNative;   // Android app (JavaScript interface)
+  const platform = desk ? "electron" : droid ? "android" : params.get("platform") || "web";
+  let mode = params.get("mode") === "pet" ? "pet" : "full";
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const E = window.ClawdEngine;
+  const chips = document.getElementById("chips");
+  const autoBtn = document.getElementById("auto");
+  const primary = document.getElementById("primary");
+  const secondary = document.getElementById("secondary");
+  const hint = document.getElementById("hint");
+
+  const buttons = (E ? E.ALL : []).map((name) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = name;
+    b.dataset.move = name;
+    b.setAttribute("aria-pressed", "false");
+    chips.appendChild(b);
+    return b;
+  });
+
+  const clawd = E && E.create({
+    stage: document.getElementById("stage"),
+    canvas: document.getElementById("scene"),
+    fx: document.getElementById("fx"),
+    mode: mode === "pet" ? "pet" : "stage",
+    onMove(name) { buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name))); },
+    onAuto(on) {
+      autoBtn.setAttribute("aria-pressed", String(on));
+      if (desk) desk.reportAuto(on);
+    },
+    // Windows: the transparent window lets clicks through everywhere except over Clawd himself.
+    onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
+    onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
+    onDragEnd() { if (desk) desk.dragEnd(); },
+    onLongPress() { if (droid && mode === "pet") droid.openApp(); },
+    onDoubleClick() { if (desk) desk.setFullscreen(mode === "pet"); }
+  });
+  if (!clawd) {
+    document.getElementById("fallback").hidden = false;
+    return;
+  }
+  clawd.setColors({ floor: "#2b3138", dots: "#4a525c", dust: "#4a525c", code: "#4cc9db" });
+
+  function refreshControls() {
+    secondary.hidden = true;
+    if (platform === "electron") {
+      primary.textContent = "Back to corner";
+      hint.textContent = "Esc or double-click Clawd to go back to the corner · drag to turn · click Clawd for a move";
+    } else if (platform === "android") {
+      const floating = droid.bubbleRunning();
+      primary.textContent = floating ? "Hide bubble" : "Float on screen";
+      hint.textContent = "Drag to turn · tap Clawd for a move · “Float on screen” puts him over your other apps";
+    } else {
+      primary.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+      hint.textContent = "Drag to turn · click Clawd for a move";
+    }
+  }
+  function applyMode(next) {
+    mode = next === "pet" ? "pet" : "full";
+    document.body.classList.toggle("full", mode === "full");
+    clawd.setMode(mode === "pet" ? "pet" : "stage");
+    clawd.setAmbient(mode === "pet");
+    if (desk) desk.setClickThrough(mode === "pet");
+    refreshControls();
+  }
+
+  buttons.forEach((b) => b.addEventListener("click", () => { clawd.setAuto(false); clawd.play(b.dataset.move); }));
+  autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
+  primary.addEventListener("click", () => {
+    if (platform === "electron") desk.setFullscreen(false);
+    else if (platform === "android") {
+      if (droid.bubbleRunning()) droid.stopBubble();
+      else droid.startBubble();
+      setTimeout(refreshControls, 400);
+    } else if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+  document.addEventListener("fullscreenchange", refreshControls);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshControls(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && desk && mode === "full") desk.setFullscreen(false);
+  });
+  document.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (desk) desk.showMenu();
+  });
+
+  if (desk) {
+    desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
+    desk.onAuto((on) => clawd.setAuto(on));
+    desk.onMode(applyMode);
+  }
+
+  applyMode(mode);
+  if (reduceMotion) clawd.play("idle", { snap: true });
+  else clawd.entrance({ snap: true });
+})();
+</script>
+</body>
+</html>
