@@ -4,7 +4,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require
 const path = require("path");
 const fs = require("fs");
 
-const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "laptop", "ultracode"];
+const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "back-flip", "front-flip", "side-flip", "laptop", "ultracode"];
 // Window widths; the window is wide and short (ASPECT) so his jumps and travel across the stage stay inside it.
 const SIZES = { Small: 243, Medium: 343, Large: 471 };
 const ASPECT = 1.54;

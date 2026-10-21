@@ -106,6 +106,29 @@
   const fromEntries = (entries) => entries.flatMap(({ n, eyes = "open", arms = "down", ...rest }) =>
     Array.from({ length: n }, () => ({ pose: mood(eyes, arms), offset: 0, x: 0, guitar: 1, ...rest })));
 
+  // A flip: arms swing up, a crouch, one full turn in the air around his middle, a squashy landing and a ta-da.
+  // axis "flip" turns him head over heels (dir -1 backwards, 1 forwards) and "roll" sideways like a cartwheel;
+  // turnTo turns him away from the camera first so the flip reads clearly. height scales the jump: he is wider than
+  // he is tall, so the side flip stays lower to fit the view.
+  function flipMove(axis, dir, turnTo, label, height = 1) {
+    const air = [0.5, 0.85, 1, 1.05, 1, 0.8, 0.4];   // lift per frame in the air; the last frame completes the turn
+    return [
+      { pose: "default", offset: 0, x: 0, turnTo: turnTo / 2, label: "gets ready" },
+      { pose: mood("open", "up"), offset: 0, x: 0, turnTo, label: "gets ready" },
+      { pose: "default", offset: 1, x: 0, turnTo, poof: "dot", label: "crouches" },
+      { pose: "default", offset: 1, x: 0, turnTo, label: "crouches" },
+      ...air.map((lift, i) => ({
+        pose: mood(i > 1 && i < 5 ? "closed" : "open", "up"), offset: 0, x: 0, turnTo, lift: lift * height,
+        [axis]: (dir * 360 * (i + 1)) / air.length, label
+      })),
+      { pose: "default", offset: 1, x: 0, turnTo, poof: "wave", label: "lands" },
+      { pose: "default", offset: 1, x: 0, turnTo, label: "lands" },
+      { pose: mood("open", "up"), offset: 0, x: 0, turnTo: turnTo / 2, label: "ta-da" },
+      { pose: mood("open", "up"), offset: 0, x: 0, turnTo: 0, label: "ta-da" },
+      ...run("default", 2), ...BLINK
+    ];
+  }
+
   const MOVES = {
     jump: JUMP,
     look: [...run("look-right", 5), ...run("look-left", 5), ...run("default", 1)],
@@ -179,6 +202,9 @@
       ...turn(["back-125", "edge", "left-55"], "narrow"),
       ...run("arms-up", 1, { shadow: "wide" }), ...crouch(), REST
     ],
+    "back-flip": flipMove("flip", -1, -55, "backflip!"),
+    "front-flip": flipMove("flip", 1, 85, "front flip!"),
+    "side-flip": flipMove("roll", 1, 0, "side flip!", 0.8),
     // Rebuilt from a recording of the Claude app: a look, a ring of code, then Clawd turns to a laptop and types.
     laptop: [
       ...run("look-right", 4),
@@ -206,7 +232,7 @@
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
-  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode"];
+  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode", "back-flip", "front-flip", "side-flip"];
   const ALL = Object.keys(MOVES);
 
   // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
@@ -258,7 +284,8 @@
 
   // Camera framing per mode: "stage" shows the whole floor strip; "pet" frames Clawd alone for a small corner window.
   const FRAMING = {
-    stage: { target: [-3, 6, 0], theta: 0.38, phi: 1.36, halfH: 12, halfW: 23 },
+    // Headroom above him for the flips; the floor stays where it was.
+    stage: { target: [-3, 7, 0], theta: 0.38, phi: 1.36, halfH: 13, halfW: 23 },
     // Room for the guitar routine's travel (about 7 units each way) and leaps (about 6 units up) around him.
     pet: { target: [0, 9, 0], theta: 0.3, phi: 1.42, halfH: 13, halfW: 20 }
   };
@@ -719,13 +746,15 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
       const p = typeof f.pose === "string" ? POSES[f.pose] : f.pose.facing ? POSES.default : f.pose;
       goal.x = (f.x || 0) * COL;
       goal.ry = f.angle * Math.PI / 180;
+      goal.flip = (f.flip || 0) * Math.PI / 180;
+      goal.roll = (f.roll || 0) * Math.PI / 180;
       goal.crouch = f.offset === 1 ? 1 : f.squat || 0;   // a squat bends the legs but keeps them in view
       let y = 0;
       if (f.offset >= 2) y = -SINK[Math.min(f.offset, 3)];
@@ -966,6 +995,8 @@
     setMode(mode);
 
     // ---- Loop ----
+    const FLIP_MIDDLE = new THREE.Vector3(0, LEG_H + BODY_H / 2, 0), UP = new THREE.Vector3(0, 1, 0);
+    const flipShift = new THREE.Vector3(), flipTurn = new THREE.Euler();
     let last = performance.now();
     function update(dt) {
       clock += dt;
@@ -982,12 +1013,15 @@
 
       const k = 1 - Math.exp(-dt / 0.045);
       for (const prop of Object.keys(state)) {
-        if (prop === "ry") state.ry += wrap(goal.ry - state.ry) * k;
+        if (prop === "ry" || prop === "flip" || prop === "roll") state[prop] += wrap(goal[prop] - state[prop]) * k;
         else state[prop] += (goal[prop] - state[prop]) * k;
       }
 
-      root.position.set(state.x, state.y, 0);
-      root.rotation.set(0, state.ry, state.lean);
+      // Flips turn him around his middle, not his feet: shift him back by however far the turn moves his middle.
+      flipTurn.set(state.flip, 0, state.roll);
+      flipShift.copy(FLIP_MIDDLE).applyEuler(flipTurn).sub(FLIP_MIDDLE).negate().applyAxisAngle(UP, state.ry);
+      root.position.set(state.x + flipShift.x, state.y + flipShift.y, flipShift.z);
+      root.rotation.set(state.flip, state.ry, state.lean + state.roll, "YXZ");
       const legScale = 1 - 0.85 * state.crouch;
       body.position.y = LEG_H * legScale + state.type * 0.25 * (1 - Math.abs(Math.sin(clock * 42)));   // dips into each keystroke
       body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
