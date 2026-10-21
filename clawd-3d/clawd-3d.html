@@ -537,40 +537,56 @@
   }
   drawScreen(0);
 
-  // A ring of code that ripples out from Clawd across the stage.
+  // Code that floods out from Clawd, as in the Claude app: a growing disc of text rows with a bright, crisp
+  // leading edge and dimmer characters behind it; once it covers the stage it holds, then fades out together.
   const fx = document.getElementById("fx");
   const fctx = fx.getContext("2d");
   const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   const hash = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+  const RING = { grow: 0.9, hold: 0.35, fade: 1.0, edge: 46, inside: 0.32 };
   let ripple = null, codeColor = "#0e7486";
   function startRipple() {
     const p = new THREE.Vector3(root.position.x, 6, 0).project(camera);
     ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height };
   }
+  function glyphAt(i, j, t) {
+    // Rows read like lines of code: runs of characters broken by spaces, each cell changing now and then.
+    if (hash(Math.floor(i / 5), j, 9) < 0.18 || hash(i, j, 3) < 0.12) return null;
+    const k = Math.floor((t + hash(i, j, 1) * 0.6) / 0.35);
+    return GLYPHS[Math.floor(hash(i, j, k + 17) * 997) % GLYPHS.length];
+  }
   function drawRipple(dt) {
     if (!ripple) return;
     const s = fx.width / Math.max(1, stage.clientWidth);
     ripple.t += dt;
-    const R = ripple.t * 900 * s, band = 240 * s, cw = 9 * s, ch = 15 * s;
+    const t = ripple.t;
     fctx.clearRect(0, 0, fx.width, fx.height);
     const far = Math.hypot(Math.max(ripple.x, fx.width - ripple.x), Math.max(ripple.y, fx.height - ripple.y));
-    if (R - band > far) { ripple = null; return; }
-    fctx.font = `600 ${12 * s}px "Martian Mono", Menlo, Consolas, monospace`;
+    const R = far * Math.min(1, Math.pow(t / RING.grow, 0.85)) + RING.edge * s;
+    const fade = 1 - clamp((t - RING.grow - RING.hold) / RING.fade, 0, 1);
+    if (fade <= 0) { ripple = null; return; }
+    const edge = RING.edge * s, cw = 8.5 * s, ch = 13 * s;
+    const cols = Math.ceil(fx.width / cw), rows = Math.ceil(fx.height / ch);
     fctx.fillStyle = codeColor;
     fctx.textAlign = "center";
     fctx.textBaseline = "middle";
-    const tick = Math.floor(ripple.t / 0.06);
-    const cols = Math.ceil(fx.width / cw), rows = Math.ceil(fx.height / ch);
-    for (let j = 0; j < rows; j++) {
-      const y = (j + 0.5) * ch, dy = y - ripple.y;
-      if (Math.abs(dy) > R) continue;
-      for (let i = 0; i < cols; i++) {
-        const x = (i + 0.5) * cw, d = Math.hypot(x - ripple.x, dy);
-        if (d > R || d < R - band) continue;
-        const h = hash(i, j, tick);
-        if (h < 0.25) continue;
-        fctx.globalAlpha = Math.pow(1 - (R - d) / band, 1.6);
-        fctx.fillText(GLYPHS[Math.floor(h * 997) % GLYPHS.length], x, y);
+    // Two passes so each needs only one font: the dim fill behind the edge, then the bold edge itself.
+    for (const rim of [false, true]) {
+      fctx.font = `${rim ? 700 : 500} ${11 * s}px "Martian Mono", Menlo, Consolas, monospace`;
+      for (let j = 0; j < rows; j++) {
+        const y = (j + 0.5) * ch, dy = y - ripple.y;
+        if (Math.abs(dy) > R) continue;
+        for (let i = 0; i < cols; i++) {
+          const x = (i + 0.5) * cw, d = Math.hypot(x - ripple.x, dy);
+          if (d > R) continue;
+          const onEdge = d > R - edge && R < far + edge;
+          if (onEdge !== rim) continue;
+          const g = glyphAt(i, j, t);
+          if (!g) continue;
+          const shade = 0.55 + 0.45 * hash(i, j, 5);
+          fctx.globalAlpha = fade * shade * (rim ? 1 : RING.inside);
+          fctx.fillText(g, x, y);
+        }
       }
     }
     fctx.globalAlpha = 1;
