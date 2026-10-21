@@ -833,7 +833,7 @@
     root.position.set(state.x, state.y, 0);
     root.rotation.y = state.ry;
     const legScale = 1 - 0.85 * state.crouch;
-    body.position.y = LEG_H * legScale + state.type * 0.25 * (1 - Math.abs(Math.sin(clock * 18)));   // dips into each keystroke
+    body.position.y = LEG_H * legScale + state.type * 0.25 * (1 - Math.abs(Math.sin(clock * 30)));   // dips into each keystroke
     body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
     legs.forEach((leg) => {
       leg.scale.y = legScale;
@@ -844,8 +844,8 @@
     // the hands move only by sliding, down onto the keys in turn and a little side to side.
     arms.forEach((arm, i) => {
       const side = i ? 1 : -1;
-      const press = Math.max(0, Math.sin(clock * 18 + i * Math.PI));
-      const slide = Math.sin(clock * 4 + i * 2.1);
+      const press = Math.max(0, Math.sin(clock * 30 + i * Math.PI));
+      const slide = Math.sin(clock * 5.3 + i * 2.1);
       arm.position.x = side * (BODY_W / 2 - 2.6 * state.type) + state.type * 0.8 * slide;
       arm.position.y = BODY_H * 0.5 - state.type * (BODY_H * 0.5 - 1.9) - state.type * 0.75 * press;   // lifts high, comes down onto the keys
       arm.position.z = state.type * (DEPTH / 2 - 0.1);
