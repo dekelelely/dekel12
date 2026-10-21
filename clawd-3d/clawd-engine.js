@@ -205,6 +205,29 @@
     "back-flip": flipMove("flip", -1, -55, "backflip!"),
     "front-flip": flipMove("flip", 1, 85, "front flip!"),
     "side-flip": flipMove("roll", 1, 0, "side flip!", 0.8),
+    // Dumbbell curls: he squats to pick up two dumbbells, curls them one arm at a time with his eyes shut at the top
+    // of each rep, does a last curl with both, holds it with a wink, and drops them with a thud.
+    "dumbbell-curl": [
+      { pose: "default", offset: 0, x: 0, squat: 0.5, dumbbell: 0.5, label: "picks up dumbbells" },
+      { pose: "default", offset: 0, x: 0, squat: 0.5, dumbbell: 1, label: "picks up dumbbells" },
+      { pose: "default", offset: 0, x: 0, dumbbell: 1, label: "picks up dumbbells" },
+      ...["curlR", "curlL", "curlR", "curlL", "curlR", "curlL"].flatMap((arm) => {
+        const lean = arm === "curlR" ? -0.05 : 0.05;
+        return [
+          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, [arm]: 0.5, lean, label: "curls" },
+          { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, [arm]: 1, lean, label: "curls" },
+          { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, [arm]: 1, lean, label: "curls" },
+          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, [arm]: 0.4, label: "curls" },
+          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, label: "curls" }
+        ];
+      }),
+      { pose: mood("open"), offset: 0, x: 0, squat: 0.15, dumbbell: 1, curlL: 0.5, curlR: 0.5, label: "curls both" },
+      { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, curlL: 1, curlR: 1, label: "curls both" },
+      ...Array.from({ length: 3 }, () => ({ pose: mood("wink"), offset: 0, x: 0, dumbbell: 1, curlL: 1, curlR: 1, label: "holds it" })),
+      { pose: "default", offset: 0, x: 0, squat: 0.3, dumbbell: 1, label: "drops them" },
+      { pose: "default", offset: 1, x: 0, dumbbell: 0, poof: "dot", label: "drops them" },
+      ...run("default", 2), ...BLINK
+    ],
     // Rebuilt from a recording of the Claude app: a look, a ring of code, then Clawd turns to a laptop and types.
     laptop: [
       ...run("look-right", 4),
@@ -232,7 +255,7 @@
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
-  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode", "back-flip", "front-flip", "side-flip"];
+  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode", "back-flip", "front-flip", "side-flip", "dumbbell-curl"];
   const ALL = Object.keys(MOVES);
 
   // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
@@ -469,6 +492,20 @@
     body.add(guitarPivot);
     // A point along the guitar (distance from the body's centre toward the headstock) in body coordinates.
     const onGuitar = (d) => [GUITAR_AT.x + d * Math.cos(GUITAR_AT.tilt), GUITAR_AT.y + d * Math.sin(GUITAR_AT.tilt)];
+
+    // ---- Dumbbells for the curls: one in each fist, the bar running front to back with an iron plate at each end ----
+    const ironMat = new THREE.MeshStandardMaterial({ color: lin("#4a505a"), roughness: 0.5, metalness: 0.3, clippingPlanes: floorClip });
+    const barMat = new THREE.MeshStandardMaterial({ color: lin("#d3d7de"), roughness: 0.3, metalness: 0.6, clippingPlanes: floorClip });
+    const dumbbells = arms.map((arm, i) => {
+      const side = i ? 1 : -1;
+      const d = new THREE.Group();
+      d.position.set(side * (ARM_LEN + 0.1), 0, 0);   // in his fist, just past the end of the arm
+      d.add(part(0.7, 0.7, 5.4, barMat, 0, 0, 0));
+      for (const z of [-2.05, 2.05]) d.add(part(2.5, 2.5, 0.9, ironMat, 0, 0, z), part(1.5, 1.5, 0.35, barMat, 0, 0, z + Math.sign(z) * 0.6));
+      d.visible = false;
+      arm.add(d);
+      return d;
+    });
 
     // Yellow lightning bits that crackle off the strings.
     const zapMats = [lin("#ffd23f"), lin("#ffe680")].map((color) => new THREE.MeshBasicMaterial({ color }));
@@ -746,7 +783,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -781,6 +818,9 @@
       goal.lean = f.lean || 0;
       goal.kick = f.kick || 0;
       goal.windmill = f.windmill ? 1 : 0;
+      goal.dumbbell = f.dumbbell || 0;
+      goal.curlL = f.curlL || 0;
+      goal.curlR = f.curlR || 0;
       zapping = !!f.zap;
       // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
       if (ultra && seqName === "idle") {
@@ -794,7 +834,7 @@
 
     // ---- Playback ----
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
-    let auto = false, autoNext = 0;
+    let auto = false;
     // Pet mode loops on its own: a random move AMBIENT_GAP seconds after the last one ends. Tapping takes over,
     // and the loop picks up again once he has finished and AMBIENT_GAP seconds have passed since the last tap.
     let ambient = false, nextAmbient = 0, lastTapAt = -Infinity;
@@ -828,10 +868,9 @@
     const pickOther = (list) => pick(list.filter((name) => name !== seqName));
     function scheduleAmbient() { nextAmbient = clock + AMBIENT_GAP; }
     function finished() {
-      if (seqName === "idle" && auto) {
-        play(ALL[autoNext]);
-        autoNext = (autoNext + 1) % ALL.length;
-      } else {
+      // Auto-play: a random move straight after each one ends, never the same one twice in a row.
+      if (auto) play(pickOther(ALL));
+      else {
         if (seqName !== "idle") scheduleAmbient();   // a move just ended: the next random one is due in 5 s
         play("idle");
       }
@@ -839,6 +878,7 @@
     function setAuto(value) {
       auto = !!value;
       on("onAuto", auto);
+      if (auto && seqName === "idle") play(pickOther(ALL));
     }
     // Switching to ultra effort starts the guitar move right away, like changing the setting in Claude Code.
     function setUltra(value) {
@@ -1079,6 +1119,19 @@
           arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * hold;
           arm.rotation.z *= 1 - hold;
         }
+        // Dumbbell curls: each arm swings a weight from beside his hip up to beside his head, out at his side where
+        // the curl reads from the front.
+        const grip = clamp(state.dumbbell * 1.5 - 0.3, 0, 1);
+        if (grip > 0) {
+          const curl = i ? state.curlR : state.curlL;   // 0 hanging down, 1 curled up
+          arm.rotation.z += (side * (-1.2 + 2.45 * curl) - arm.rotation.z) * grip;
+          arm.rotation.y += (-side * 0.3 - arm.rotation.y) * grip;
+        }
+      });
+      const dShown = clamp(state.dumbbell * 2, 0, 1);
+      dumbbells.forEach((d) => {
+        d.visible = dShown > 0.01;
+        d.scale.setScalar(Math.max(dShown, 0.001));
       });
       const gShown = clamp(state.guitar * 2, 0, 1);
       guitarPivot.visible = gShown > 0.01;

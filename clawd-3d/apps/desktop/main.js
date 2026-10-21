@@ -5,7 +5,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, dia
 const path = require("path");
 const fs = require("fs");
 
-const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "back-flip", "front-flip", "side-flip", "laptop", "ultracode"];
+const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "back-flip", "front-flip", "side-flip", "dumbbell-curl", "laptop", "ultracode"];
 // Floating window widths; the window is wide and short (ASPECT) so his jumps and travel across the stage stay inside it.
 const SIZES = { Small: 243, Medium: 343, Large: 471 };
 const ASPECT = 1.54;
@@ -256,7 +256,7 @@ function menuTemplate() {
     { label: petWin ? "Hide floating Clawd" : "Float on screen", click: () => (petWin ? stopFloating() : startFloating()) },
     { type: "separator" },
     { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => moveTarget() && moveTarget().webContents.send("play", name) })) },
-    { label: "Auto-play every move", type: "checkbox", checked: autoOn, click: (item) => moveTarget() && moveTarget().webContents.send("auto", item.checked) },
+    { label: "Auto-play random moves", type: "checkbox", checked: autoOn, click: (item) => moveTarget() && moveTarget().webContents.send("auto", item.checked) },
     { label: "Ultra effort (electric guitar)", type: "checkbox", checked: ultraOn, click: (item) => sendAll("ultra", item.checked) },
     { type: "separator" },
     { label: "Floating size", submenu: Object.keys(SIZES).map((name) => ({ label: name, type: "radio", checked: settings.size === name, click: () => setSize(name) })) },
