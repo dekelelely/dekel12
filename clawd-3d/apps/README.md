@@ -13,7 +13,7 @@ The apps aren't code-signed, so Windows SmartScreen asks before the first run (*
 
 ## Windows
 
-Clawd stands on the taskbar in the bottom-right corner, always on top, with no window around him. Clicks pass through to whatever is behind him except on Clawd himself.
+Clawd stands on the taskbar in the bottom-right corner, always on top, with no window around him. His invisible window is wide enough for his jumps and travel, and clicks pass through it to whatever is behind him except on Clawd himself.
 
 | | |
 |---|---|
@@ -26,7 +26,7 @@ Every so often he plays a move on his own. Turn on **Ultra effort (electric guit
 
 ## Android
 
-Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats in a small bubble over your other apps.
+Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. Touches pass through the space around him to the app below; only Clawd himself takes taps. On Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through.
 
 | | |
 |---|---|

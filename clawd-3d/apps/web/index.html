@@ -213,6 +213,16 @@
     desk.onMode(applyMode);
   }
 
+  // Android bubble: the window that draws Clawd lets touches through to the apps below, and a small native touch pad
+  // follows him instead. Tell it where he is, and let it pass taps back.
+  if (droid && mode === "pet" && droid.setHitRect) {
+    window.clawdPet = { tap: () => clawd.tap() };
+    setInterval(() => {
+      const r = clawd.screenRect();
+      if (r) droid.setHitRect(r.x, r.y, r.w, r.h);
+    }, 150);
+  }
+
   applyMode(mode);
   if (savedUltra) clawd.setUltra(true);
   else if (reduceMotion) clawd.play("idle", { snap: true });

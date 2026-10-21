@@ -121,5 +121,10 @@ public class MainActivity extends Activity {
         public void openApp() {
             // Already open.
         }
+
+        @JavascriptInterface
+        public void setHitRect(float x, float y, float w, float h) {
+            // Only the bubble has a touch pad.
+        }
     }
 }

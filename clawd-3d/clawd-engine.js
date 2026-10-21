@@ -259,7 +259,8 @@
   // Camera framing per mode: "stage" shows the whole floor strip; "pet" frames Clawd alone for a small corner window.
   const FRAMING = {
     stage: { target: [-3, 6, 0], theta: 0.38, phi: 1.36, halfH: 12, halfW: 23 },
-    pet: { target: [0, 6.8, 0], theta: 0.3, phi: 1.42, halfH: 10.5, halfW: 14 }
+    // Room for the guitar routine's travel (about 7 units each way) and leaps (about 6 units up) around him.
+    pet: { target: [0, 9, 0], theta: 0.3, phi: 1.42, halfH: 13, halfW: 20 }
   };
 
   // create({ stage, canvas, fx, mode, on... }) builds the scene in `canvas` (sized to `stage`) and returns a controller,
@@ -922,6 +923,23 @@
     canvas.addEventListener("pointercancel", (e) => endDrag(e, true));
     canvas.addEventListener("pointerleave", () => { if (!drag) setHover(false); });
 
+    // Where Clawd's body is on screen, in CSS pixels (for the Android bubble's touch pad).
+    const bounds = new THREE.Box3(), corner = new THREE.Vector3();
+    function screenRect() {
+      bounds.makeEmpty();
+      for (const m of pickable) bounds.expandByObject(m);
+      if (bounds.isEmpty()) return null;
+      const w = stage.clientWidth, h = stage.clientHeight;
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = 0; i < 8; i++) {
+        corner.set(i & 1 ? bounds.max.x : bounds.min.x, i & 2 ? bounds.max.y : bounds.min.y, i & 4 ? bounds.max.z : bounds.min.z).project(camera);
+        const x = (corner.x + 1) / 2 * w, y = (1 - corner.y) / 2 * h;
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      x0 = clamp(x0, 0, w); x1 = clamp(x1, 0, w); y0 = clamp(y0, 0, h); y1 = clamp(y1, 0, h);
+      return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+    }
+
     function resize() {
       const w = stage.clientWidth, h = stage.clientHeight;
       if (!w || !h) return;
@@ -1108,6 +1126,8 @@
       get mode() { return mode; },
       setColors,
       playRandom: () => play(pick(ON_CLICK)),
+      tap: () => playClickMove(),
+      screenRect,
       entrance: (opts2) => play(pick(ENTRANCES), opts2)
     };
   }

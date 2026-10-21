@@ -5,7 +5,9 @@ const path = require("path");
 const fs = require("fs");
 
 const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "laptop", "ultracode"];
-const SIZES = { Small: 170, Medium: 240, Large: 330 };
+// Window widths; the window is wide and short (ASPECT) so his jumps and travel across the stage stay inside it.
+const SIZES = { Small: 243, Medium: 343, Large: 471 };
+const ASPECT = 1.54;
 const MARGIN = 12;
 
 let win = null;
@@ -27,7 +29,7 @@ function saveSettings() {
 
 function petSize() {
   const w = SIZES[settings.size];
-  return { width: w, height: Math.round(w * 0.92) };
+  return { width: w, height: Math.round(w / ASPECT) };
 }
 // Bottom-right of the screen's work area, so Clawd stands on the taskbar.
 function cornerBounds(display = screen.getPrimaryDisplay()) {
@@ -38,7 +40,13 @@ function cornerBounds(display = screen.getPrimaryDisplay()) {
 function savedBounds() {
   const { width, height } = petSize();
   if (settings.x === null || settings.y === null) return cornerBounds();
-  const b = { x: settings.x, y: settings.y, width, height };
+  // Keep the saved bottom-right corner if the window size changed since (a new version or another size).
+  const b = {
+    x: settings.x + (settings.width ? settings.width - width : 0),
+    y: settings.y + (settings.height ? settings.height - height : 0),
+    width,
+    height
+  };
   // Fall back to the corner if the saved spot is no longer on any screen.
   const d = screen.getDisplayMatching(b).workArea;
   const visible = b.x + width > d.x && b.x < d.x + d.width && b.y + height > d.y && b.y < d.y + d.height;
@@ -113,9 +121,8 @@ function setSize(name) {
 
 function rememberPosition() {
   if (!win || full) return;
-  const { x, y } = win.getBounds();
-  settings.x = x;
-  settings.y = y;
+  const { x, y, width, height } = win.getBounds();
+  Object.assign(settings, { x, y, width, height });
   saveSettings();
 }
 
