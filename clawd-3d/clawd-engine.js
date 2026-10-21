@@ -21,7 +21,11 @@
   const MOVES = {
     jump: JUMP,
     look: [...run("look-right", 5), ...run("look-left", 5), ...run("default", 1)],
-    celebrate: [...JUMP, ...run("default", 3, { offset: 1 })],
+    // Claude Code's celebrate is the jump plus a last crouch; here each hop also throws a burst of confetti.
+    celebrate: [
+      ...JUMP.map((f, i) => (f.pose === "arms-up" && JUMP[i - 1].offset === 1 ? { ...f, confetti: 34 } : { ...f })),
+      ...run("default", 3, { offset: 1 })
+    ],
     skip: [
       ...run("default", 1, { offset: 1, x: -9 }), ...run("arms-up", 2, { x: -6 }), ...run("default", 1, { x: -6 }),
       ...run("default", 1, { offset: 1, x: -6 }), ...run("arms-up", 2, { x: -3 }), ...run("default", 1, { x: -3 }),
@@ -376,6 +380,35 @@
       }
     }
 
+    // Confetti for celebrate: little coloured squares thrown up from over his head that flutter and spin down.
+    const confettiMats = ["#ffd23f", "#4cc9db", "#ff6fa8", "#a49cf0", "#7fe0a0", "#d77757"].map(
+      (hex) => new THREE.MeshBasicMaterial({ color: lin(hex), side: THREE.DoubleSide })
+    );
+    const confettiGeo = new THREE.BoxGeometry(0.6, 0.6, 0.06);
+    const confetti = Array.from({ length: 90 }, (_, i) => {
+      const m = new THREE.Mesh(confettiGeo, confettiMats[i % confettiMats.length]);
+      m.visible = false;
+      m.userData = { v: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0, phase: 0 };
+      scene.add(m);
+      return m;
+    });
+    function emitConfetti(count) {
+      let made = 0;
+      for (const m of confetti) {
+        if (m.visible) continue;
+        const d = m.userData;
+        m.position.set(root.position.x + (Math.random() - 0.5) * 6, root.position.y + 12, (Math.random() - 0.5) * 3);
+        d.v.set((Math.random() - 0.5) * 16, 5 + Math.random() * 6, (Math.random() - 0.5) * 8);   // peaks within the frame
+        d.spin.set(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 5);
+        d.life = 2 + Math.random() * 0.8;
+        d.phase = Math.random() * Math.PI * 2;
+        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        m.scale.setScalar(1);
+        m.visible = true;
+        if (++made === count) break;
+      }
+    }
+
     // A wall of pixel cells behind him: lavender blocks pulse outward from Clawd over deep purple, and flash on a chord.
     const WALL = { cols: 18, rows: 12, cell: 20, w: 36, h: 24 };
     const wallCanvas = document.createElement("canvas");
@@ -652,6 +685,7 @@
       if (f.ripple) { startRipple(); typeTarget = 0; }
       if (f.notes && idx % 3 === 0) addNote(f.notes);
       if (f.flash) { flash = 1; emitSparks(28, true); }
+      if (f.confetti) emitConfetti(f.confetti);
       if (f.typing) typeTarget = Math.min(SCREEN_TEXT.length, typeTarget + 4);
       if (f.laptop) drawScreen(typeTarget);
       on("onFrame", { name: seqName, index: idx, length: seq.length, frame: f });
@@ -902,6 +936,27 @@
         eye.position.y = eye.userData.home.y + state.eyeY - 0.45 * lid;
       });
 
+      for (const m of confetti) {
+        if (!m.visible) continue;
+        const d = m.userData;
+        d.life -= dt;
+        if (d.life <= 0) { m.visible = false; continue; }
+        d.v.y = Math.max(d.v.y - 16 * dt, -3.2);          // falls fast at first, then flutters down
+        d.v.x *= 1 - 1.2 * dt;
+        d.v.z *= 1 - 1.2 * dt;
+        m.position.addScaledVector(d.v, dt);
+        m.position.x += Math.sin(clock * 5 + d.phase) * 1.6 * dt;
+        if (m.position.y <= 0.05) {                          // settles on the floor
+          m.position.y = 0.05;
+          d.v.set(0, 0, 0);
+          d.spin.set(0, 0, 0);
+          m.rotation.x = -Math.PI / 2;
+        }
+        m.rotation.x += d.spin.x * dt;
+        m.rotation.y += d.spin.y * dt;
+        m.rotation.z += d.spin.z * dt;
+        m.scale.setScalar(Math.min(1, d.life * 2));
+      }
       for (const m of dust) {
         if (!m.visible) continue;
         const d = m.userData;
