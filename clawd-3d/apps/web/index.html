@@ -81,7 +81,6 @@
 <p class="hint" id="hint"></p>
 <div class="bar">
   <div class="chips" id="chips" role="group" aria-label="Moves"></div>
-  <button type="button" id="ultra" aria-pressed="false">Ultra effort</button>
   <button type="button" id="auto" aria-pressed="false">Auto-play</button>
   <button type="button" id="secondary" hidden></button>
   <button type="button" id="primary" class="main"></button>
@@ -103,10 +102,13 @@
   const E = window.ClawdEngine;
   const chips = document.getElementById("chips");
   const autoBtn = document.getElementById("auto");
-  const ultraBtn = document.getElementById("ultra");
-  // Ultra effort is remembered, so Clawd keeps his guitar after a restart (and the Android bubble picks it up).
+  // Ultra effort (the guitar between moves) is only switched from the Windows tray menu, which remembers it.
+  // Elsewhere the "ultracode" move plays the guitar once, and any setting saved by an older version is dropped.
   let savedUltra = false;
-  try { savedUltra = localStorage.getItem("clawd-ultra") === "1"; } catch (err) { /* storage unavailable */ }
+  try {
+    if (desk) savedUltra = localStorage.getItem("clawd-ultra") === "1";
+    else localStorage.removeItem("clawd-ultra");
+  } catch (err) { /* storage unavailable */ }
   const primary = document.getElementById("primary");
   const secondary = document.getElementById("secondary");
   const hint = document.getElementById("hint");
@@ -132,16 +134,23 @@
       if (desk) desk.reportAuto(on);
     },
     onUltra(on) {
-      ultraBtn.setAttribute("aria-pressed", String(on));
+      if (!desk) return;
       try { localStorage.setItem("clawd-ultra", on ? "1" : "0"); } catch (err) { /* storage unavailable */ }
-      if (desk) desk.reportUltra(on);
+      desk.reportUltra(on);
     },
     // Windows: the transparent window lets clicks through everywhere except over Clawd himself.
     onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
     onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
     onDragEnd() { if (desk) desk.dragEnd(); },
     onLongPress() { if (droid && mode === "pet") droid.openApp(); },
-    onDoubleClick() { if (desk) desk.setFullscreen(mode === "pet"); }
+    onDoubleClick() {
+      if (desk) desk.setFullscreen(mode === "pet");
+      // Android bubble: double-tap opens the fullscreen app and puts the bubble away.
+      else if (droid && mode === "pet") {
+        droid.openApp();
+        droid.stopBubble();
+      }
+    }
   });
   if (!clawd) {
     document.getElementById("fallback").hidden = false;
@@ -174,7 +183,6 @@
 
   buttons.forEach((b) => b.addEventListener("click", () => { clawd.setAuto(false); clawd.play(b.dataset.move); }));
   autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
-  ultraBtn.addEventListener("click", () => { clawd.setAuto(false); clawd.setUltra(!clawd.ultra); });
   primary.addEventListener("click", () => {
     if (platform === "electron") desk.setFullscreen(false);
     else if (platform === "android") {
@@ -185,7 +193,11 @@
     else document.documentElement.requestFullscreen().catch(() => {});
   });
   document.addEventListener("fullscreenchange", refreshControls);
-  document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshControls(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    refreshControls();
+    setTimeout(refreshControls, 600);   // the bubble may still be closing as the app comes back
+  });
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape" && desk && mode === "full") desk.setFullscreen(false);
   });

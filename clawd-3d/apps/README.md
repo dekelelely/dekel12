@@ -32,10 +32,13 @@ Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**,
 |---|---|
 | Tap Clawd | A random move |
 | Drag Clawd | Move the bubble |
-| Long-press Clawd | Open the fullscreen app |
+| Double-tap Clawd | Open the fullscreen app and hide the bubble |
+| Long-press Clawd | Open the fullscreen app, keeping the bubble |
 | Notification → **Hide Clawd**, or **Hide bubble** in the app | Remove the bubble |
 
-**Ultra effort** in the app gives Clawd an electric guitar; the bubble keeps it too the next time it starts.
+The **ultracode** button plays the electric-guitar routine once.
+
+Builds made after October 21, 2026 are all signed with the same key (`android/app/debug.keystore`), so a new APK installs over the previous one. If Android says "App not installed" when updating from an older build, uninstall Clawd once and install again.
 
 ## Building them yourself
 

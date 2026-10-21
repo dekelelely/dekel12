@@ -826,7 +826,7 @@
     const target = new THREE.Vector3();
     const view = { theta: 0, phi: 0, tTheta: 0, tPhi: 0, r: 60 };
     let mode = opts.mode === "pet" ? "pet" : "stage";
-    let drag = null, hovering = false, longTimer = 0;
+    let drag = null, hovering = false, longTimer = 0, lastTap = 0;
 
     function frameFor(m) {
       const fr = FRAMING[m];
@@ -903,7 +903,17 @@
       if (d.moved && mode === "pet") on("onDragEnd");
       if (!cancelled && !d.moved && !d.long) {
         toNdc(e);
-        if (hitsClawd()) playClickMove();
+        if (hitsClawd()) {
+          // A second tap within 350 ms is a double tap (works for touch and mouse alike).
+          const now = performance.now();
+          if (now - lastTap < 350) {
+            lastTap = 0;
+            on("onDoubleClick");
+          } else {
+            lastTap = now;
+            playClickMove();
+          }
+        }
       }
       toNdc(e);
       setHover(hitsClawd());
@@ -911,7 +921,6 @@
     canvas.addEventListener("pointerup", (e) => endDrag(e, false));
     canvas.addEventListener("pointercancel", (e) => endDrag(e, true));
     canvas.addEventListener("pointerleave", () => { if (!drag) setHover(false); });
-    canvas.addEventListener("dblclick", (e) => { toNdc(e); if (hitsClawd()) on("onDoubleClick"); });
 
     function resize() {
       const w = stage.clientWidth, h = stage.clientHeight;
