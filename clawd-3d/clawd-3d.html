@@ -19,6 +19,7 @@
     --floor: #b8bec6;
     --floor-dots: #8d949e;
     --dust: #a9b0ba;
+    --code: #0e7486;
     --f-display: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
     --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
@@ -26,14 +27,14 @@
     :root:not([data-theme="light"]) {
       --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
       --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
-      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c;
+      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
     --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
-    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c;
+    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
     color-scheme: dark;
   }
 
@@ -87,11 +88,15 @@
   .stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
   .stage canvas.over { cursor: pointer; }
   .stage canvas.dragging { cursor: grabbing; }
+  .stage canvas.fx { position: absolute; inset: 0; pointer-events: none; }
   .prompt {
     position: absolute;
-    left: 14px;
-    top: 12px;
+    left: 10px;
+    top: 8px;
     margin: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--stage-hi);
     font-family: var(--f-display);
     font-size: 13px;
     color: var(--muted);
@@ -210,6 +215,7 @@
 
   <section class="stage" id="stage" aria-label="3D scene">
     <canvas id="scene" role="img" aria-label="An animated 3D Clawd, an orange blocky creature with two square eyes, short arms and four legs"></canvas>
+    <canvas class="fx" id="fx" aria-hidden="true"></canvas>
     <p class="prompt" aria-live="polite">&gt; clawd <b id="move-name">idle</b><span class="caret" aria-hidden="true"></span></p>
     <p class="hint">Drag to orbit · click Clawd for a random move</p>
     <p class="fallback" id="fallback" hidden>This browser couldn't start WebGL, so the 3D scene can't run here.</p>
@@ -236,7 +242,7 @@
         <dt>x</dt><dd id="rd-x">0</dd>
       </dl>
       <div class="meter" aria-hidden="true"><i id="rd-meter"></i></div>
-      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. The 3D version eases between frames. Unofficial fan recreation.</p>
+      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. The laptop move isn't in that version; it's rebuilt from a screen recording of the Claude app, where clicking Clawd sends a ring of code across the screen while it types. The 3D version eases between frames. Unofficial fan recreation.</p>
     </section>
   </div>
 </main>
@@ -315,11 +321,22 @@
       ...turn(["right-55", "edge", "back-125", "back"], "narrow"),
       ...turn(["back-125", "edge", "left-55"], "narrow"),
       ...run("arms-up", 1, { shadow: "wide" }), ...crouch(), REST
+    ],
+    // Rebuilt from a recording of the Claude app: a look, a ring of code, then Clawd turns to a laptop and types.
+    laptop: [
+      ...run("look-right", 4),
+      { pose: mood("left"), offset: 0, x: 0, turnTo: -25, laptop: 0.35, ripple: true, label: "opens laptop" },
+      { pose: mood("left"), offset: 0, x: 0, turnTo: -45, laptop: 0.75, label: "opens laptop" },
+      { pose: mood("left"), offset: 1, x: 0, turnTo: -55, laptop: 1, label: "opens laptop" },
+      ...Array.from({ length: 36 }, () => ({ pose: mood("left"), offset: 1, x: 0, turnTo: -55, laptop: 1, typing: true, label: "types" })),
+      ...Array.from({ length: 2 }, () => ({ pose: mood("left"), offset: 1, x: 0, turnTo: -55, laptop: 0.4, label: "closes laptop" })),
+      { pose: "default", offset: 0, x: 0, turnTo: -20, label: "closes laptop" },
+      ...run("default", 2), ...BLINK
     ]
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
-  const ON_CLICK = ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0);
+  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop"];
   const ALL = Object.keys(MOVES);
 
   // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
@@ -336,7 +353,10 @@
     let prev = 0;
     let hopRun = 0;
     frames.forEach((f, i) => {
-      if (typeof f.pose === "object" && f.pose.facing) {
+      if (f.turnTo !== undefined) {
+        prev = 0;
+        f.angle = f.turnTo;
+      } else if (typeof f.pose === "object" && f.pose.facing) {
         const options = angleChoices(f.pose.facing);
         prev = options.find((a) => a >= prev) ?? options[options.length - 1];
         f.angle = prev;
@@ -462,6 +482,100 @@
     return pivot;
   });
 
+  // ---- Laptop for the laptop move: opens in front of Clawd, screen facing it ----
+  const LT = { W: 7, D: 5, BASE: 0.5, LID: 0.25 };
+  const laptopMat = new THREE.MeshStandardMaterial({ color: lin("#d5d8dd"), roughness: 0.45, metalness: 0.15, clippingPlanes: floorClip });
+  const keysMat = new THREE.MeshStandardMaterial({ color: lin("#3a3f46"), roughness: 0.8, clippingPlanes: floorClip });
+  const screenCanvas = document.createElement("canvas");
+  screenCanvas.width = 256;
+  screenCanvas.height = 176;
+  const screenCtx = screenCanvas.getContext("2d");
+  const screenTex = new THREE.CanvasTexture(screenCanvas);
+  screenTex.encoding = THREE.sRGBEncoding;
+
+  const laptop = new THREE.Group();
+  laptop.position.set(0, 0, DEPTH / 2 + 0.5 + LT.D / 2);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(LT.W, LT.BASE, LT.D), laptopMat);
+  base.position.y = LT.BASE / 2;
+  const keys = new THREE.Mesh(new THREE.BoxGeometry(LT.W - 1.2, 0.04, LT.D * 0.45), keysMat);
+  keys.position.set(0, LT.BASE + 0.02, LT.D * 0.12);
+  const hinge = new THREE.Group();
+  hinge.position.set(0, LT.BASE, LT.D / 2);
+  const lid = new THREE.Mesh(new THREE.BoxGeometry(LT.W, LT.LID, LT.D), laptopMat);
+  lid.position.set(0, LT.LID / 2, -LT.D / 2);
+  const screen = new THREE.Mesh(
+    new THREE.PlaneGeometry(LT.W - 0.7, LT.D - 0.7),
+    new THREE.MeshBasicMaterial({ map: screenTex, clippingPlanes: floorClip })
+  );
+  screen.rotation.set(Math.PI / 2, 0, Math.PI);   // faces Clawd once open, top edge at the lid's free end
+  screen.position.set(0, -0.01, -LT.D / 2);
+  for (const m of [base, lid]) { m.castShadow = true; m.receiveShadow = true; }
+  hinge.add(lid, screen);
+  laptop.add(base, keys, hinge);
+  laptop.visible = false;
+  root.add(laptop);
+
+  const SCREEN_TEXT = ["$ claude", "> fix the flaky test", "", "Reading tests/api.spec.ts", "Editing src/retry.ts", "  + await backoff(attempt)", "Running npm test", "  42 passed", "Done."].join("\n");
+  let typed = -1, typeTarget = 0;
+  function drawScreen(n) {
+    if (n === typed) return;
+    typed = n;
+    const c = screenCtx;
+    c.fillStyle = "#11181d";
+    c.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
+    c.font = "bold 15px Menlo, Consolas, monospace";
+    c.textBaseline = "top";
+    const lines = SCREEN_TEXT.slice(0, n).split("\n").slice(-9);
+    lines.forEach((line, i) => {
+      c.fillStyle = line.startsWith("  +") ? "#7fe0a0" : line.startsWith(">") ? "#e8a07f" : "#5fd3e4";
+      c.fillText(line, 12, 10 + i * 18);
+    });
+    const lastLine = lines[lines.length - 1] || "";
+    c.fillStyle = "#5fd3e4";
+    c.fillRect(12 + c.measureText(lastLine).width + 2, 10 + (lines.length - 1) * 18, 8, 15);
+    screenTex.needsUpdate = true;
+  }
+  drawScreen(0);
+
+  // A ring of code that ripples out from Clawd across the stage.
+  const fx = document.getElementById("fx");
+  const fctx = fx.getContext("2d");
+  const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+  const hash = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
+  let ripple = null, codeColor = "#0e7486";
+  function startRipple() {
+    const p = new THREE.Vector3(root.position.x, 6, 0).project(camera);
+    ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height };
+  }
+  function drawRipple(dt) {
+    if (!ripple) return;
+    const s = fx.width / Math.max(1, stage.clientWidth);
+    ripple.t += dt;
+    const R = ripple.t * 900 * s, band = 240 * s, cw = 9 * s, ch = 15 * s;
+    fctx.clearRect(0, 0, fx.width, fx.height);
+    const far = Math.hypot(Math.max(ripple.x, fx.width - ripple.x), Math.max(ripple.y, fx.height - ripple.y));
+    if (R - band > far) { ripple = null; return; }
+    fctx.font = `600 ${12 * s}px "Martian Mono", Menlo, Consolas, monospace`;
+    fctx.fillStyle = codeColor;
+    fctx.textAlign = "center";
+    fctx.textBaseline = "middle";
+    const tick = Math.floor(ripple.t / 0.06);
+    const cols = Math.ceil(fx.width / cw), rows = Math.ceil(fx.height / ch);
+    for (let j = 0; j < rows; j++) {
+      const y = (j + 0.5) * ch, dy = y - ripple.y;
+      if (Math.abs(dy) > R) continue;
+      for (let i = 0; i < cols; i++) {
+        const x = (i + 0.5) * cw, d = Math.hypot(x - ripple.x, dy);
+        if (d > R || d < R - band) continue;
+        const h = hash(i, j, tick);
+        if (h < 0.25) continue;
+        fctx.globalAlpha = Math.pow(1 - (R - d) / band, 1.6);
+        fctx.fillText(GLYPHS[Math.floor(h * 997) % GLYPHS.length], x, y);
+      }
+    }
+    fctx.globalAlpha = 1;
+  }
+
   // ---- Stage: a floor strip with the dotted line from the welcome screen ----
   const floorMat = new THREE.MeshStandardMaterial({ color: lin("#b8bec6"), roughness: 0.9 });
   const floor = new THREE.Mesh(new THREE.BoxGeometry(90, 0.8, 18), floorMat);
@@ -525,6 +639,7 @@
     floorMat.color.copy(lin(get("--floor", "#b8bec6")));
     dotMat.color.copy(lin(get("--floor-dots", "#8d949e")));
     dustMat.color.copy(lin(get("--dust", "#a9b0ba")));
+    codeColor = get("--code", "#0e7486");
   }
   applyTheme();
   matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
@@ -535,7 +650,7 @@
   const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
   const wrap = (a) => a - TAU * Math.round(a / TAU);
   const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-  const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1 };
+  const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0 };
   const goal = { ...state };
 
   function targetsFor(f) {
@@ -559,8 +674,11 @@
     goal.eyeY = p.eyes === "left" || p.eyes === "right" ? 0.8 : 0;
     goal.lidL = p.eyes === "closed" ? 1 : 0;
     goal.lidR = p.eyes === "closed" || p.eyes === "wink" ? 1 : 0;
+    goal.laptop = f.laptop || 0;
+    goal.type = f.typing ? 1 : 0;
   }
   function describe(f) {
+    if (f.label) return f.label;
     if (typeof f.pose === "string") return f.pose;
     if (f.pose.facing) return `turn ${f.pose.facing} (${Math.round(f.angle) % 360}°)`;
     const p = f.pose;
@@ -575,6 +693,9 @@
     const f = seq[idx];
     targetsFor(f);
     if (f.poof) puff(f.poof);
+    if (f.ripple) { startRipple(); typeTarget = 0; }
+    if (f.typing) typeTarget = Math.min(SCREEN_TEXT.length, typeTarget + 4);
+    if (f.laptop) drawScreen(typeTarget);
     rd.frame.textContent = `${idx + 1} / ${seq.length}`;
     rd.pose.textContent = describe(f);
     rd.offset.textContent = f.offset > 0 ? `${f.offset} below` : f.offset < 0 ? `${-f.offset} above` : "0";
@@ -663,6 +784,8 @@
     const w = stage.clientWidth, h = stage.clientHeight;
     if (!w || !h) return;
     renderer.setSize(w, h, false);
+    fx.width = Math.round(w * renderer.getPixelRatio());
+    fx.height = Math.round(h * renderer.getPixelRatio());
     camera.aspect = w / h;
     const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
     view.r = Math.max(12 / tanHalf, 23 / (tanHalf * camera.aspect));
@@ -674,7 +797,9 @@
 
   // ---- Loop ----
   let last = performance.now();
+  let clock = 0;
   function update(dt) {
+    clock += dt;
     acc += dt * 1000;
     while (acc >= FRAME_MS) {
       acc -= FRAME_MS;
@@ -692,14 +817,26 @@
     root.position.set(state.x, state.y, 0);
     root.rotation.y = state.ry;
     const legScale = 1 - 0.85 * state.crouch;
-    body.position.y = LEG_H * legScale;
+    body.position.y = LEG_H * legScale + state.type * 0.12 * Math.sin(clock * 28);
     body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
     legs.forEach((leg) => {
       leg.scale.y = legScale;
       leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR);
     });
-    arms[0].rotation.z = -state.armL;
-    arms[1].rotation.z = state.armR;
+    // Typing: arms swing forward over the keyboard and tap in turn.
+    const tap = state.type * 0.16 * Math.sin(clock * 32);
+    arms.forEach((arm, i) => {
+      const side = i ? 1 : -1;
+      arm.position.x = side * (BODY_W / 2 + 1.1 * state.type);
+      arm.position.z = state.type * DEPTH / 2;
+      arm.rotation.y = -side * Math.PI / 2 * state.type;
+      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 1.05) + tap;
+    });
+    const shown = clamp(state.laptop * 2.5, 0, 1);
+    laptop.visible = shown > 0.01;
+    laptop.scale.setScalar(Math.max(shown, 0.001));
+    hinge.rotation.x = clamp((state.laptop - 0.2) / 0.8, 0, 1) * THREE.MathUtils.degToRad(112);
+    drawRipple(dt);
     eyes.forEach((eye, i) => {
       const lid = i === 0 ? state.lidL : state.lidR;
       eye.scale.y = 1 - 0.82 * lid;
