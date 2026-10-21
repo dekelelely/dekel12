@@ -7,7 +7,9 @@ Clawd sits in the corner of your screen while you work, doing the same moves as 
 Every push that touches `clawd-3d/` builds both apps on GitHub (workflow `.github/workflows/clawd-apps.yml`) and publishes them as a release, version 1.*N* where *N* is the build number. Download from the repository's **Releases** page (the latest one), no GitHub login needed:
 
 - **Windows**: `Clawd-Setup-1.N.0.exe` installs Clawd and keeps it up to date; `Clawd-Portable-1.N.0.exe` runs without installing but can't update itself.
-- **Android**: `Clawd.apk`.
+- **Android**: `Clawd.apk`. This link always downloads the newest one: <https://github.com/dekelelely/dekel12/releases/latest/download/Clawd.apk>
+
+Download from **Releases** only. The **Actions** tab lists every build ever made, so a download from there is easily an old version. The update button at the top right of the app shows which version you have (**Up to date · 1.N**).
 
 The apps aren't code-signed, so Windows SmartScreen asks before the first run (**More info → Run anyway**) and Android asks you to allow installs from your browser or file manager.
 

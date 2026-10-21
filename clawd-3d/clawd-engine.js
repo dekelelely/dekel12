@@ -859,7 +859,7 @@
     const view = { theta: 0, phi: 0, tTheta: 0, tPhi: 0, r: 60 };
     let mode = opts.mode === "pet" ? "pet" : "stage";
     let drag = null, hovering = false, longTimer = 0, lastTap = 0, lastTapX = 0, lastTapY = 0, taps = 0, tapTimer = 0;
-    const MULTI_TAP_MS = 350;
+    const MULTI_TAP_MS = 400;   // the most time between taps of a double or triple tap
     // Right after a tap, the spot keeps taking clicks (pet mode on Windows) so a double tap lands even if the move it
     // started has carried him away.
     const tapping = () => performance.now() - lastTap < MULTI_TAP_MS;

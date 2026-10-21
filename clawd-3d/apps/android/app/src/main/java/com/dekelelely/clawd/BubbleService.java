@@ -65,6 +65,7 @@ public class BubbleService extends Service {
     private WindowManager.LayoutParams padParams;
     private float density;
     private boolean dragging;
+    private boolean holdPad;   // while a finger is down or taps are being counted, the pad stays put under it
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -187,11 +188,13 @@ public class BubbleService extends Service {
 
     /**
      * Touches on Clawd: a tap plays a move straight away; taps are then counted for a moment, and two mean "open the
-     * app and hide the bubble", three mean "close the app and the bubble". A long press opens the app; a drag moves
-     * both windows, using raw screen coordinates so moving the pad under the finger doesn't feed back into the drag.
+     * app and hide the bubble", three mean "close the app and the bubble". Meanwhile the pad stays where it is, though
+     * the move the first tap started may carry Clawd away, so the next taps land on it. A long press opens the app; a
+     * drag moves both windows, using raw screen coordinates so moving the pad under the finger doesn't feed back into
+     * the drag.
      */
     private class PadTouch implements View.OnTouchListener {
-        private static final int MULTI_TAP_MS = 320;   // the most time between taps of a double or triple tap
+        private static final int MULTI_TAP_MS = 400;   // the most time between taps of a double or triple tap
         private final int slop = ViewConfiguration.get(BubbleService.this).getScaledTouchSlop();
         private float downX, downY;
         private int stageX, stageY, padX, padY;
@@ -203,6 +206,7 @@ public class BubbleService extends Service {
             openApp();
         };
         private final Runnable settleTaps = () -> {
+            holdPad = false;
             if (taps == 2) {
                 openApp();
                 stopSelf();
@@ -224,6 +228,7 @@ public class BubbleService extends Service {
                     padY = padParams.y;
                     dragging = false;
                     longPressed = false;
+                    holdPad = true;
                     main.removeCallbacks(settleTaps);
                     main.postDelayed(longPress, ViewConfiguration.getLongPressTimeout());
                     return true;
@@ -249,6 +254,7 @@ public class BubbleService extends Service {
                     main.removeCallbacks(longPress);
                     if (dragging || longPressed) {
                         dragging = false;
+                        holdPad = false;
                         return true;
                     }
                     taps++;
@@ -258,6 +264,7 @@ public class BubbleService extends Service {
                 case MotionEvent.ACTION_CANCEL:
                     main.removeCallbacks(longPress);
                     dragging = false;
+                    if (taps == 0) holdPad = false;
                     return true;
                 default:
                     return true;
@@ -297,11 +304,17 @@ public class BubbleService extends Service {
             return true;
         }
 
+        /** Triple tap that landed on the stage rather than the pad: close the app and the bubble. */
+        @JavascriptInterface
+        public void closeAll() {
+            main.post(BubbleService.this::closeEverything);
+        }
+
         /** Where Clawd's body is in the page, in CSS pixels; the touch pad moves over it. */
         @JavascriptInterface
         public void setHitRect(float x, float y, float w, float h) {
             main.post(() -> {
-                if (pad == null || dragging) return;
+                if (pad == null || dragging || holdPad) return;
                 int margin = Math.round(10 * density);
                 int min = Math.round(56 * density);
                 int width = Math.max(min, Math.round(w * density) + 2 * margin);

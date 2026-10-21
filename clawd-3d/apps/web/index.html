@@ -186,7 +186,11 @@
         droid.stopBubble();
       }
     },
-    onTripleClick() { if (desk && mode === "pet") desk.quit(); }
+    onTripleClick() {
+      if (mode !== "pet") return;
+      if (desk) desk.quit();
+      else if (droid && droid.closeAll) droid.closeAll();
+    }
   });
   if (!clawd) {
     document.getElementById("fallback").hidden = false;
@@ -300,7 +304,7 @@
       downloading: `Downloading ${v}… ${update.percent || 0}%`,
       installing: `Installing ${v}…`,
       ready: `Restart to update to ${v}`,
-      error: "Update failed · try again",
+      error: `${shortVersion(update.current)} · update check failed, try again`.replace(/^ · /, ""),
       portable: "Get the latest version"
     }[update.state];
     updateBtn.hidden = !label;

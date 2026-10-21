@@ -43,6 +43,7 @@ jobs:
             clawd-3d/apps/desktop/dist/*.blockmap
             clawd-3d/apps/desktop/dist/latest.yml
           if-no-files-found: error
+          retention-days: 1   # only for the release job; downloads are on the Releases page
 
   android:
     runs-on: ubuntu-latest
@@ -73,6 +74,7 @@ jobs:
           name: Clawd-Android
           path: Clawd.apk
           if-no-files-found: error
+          retention-days: 1
 
   release:
     needs: [windows, android]
