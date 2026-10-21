@@ -642,7 +642,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -674,6 +674,7 @@
       if (f.fret !== undefined) goal.fret = f.fret;
       goal.lean = f.lean || 0;
       goal.kick = f.kick || 0;
+      goal.windmill = f.windmill ? 1 : 0;
       zapping = !!f.zap;
       // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
       if (ultra && seqName === "idle") {
@@ -901,9 +902,15 @@
           const [gx, gy] = i
             ? onGuitar(3 + 4 * clamp(state.fret + (zapping ? 0.08 * Math.sin(clock * 9) : 0), 0, 1))
             : onGuitar(-0.3);
-          const strumY = i ? 0 : state.strum * 0.9 * Math.sin(clock * 24);
-          arm.position.x += (gx - arm.position.x) * hold;
-          arm.position.y += (gy + strumY - arm.position.y) * hold;
+          let tx = gx, ty = gy + (i ? 0 : state.strum * 0.9 * Math.sin(clock * 24));
+          if (!i && state.windmill > 0.01) {
+            // Windmill: the strumming hand swings in a big circle, high over the strings and back down.
+            const a = clock * 13;
+            tx += state.windmill * (2.6 * Math.cos(a) - 0.6);
+            ty += state.windmill * (3.2 + 3.2 * Math.sin(a));
+          }
+          arm.position.x += (tx - arm.position.x) * hold;
+          arm.position.y += (ty - arm.position.y) * hold;
           arm.position.z += (DEPTH / 2 - 0.3 - arm.position.z) * hold;
           arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * hold;
           arm.rotation.z *= 1 - hold;
