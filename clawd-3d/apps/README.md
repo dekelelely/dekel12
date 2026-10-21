@@ -26,7 +26,9 @@ Every so often he plays a move on his own. Turn on **Ultra effort (electric guit
 
 ## Android
 
-Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. Touches pass through the space around him to the app below; only Clawd himself takes taps. On Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through.
+Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one.
+
+**Taps through** in the app decides what happens to taps on the space just around him. Off (the default): he is drawn in full colour, and that space takes your taps. On: taps there go to the app below, but on Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through. Either way, taps on Clawd himself are his.
 
 | | |
 |---|---|

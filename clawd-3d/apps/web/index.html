@@ -82,6 +82,7 @@
 <div class="bar">
   <div class="chips" id="chips" role="group" aria-label="Moves"></div>
   <button type="button" id="auto" aria-pressed="false">Auto-play</button>
+  <button type="button" id="through" aria-pressed="false" hidden>Taps through</button>
   <button type="button" id="secondary" hidden></button>
   <button type="button" id="primary" class="main"></button>
 </div>
@@ -111,6 +112,8 @@
   } catch (err) { /* storage unavailable */ }
   const primary = document.getElementById("primary");
   const secondary = document.getElementById("secondary");
+  const through = document.getElementById("through");
+  let picked = "";   // the move last picked here; the Android bubble opens with it
   const hint = document.getElementById("hint");
 
   const buttons = (E ? E.ALL : []).map((name) => {
@@ -166,6 +169,8 @@
     } else if (platform === "android") {
       const floating = droid.bubbleRunning();
       primary.textContent = floating ? "Hide bubble" : "Float on screen";
+      through.hidden = false;
+      through.setAttribute("aria-pressed", String(droid.touchThrough()));
       hint.textContent = "Drag to turn · tap Clawd for a move · “Float on screen” puts him over your other apps";
     } else {
       primary.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
@@ -181,13 +186,22 @@
     refreshControls();
   }
 
-  buttons.forEach((b) => b.addEventListener("click", () => { clawd.setAuto(false); clawd.play(b.dataset.move); }));
+  buttons.forEach((b) => b.addEventListener("click", () => {
+    picked = b.dataset.move;
+    clawd.setAuto(false);
+    clawd.play(b.dataset.move);
+  }));
+  // Android: let taps through the space around the bubble (Clawd slightly see-through) or not (full colour).
+  through.addEventListener("click", () => {
+    droid.setTouchThrough(!droid.touchThrough());
+    refreshControls();
+  });
   autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
   primary.addEventListener("click", () => {
     if (platform === "electron") desk.setFullscreen(false);
     else if (platform === "android") {
       if (droid.bubbleRunning()) droid.stopBubble();
-      else droid.startBubble();
+      else droid.startBubble(picked);
       setTimeout(refreshControls, 400);
     } else if (document.fullscreenElement) document.exitFullscreen();
     else document.documentElement.requestFullscreen().catch(() => {});
@@ -216,7 +230,10 @@
   // Android bubble: the window that draws Clawd lets touches through to the apps below, and a small native touch pad
   // follows him instead. Tell it where he is, and let it pass taps back.
   if (droid && mode === "pet" && droid.setHitRect) {
-    window.clawdPet = { tap: () => clawd.tap() };
+    window.clawdPet = {
+      tap: () => clawd.tap(),
+      play: (name) => { if (E.MOVES[name]) { clawd.setAuto(false); clawd.play(name); } }
+    };
     setInterval(() => {
       const r = clawd.screenRect();
       if (r) droid.setHitRect(r.x, r.y, r.w, r.h);
@@ -224,7 +241,10 @@
   }
 
   applyMode(mode);
+  // The bubble opens with the move picked in the app, if any; then random moves as usual.
+  const first = mode === "pet" ? params.get("first") : null;
   if (savedUltra) clawd.setUltra(true);
+  else if (first && E.MOVES[first]) clawd.play(first, { snap: true });
   else if (reduceMotion) clawd.play("idle", { snap: true });
   else clawd.entrance({ snap: true });
 })();

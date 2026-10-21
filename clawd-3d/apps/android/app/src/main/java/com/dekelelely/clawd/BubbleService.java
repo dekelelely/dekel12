@@ -6,6 +6,7 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.graphics.Color;
@@ -28,14 +29,33 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 
 /**
- * Clawd floating over other apps. Two windows: a large one that draws him, with room for his jumps and travel, which
- * lets touches through to the apps below; and a small invisible touch pad that the page keeps over his body.
+ * Clawd floating over other apps. Two windows: a large one that draws him, with room for his jumps and travel, and a
+ * small invisible touch pad that the page keeps over his body. With "taps through" on, the large window lets touches
+ * through to the apps below, which Android 12+ only allows at 80% opacity; with it off (the default) he is drawn in
+ * full colour and the large window takes the touches around him.
  * Tap him for a move, double-tap to open the app and hide the bubble, long-press to open the app, drag to move him.
  */
 public class BubbleService extends Service {
     static volatile boolean running = false;
     private static final String CHANNEL = "clawd";
     private static final String ACTION_STOP = "com.dekelelely.clawd.STOP";
+    static final String ACTION_SETTINGS = "com.dekelelely.clawd.SETTINGS";
+    static final String EXTRA_FIRST_MOVE = "firstMove";
+    private static final String PREFS = "clawd";
+    private static final String PREF_TOUCH_THROUGH = "touchThrough";
+
+    static boolean touchThrough(Context context) {
+        return context.getSharedPreferences(PREFS, MODE_PRIVATE).getBoolean(PREF_TOUCH_THROUGH, false);
+    }
+
+    static void setTouchThrough(Context context, boolean on) {
+        context.getSharedPreferences(PREFS, MODE_PRIVATE).edit().putBoolean(PREF_TOUCH_THROUGH, on).apply();
+    }
+
+    /** Move names are lowercase words joined by hyphens; anything else is ignored. */
+    private static String moveName(String name) {
+        return name != null && name.matches("[a-z]+(-[a-z]+)*") ? name : null;
+    }
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private WindowManager windowManager;
@@ -57,8 +77,20 @@ public class BubbleService extends Service {
             stopSelf();
             return START_NOT_STICKY;
         }
+        if (intent != null && ACTION_SETTINGS.equals(intent.getAction())) {
+            if (web != null) {
+                applyTouchThrough();
+                windowManager.updateViewLayout(web, stageParams);
+            }
+            return START_STICKY;
+        }
         startInForeground();
-        if (web == null) showBubble();
+        String first = moveName(intent == null ? null : intent.getStringExtra(EXTRA_FIRST_MOVE));
+        if (web == null) {
+            showBubble(first);
+        } else if (first != null) {
+            web.evaluateJavascript("window.clawdPet && window.clawdPet.play('" + first + "')", null);
+        }
         return START_STICKY;
     }
 
@@ -92,7 +124,7 @@ public class BubbleService extends Service {
     }
 
     @SuppressLint({"SetJavaScriptEnabled", "ClickableViewAccessibility"})
-    private void showBubble() {
+    private void showBubble(String first) {
         running = true;
         windowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         DisplayMetrics metrics = getResources().getDisplayMetrics();
@@ -101,17 +133,10 @@ public class BubbleService extends Service {
         // The stage: wide and short (the same shape as the page's pet camera), touches pass through it.
         int width = Math.round(214 * density);
         int height = Math.round(139 * density);
-        stageParams = overlay(width, height,
-                WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
-                        | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                        | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED);
+        stageParams = overlay(width, height, 0);
         stageParams.x = metrics.widthPixels - width;
         stageParams.y = metrics.heightPixels - height - Math.round(110 * density);
-        if (Build.VERSION.SDK_INT >= 31) {
-            // Android 12+ only lets touches through an overlay from another app at or below this opacity.
-            InputManager input = getSystemService(InputManager.class);
-            stageParams.alpha = input.getMaximumObscuringOpacityForTouch();
-        }
+        applyTouchThrough();
 
         web = new WebView(this);
         web.setBackgroundColor(Color.TRANSPARENT);
@@ -120,7 +145,7 @@ public class BubbleService extends Service {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         web.addJavascriptInterface(new Bridge(), "ClawdNative");
-        web.loadUrl("file:///android_asset/www/index.html#mode=pet&platform=android");
+        web.loadUrl("file:///android_asset/www/index.html#mode=pet&platform=android" + (first == null ? "" : "&first=" + first));
         windowManager.addView(web, stageParams);
 
         // The touch pad starts where he stands (bottom middle of the stage); the page then keeps it on him.
@@ -131,6 +156,21 @@ public class BubbleService extends Service {
         pad = new View(this);
         pad.setOnTouchListener(new PadTouch());
         windowManager.addView(pad, padParams);
+    }
+
+    /** Sets the stage window's flags and opacity from the "taps through" setting. */
+    private void applyTouchThrough() {
+        int flags = WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED;
+        stageParams.alpha = 1f;
+        if (touchThrough(this)) {
+            flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
+            if (Build.VERSION.SDK_INT >= 31) {
+                // Android 12+ only lets touches through an overlay from another app at or below this opacity.
+                InputManager input = getSystemService(InputManager.class);
+                stageParams.alpha = input.getMaximumObscuringOpacityForTouch();
+            }
+        }
+        stageParams.flags = flags;
     }
 
     private void openApp() {
@@ -233,8 +273,18 @@ public class BubbleService extends Service {
         }
 
         @JavascriptInterface
-        public void startBubble() {
+        public void startBubble(String first) {
             // Already floating.
+        }
+
+        @JavascriptInterface
+        public boolean touchThrough() {
+            return BubbleService.touchThrough(BubbleService.this);
+        }
+
+        @JavascriptInterface
+        public void setTouchThrough(boolean on) {
+            // Set from the app.
         }
 
         @JavascriptInterface

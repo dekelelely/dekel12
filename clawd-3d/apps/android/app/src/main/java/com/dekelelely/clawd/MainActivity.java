@@ -21,6 +21,7 @@ import android.widget.Toast;
 public class MainActivity extends Activity {
     private WebView web;
     private boolean bubbleAfterPermission = false;
+    private String firstMove = "";   // the move the person last picked in the app, played first by the bubble
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -74,7 +75,7 @@ public class MainActivity extends Activity {
             startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:" + getPackageName())));
             return;
         }
-        startForegroundService(new Intent(this, BubbleService.class));
+        startForegroundService(new Intent(this, BubbleService.class).putExtra(BubbleService.EXTRA_FIRST_MOVE, firstMove));
         moveTaskToBack(true);
     }
 
@@ -102,9 +103,29 @@ public class MainActivity extends Activity {
 
     /** Calls the page can make (window.ClawdNative). They arrive on a background thread. */
     private class Bridge {
+        /** first: a move to open with, or "" for a random one. */
         @JavascriptInterface
-        public void startBubble() {
-            runOnUiThread(MainActivity.this::startBubble);
+        public void startBubble(String first) {
+            runOnUiThread(() -> {
+                firstMove = first == null ? "" : first;
+                MainActivity.this.startBubble();
+            });
+        }
+
+        @JavascriptInterface
+        public boolean touchThrough() {
+            return BubbleService.touchThrough(MainActivity.this);
+        }
+
+        /** Taps pass through the space around the bubble (Clawd at 80% opacity on Android 12+), or not (full colour). */
+        @JavascriptInterface
+        public void setTouchThrough(boolean on) {
+            runOnUiThread(() -> {
+                BubbleService.setTouchThrough(MainActivity.this, on);
+                if (BubbleService.running) {
+                    startService(new Intent(MainActivity.this, BubbleService.class).setAction(BubbleService.ACTION_SETTINGS));
+                }
+            });
         }
 
         @JavascriptInterface
