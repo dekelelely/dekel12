@@ -294,7 +294,7 @@
   // or null when WebGL isn't available.
   //   mode: "stage" (floor strip, drag to orbit) or "pet" (no floor, just a shadow; drag reports onDrag in screen pixels)
   //   onMove(name), onFrame({ name, index, length, frame }), onAuto(on), onHover(overClawd),
-  //   onDrag(dx, dy), onDragEnd(), onLongPress(), onDoubleClick()
+  //   onDrag(dx, dy), onDragEnd(), onLongPress(), onDoubleClick(), onTripleClick()
   function create(opts) {
     const THREE = window.THREE;
     const { stage, canvas, fx } = opts;
@@ -858,7 +858,11 @@
     const target = new THREE.Vector3();
     const view = { theta: 0, phi: 0, tTheta: 0, tPhi: 0, r: 60 };
     let mode = opts.mode === "pet" ? "pet" : "stage";
-    let drag = null, hovering = false, longTimer = 0, lastTap = 0;
+    let drag = null, hovering = false, longTimer = 0, lastTap = 0, lastTapX = 0, lastTapY = 0, taps = 0, tapTimer = 0;
+    const MULTI_TAP_MS = 350;
+    // Right after a tap, the spot keeps taking clicks (pet mode on Windows) so a double tap lands even if the move it
+    // started has carried him away.
+    const tapping = () => performance.now() - lastTap < MULTI_TAP_MS;
 
     function frameFor(m) {
       const fr = FRAMING[m];
@@ -930,7 +934,7 @@
         drag.x = e.clientX;
         drag.y = e.clientY;
       } else {
-        setHover(hitsClawd());
+        setHover(hitsClawd() || tapping());
       }
     });
     function endDrag(e, cancelled) {
@@ -942,20 +946,31 @@
       if (d.moved && mode === "pet") on("onDragEnd");
       if (!cancelled && !d.moved && !d.long) {
         toNdc(e);
-        if (hitsClawd()) {
-          // A second tap within 350 ms is a double tap (works for touch and mouse alike).
-          const now = performance.now();
-          if (now - lastTap < 350) {
-            lastTap = 0;
-            on("onDoubleClick");
-          } else {
-            lastTap = now;
+        // The first tap on Clawd plays a move right away. Taps that follow within MULTI_TAP_MS, near the one before,
+        // are counted even if he has moved away; once they stop, two make a double tap and three or more a triple
+        // tap (touch and mouse alike).
+        const now = performance.now();
+        const followUp = tapping() && Math.hypot(e.clientX - lastTapX, e.clientY - lastTapY) < 40;
+        if (followUp || hitsClawd()) {
+          if (followUp) taps++;
+          else {
+            taps = 1;
             playClickMove();
           }
+          lastTap = now;
+          lastTapX = e.clientX;
+          lastTapY = e.clientY;
+          clearTimeout(tapTimer);
+          tapTimer = setTimeout(() => {
+            if (taps >= 3 && opts.onTripleClick) on("onTripleClick");
+            else if (taps >= 2) on("onDoubleClick");
+            taps = 0;
+            setHover(hitsClawd());
+          }, MULTI_TAP_MS);
         }
       }
       toNdc(e);
-      setHover(hitsClawd());
+      setHover(hitsClawd() || tapping());
     }
     canvas.addEventListener("pointerup", (e) => endDrag(e, false));
     canvas.addEventListener("pointercancel", (e) => endDrag(e, true));

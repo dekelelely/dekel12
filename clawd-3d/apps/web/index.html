@@ -136,7 +136,8 @@
   const primary = document.getElementById("primary");
   const secondary = document.getElementById("secondary");
   const through = document.getElementById("through");
-  let picked = "";   // the move last picked here; the Android bubble opens with it
+  let picked = "";   // the move last picked here; floating Clawd opens with it
+  let floating = false;   // Windows: whether Clawd is floating on the desktop (the app tells this page)
   const hint = document.getElementById("hint");
 
   const buttons = (E ? E.ALL : []).map((name) => {
@@ -168,15 +169,24 @@
     onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
     onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
     onDragEnd() { if (desk) desk.dragEnd(); },
-    onLongPress() { if (droid && mode === "pet") droid.openApp(); },
+    // Floating Clawd, on Windows as on Android (where the bubble's native touch pad does the same): long-press opens
+    // the app, double-tap opens the app and puts him away, triple-tap closes both.
+    onLongPress() {
+      if (mode !== "pet") return;
+      if (desk) desk.openApp();
+      else if (droid) droid.openApp();
+    },
     onDoubleClick() {
-      if (desk) desk.setFullscreen(mode === "pet");
-      // Android bubble: double-tap opens the fullscreen app and puts the bubble away.
-      else if (droid && mode === "pet") {
+      if (mode !== "pet") return;
+      if (desk) {
+        desk.openApp();
+        desk.stopFloating();
+      } else if (droid) {
         droid.openApp();
         droid.stopBubble();
       }
-    }
+    },
+    onTripleClick() { if (desk && mode === "pet") desk.quit(); }
   });
   if (!clawd) {
     document.getElementById("fallback").hidden = false;
@@ -187,8 +197,8 @@
   function refreshControls() {
     secondary.hidden = true;
     if (platform === "electron") {
-      primary.textContent = "Back to corner";
-      hint.textContent = "Esc or double-click Clawd to go back to the corner · drag to turn · click Clawd for a move";
+      primary.textContent = floating ? "Hide floating Clawd" : "Float on screen";
+      hint.textContent = "Drag to turn · click Clawd for a move · “Float on screen” puts him on your desktop";
     } else if (platform === "android") {
       const floating = droid.bubbleRunning();
       primary.textContent = floating ? "Hide bubble" : "Float on screen";
@@ -209,6 +219,12 @@
     refreshControls();
   }
 
+  // A mouse wheel scrolls the row of moves sideways (Windows; touch and touchpads already can).
+  chips.addEventListener("wheel", (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    chips.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
   buttons.forEach((b) => b.addEventListener("click", () => {
     picked = b.dataset.move;
     clawd.setAuto(false);
@@ -221,8 +237,10 @@
   });
   autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
   primary.addEventListener("click", () => {
-    if (platform === "electron") desk.setFullscreen(false);
-    else if (platform === "android") {
+    if (platform === "electron") {
+      if (floating) desk.stopFloating();
+      else desk.startFloating(picked);
+    } else if (platform === "android") {
       if (droid.bubbleRunning()) droid.stopBubble();
       else droid.startBubble(picked);
       setTimeout(refreshControls, 400);
@@ -235,9 +253,6 @@
     refreshControls();
     setTimeout(refreshControls, 600);   // the bubble may still be closing as the app comes back
   });
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape" && desk && mode === "full") desk.setFullscreen(false);
-  });
   document.addEventListener("contextmenu", (e) => {
     e.preventDefault();
     if (desk) desk.showMenu();
@@ -247,7 +262,10 @@
     desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
     desk.onAuto((on) => clawd.setAuto(on));
     desk.onUltra((on) => { clawd.setAuto(false); clawd.setUltra(on); });
-    desk.onMode(applyMode);
+    desk.onFloating((on) => {
+      floating = on;
+      refreshControls();
+    });
   }
 
   // Android bubble: the window that draws Clawd lets touches through to the apps below, and a small native touch pad

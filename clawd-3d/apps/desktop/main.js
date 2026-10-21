@@ -1,23 +1,26 @@
-// Clawd for Windows: a borderless, always-on-top window in the corner of the screen with Clawd in it.
-// Clicks pass through everywhere except Clawd himself. Tray icon and right-click menu for moves, size, fullscreen
-// and updates.
+// Clawd for Windows, built like the Android app: an app window with every move and a "Float on screen" button, and
+// floating Clawd, a borderless always-on-top window on the desktop whose clicks pass through everywhere except on
+// Clawd himself. A tray icon and right-click menu hold the moves, the floating size, start with Windows and updates.
 const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage, shell, dialog } = require("electron");
 const path = require("path");
 const fs = require("fs");
 
 const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "back-flip", "front-flip", "side-flip", "laptop", "ultracode"];
-// Window widths; the window is wide and short (ASPECT) so his jumps and travel across the stage stay inside it.
+// Floating window widths; the window is wide and short (ASPECT) so his jumps and travel across the stage stay inside it.
 const SIZES = { Small: 243, Medium: 343, Large: 471 };
 const ASPECT = 1.54;
 const MARGIN = 12;
+const AUTOSTART = "--autostart";   // how Windows starts Clawd at login: floating straight away, no app window
+const LOGIN_PATH = process.env.PORTABLE_EXECUTABLE_FILE || process.execPath;
+const PAGE = path.join(__dirname, "web", "index.html");
+const ICON = path.join(__dirname, "build", "icon.png");
 
-let win = null;
+let appWin = null;   // the app: every move, Auto-play, Float on screen, updates
+let petWin = null;   // floating Clawd
 let tray = null;
-let full = false;
-let petBounds = null;
 let autoOn = false;
 let ultraOn = false;
-let settings = { size: "Medium", x: null, y: null };
+let settings = { size: "Medium", x: null, y: null, app: null };
 const settingsFile = () => path.join(app.getPath("userData"), "settings.json");
 
 function loadSettings() {
@@ -27,7 +30,51 @@ function loadSettings() {
 function saveSettings() {
   try { fs.writeFileSync(settingsFile(), JSON.stringify(settings)); } catch (err) { /* not fatal */ }
 }
+const onScreen = (b) => {
+  const d = screen.getDisplayMatching(b).workArea;
+  return b.x + b.width > d.x && b.x < d.x + d.width && b.y + b.height > d.y && b.y < d.y + d.height;
+};
+const windows = () => [appWin, petWin].filter(Boolean);
+function sendAll(channel, ...args) {
+  for (const w of windows()) w.webContents.send(channel, ...args);
+}
 
+// ---- The app window ----
+function showApp() {
+  if (appWin) {
+    if (appWin.isMinimized()) appWin.restore();
+    appWin.show();
+    appWin.focus();
+    return;
+  }
+  const saved = settings.app;
+  const b = saved && onScreen(saved) ? saved : { width: 960, height: 620 };
+  appWin = new BrowserWindow({
+    ...b,
+    minWidth: 420,
+    minHeight: 360,
+    show: false,
+    backgroundColor: "#0d0f12",
+    title: "Clawd",
+    icon: ICON,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      contextIsolation: true,
+      nodeIntegration: false
+    }
+  });
+  if (saved && saved.maximized) appWin.maximize();
+  appWin.loadFile(PAGE, { hash: "mode=full&platform=electron" });
+  appWin.once("ready-to-show", () => appWin.show());
+  appWin.webContents.on("did-finish-load", () => sendState(appWin));
+  appWin.on("close", () => {
+    settings.app = { ...appWin.getNormalBounds(), maximized: appWin.isMaximized() };
+    saveSettings();
+  });
+  appWin.on("closed", () => { appWin = null; });
+}
+
+// ---- Floating Clawd ----
 function petSize() {
   const w = SIZES[settings.size];
   return { width: w, height: Math.round(w / ASPECT) };
@@ -49,15 +96,14 @@ function savedBounds() {
     height
   };
   // Fall back to the corner if the saved spot is no longer on any screen.
-  const d = screen.getDisplayMatching(b).workArea;
-  const visible = b.x + width > d.x && b.x < d.x + d.width && b.y + height > d.y && b.y < d.y + d.height;
-  return visible ? b : cornerBounds();
+  return onScreen(b) ? b : cornerBounds();
 }
 
-function createWindow() {
-  const b = savedBounds();
-  win = new BrowserWindow({
-    ...b,
+// first: a move to open with (the one last picked in the app), or "" for a random one.
+function startFloating(first = "") {
+  if (petWin) return;
+  petWin = new BrowserWindow({
+    ...savedBounds(),
     transparent: true,
     frame: false,
     resizable: false,
@@ -69,7 +115,7 @@ function createWindow() {
     show: false,
     backgroundColor: "#00000000",
     title: "Clawd",
-    icon: path.join(__dirname, "build", "icon.png"),
+    icon: ICON,
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
@@ -77,62 +123,67 @@ function createWindow() {
       backgroundThrottling: false
     }
   });
-  win.setAlwaysOnTop(true, "floating");
-  win.setIgnoreMouseEvents(true, { forward: true });
-  win.loadFile(path.join(__dirname, "web", "index.html"), { hash: "mode=pet&platform=electron" });
-  win.once("ready-to-show", () => win.showInactive());
-  win.webContents.on("did-finish-load", () => win && win.webContents.send("update-state", update));
-  win.on("closed", () => { win = null; });
+  petWin.setAlwaysOnTop(true, "floating");
+  petWin.setIgnoreMouseEvents(true, { forward: true });
+  const hash = "mode=pet&platform=electron" + (/^[a-z]+(-[a-z]+)*$/.test(first) ? `&first=${first}` : "");
+  petWin.loadFile(PAGE, { hash });
+  petWin.once("ready-to-show", () => petWin.showInactive());
+  petWin.webContents.on("did-finish-load", () => sendState(petWin));
+  petWin.on("closed", () => {
+    petWin = null;
+    floatingChanged();
+  });
+  floatingChanged();
 }
-
-function setFull(on) {
-  if (!win || on === full) return;
-  full = on;
-  if (on) {
-    petBounds = win.getBounds();
-    const display = screen.getDisplayMatching(petBounds);
-    win.setIgnoreMouseEvents(false);
-    win.setSkipTaskbar(false);
-    win.setResizable(true);
-    win.setBounds(display.bounds);
-    win.setAlwaysOnTop(true, "screen-saver");
-    win.focus();
-  } else {
-    win.setAlwaysOnTop(true, "floating");
-    win.setBounds(petBounds || savedBounds());
-    win.setResizable(false);
-    win.setSkipTaskbar(true);
-    win.setIgnoreMouseEvents(true, { forward: true });
-  }
-  win.webContents.send("mode", on ? "full" : "pet");
+function stopFloating() {
+  if (petWin) petWin.close();
+}
+function floatingChanged() {
+  if (appWin) appWin.webContents.send("floating", !!petWin);
   refreshTray();
 }
 
 function setSize(name) {
   settings.size = name;
-  if (win && !full) {
+  if (petWin) {
     // Keep his feet where they were: anchor the bottom-right corner.
-    const old = win.getBounds();
+    const old = petWin.getBounds();
     const { width, height } = petSize();
-    win.setBounds({ x: old.x + old.width - width, y: old.y + old.height - height, width, height });
+    petWin.setBounds({ x: old.x + old.width - width, y: old.y + old.height - height, width, height });
     rememberPosition();
   }
   saveSettings();
   refreshTray();
 }
-
 function rememberPosition() {
-  if (!win || full) return;
-  const { x, y, width, height } = win.getBounds();
+  if (!petWin) return;
+  const { x, y, width, height } = petWin.getBounds();
   Object.assign(settings, { x, y, width, height });
   saveSettings();
 }
-
 function toCorner() {
-  if (!win) return;
-  if (full) setFull(false);
-  win.setBounds(cornerBounds(screen.getDisplayMatching(win.getBounds())));
+  if (!petWin) return;
+  petWin.setBounds(cornerBounds(screen.getDisplayMatching(petWin.getBounds())));
   rememberPosition();
+}
+
+// What a page needs when it loads: whether Clawd is floating, and the update button's state.
+function sendState(w) {
+  w.webContents.send("floating", !!petWin);
+  w.webContents.send("update-state", update);
+}
+
+// ---- Start with Windows ----
+// At login Clawd starts floating, without the app window.
+function setStartWithWindows(on) {
+  settings.startWithWindows = on;
+  saveSettings();
+  app.setLoginItemSettings({ openAtLogin: on, path: LOGIN_PATH, args: [AUTOSTART] });
+  refreshTray();
+}
+function initStartWithWindows() {
+  // Versions before the app window registered the login item without AUTOSTART, which would now open the app window.
+  if (settings.startWithWindows === undefined) setStartWithWindows(app.getLoginItemSettings({ path: LOGIN_PATH }).openAtLogin);
 }
 
 // ---- Updates ----
@@ -147,7 +198,7 @@ let checkFromMenu = false;
 
 function setUpdate(next) {
   update = { current: app.getVersion(), ...next };
-  if (win) win.webContents.send("update-state", update);
+  sendAll("update-state", update);
   refreshTray();
 }
 function initUpdates() {
@@ -195,17 +246,22 @@ function updateMenuItem() {
   }
 }
 
+// ---- Tray and right-click menu ----
+// Moves and auto-play go to floating Clawd while he is out, otherwise to the app window.
+const moveTarget = () => petWin || appWin;
 function menuTemplate() {
   const updateItem = updateMenuItem();
   return [
-    { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => win && win.webContents.send("play", name) })) },
-    { label: "Auto-play every move", type: "checkbox", checked: autoOn, click: (item) => win && win.webContents.send("auto", item.checked) },
-    { label: "Ultra effort (electric guitar)", type: "checkbox", checked: ultraOn, click: (item) => win && win.webContents.send("ultra", item.checked) },
+    { label: "Open Clawd", click: showApp },
+    { label: petWin ? "Hide floating Clawd" : "Float on screen", click: () => (petWin ? stopFloating() : startFloating()) },
     { type: "separator" },
-    { label: full ? "Back to corner" : "Fullscreen", click: () => setFull(!full) },
-    { label: "Size", submenu: Object.keys(SIZES).map((name) => ({ label: name, type: "radio", checked: settings.size === name, click: () => setSize(name) })) },
-    { label: "Move to corner", click: toCorner },
-    { label: "Start with Windows", type: "checkbox", checked: app.getLoginItemSettings().openAtLogin, click: (item) => app.setLoginItemSettings({ openAtLogin: item.checked }) },
+    { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => moveTarget() && moveTarget().webContents.send("play", name) })) },
+    { label: "Auto-play every move", type: "checkbox", checked: autoOn, click: (item) => moveTarget() && moveTarget().webContents.send("auto", item.checked) },
+    { label: "Ultra effort (electric guitar)", type: "checkbox", checked: ultraOn, click: (item) => sendAll("ultra", item.checked) },
+    { type: "separator" },
+    { label: "Floating size", submenu: Object.keys(SIZES).map((name) => ({ label: name, type: "radio", checked: settings.size === name, click: () => setSize(name) })) },
+    { label: "Move to corner", enabled: !!petWin, click: toCorner },
+    { label: "Start with Windows", type: "checkbox", checked: !!settings.startWithWindows, click: (item) => setStartWithWindows(item.checked) },
     { type: "separator" },
     ...(updateItem ? [updateItem] : []),
     { label: "Quit Clawd", click: () => app.quit() }
@@ -215,19 +271,23 @@ function refreshTray() {
   if (tray) tray.setContextMenu(Menu.buildFromTemplate(menuTemplate()));
 }
 
-ipcMain.on("move-by", (_e, dx, dy) => {
-  if (!win || full) return;
-  const [x, y] = win.getPosition();
-  win.setPosition(Math.round(x + dx), Math.round(y + dy));
+// ---- Calls from the pages (preload.js) ----
+const fromPet = (e) => petWin && e.sender === petWin.webContents;
+ipcMain.on("move-by", (e, dx, dy) => {
+  if (!fromPet(e)) return;
+  const [x, y] = petWin.getPosition();
+  petWin.setPosition(Math.round(x + dx), Math.round(y + dy));
 });
-ipcMain.on("drag-end", rememberPosition);
-ipcMain.on("click-through", (_e, through) => {
-  if (win && !full) win.setIgnoreMouseEvents(!!through, { forward: true });
+ipcMain.on("drag-end", (e) => { if (fromPet(e)) rememberPosition(); });
+ipcMain.on("click-through", (e, through) => { if (fromPet(e)) petWin.setIgnoreMouseEvents(!!through, { forward: true }); });
+ipcMain.on("menu", (e) => {
+  const w = BrowserWindow.fromWebContents(e.sender);
+  if (w) Menu.buildFromTemplate(menuTemplate()).popup({ window: w });
 });
-ipcMain.on("menu", () => {
-  if (win) Menu.buildFromTemplate(menuTemplate()).popup({ window: win });
-});
-ipcMain.on("set-fullscreen", (_e, on) => setFull(!!on));
+ipcMain.on("start-floating", (_e, first) => startFloating(typeof first === "string" ? first : ""));
+ipcMain.on("stop-floating", stopFloating);
+ipcMain.on("open-app", showApp);
+ipcMain.on("quit", () => app.quit());
 ipcMain.on("auto-changed", (_e, on) => { autoOn = !!on; refreshTray(); });
 ipcMain.on("ultra-changed", (_e, on) => { ultraOn = !!on; refreshTray(); });
 ipcMain.on("check-updates", () => checkUpdates(false));
@@ -236,18 +296,23 @@ ipcMain.on("install-update", installUpdate);
 if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
-  app.on("second-instance", () => { if (win) win.showInactive(); });
+  // Opening Clawd again (Start menu, desktop shortcut) brings up the app window, as on Android.
+  app.on("second-instance", (_e, argv) => { if (!argv.includes(AUTOSTART)) showApp(); });
   app.whenReady().then(() => {
     app.setAppUserModelId("com.dekelelely.clawd");
+    Menu.setApplicationMenu(null);
     loadSettings();
-    createWindow();
+    initStartWithWindows();
     const icon = nativeImage.createFromPath(path.join(__dirname, "build", "tray.png"));
     tray = new Tray(icon.isEmpty() ? nativeImage.createEmpty() : icon);
     tray.setToolTip("Clawd");
-    tray.on("click", () => setFull(!full));
+    tray.on("click", showApp);
+    if (process.argv.includes(AUTOSTART)) startFloating();
+    else showApp();
     refreshTray();
     initUpdates();
-    screen.on("display-metrics-changed", () => { if (win && !full) win.setBounds(savedBounds()); });
+    screen.on("display-metrics-changed", () => { if (petWin) petWin.setBounds(savedBounds()); });
   });
+  // Closing the app window while Clawd floats keeps him out; once neither is open, Clawd quits (like Android).
   app.on("window-all-closed", () => app.quit());
 }

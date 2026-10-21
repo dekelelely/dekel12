@@ -22,16 +22,21 @@ The update check reads the public Releases page; it needs no account, key or pai
 
 ## Windows
 
-Clawd stands on the taskbar in the bottom-right corner, always on top, with no window around him. His invisible window is wide enough for his jumps and travel, and clicks pass through it to whatever is behind him except on Clawd himself.
+Clawd for Windows works like the Android app. Open **Clawd** for the app window with every move. Click **Float on screen** and Clawd stands on the taskbar in the bottom-right corner, always on top, with no window around him. If you picked a move in the app first, he opens with that one; otherwise with a random one. His invisible window is wide enough for his jumps and travel, and clicks pass through it to whatever is behind him except on Clawd himself.
+
+On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping.
 
 | | |
 |---|---|
 | Click Clawd | A new random move right away, even in the middle of one |
 | Drag Clawd | Move him anywhere; he remembers the spot |
-| Double-click Clawd | Fullscreen (Esc or **Back to corner** to return) |
-| Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, check for updates, quit |
+| Double-click Clawd | Open the app window and put floating Clawd away |
+| Triple-click Clawd | Close the app window and floating Clawd (quits Clawd) |
+| Long-press Clawd | Open the app window, keeping him out |
+| **Hide floating Clawd** in the app | Put him away |
+| Right-click Clawd, or the tray icon | Open the app, float or hide him, play a move, auto-play, ultra effort, floating size (small / medium / large), move to corner, start with Windows, check for updates, quit |
 
-On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
+Closing the app window while he floats keeps him out; the tray icon brings the app back. With **Start with Windows** on, he starts floating when you log in, without the app window. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
 
 ## Android
 
