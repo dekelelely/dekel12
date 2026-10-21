@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -52,6 +53,7 @@ final class Updater {
     private long apkSize = -1;
     private int percent = 0;
     private String message = "";
+    private long lastCheck = -60_000;
 
     Updater(Context context, Listener listener) {
         this.context = context.getApplicationContext();
@@ -86,6 +88,7 @@ final class Updater {
     /** Looks for a newer release. */
     void check() {
         if (busy()) return;
+        lastCheck = SystemClock.elapsedRealtime();
         set("checking", "");
         worker.execute(() -> {
             try {
@@ -113,6 +116,17 @@ final class Updater {
                 set("error", "Couldn't check for updates: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Checks again when the app comes back to the front, so a release published while it waited in the background
+     * shows up, unless the last check was under a minute ago or an install is under way.
+     */
+    void refresh() {
+        synchronized (this) {
+            if (state.equals("downloading") || state.equals("installing")) return;
+        }
+        if (SystemClock.elapsedRealtime() - lastCheck > 60_000) check();
     }
 
     /** Downloads the new APK into an install session and asks Android to install it. */

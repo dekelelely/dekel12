@@ -15,7 +15,7 @@ The apps aren't code-signed, so Windows SmartScreen asks before the first run (*
 
 ## Updates
 
-You only download Clawd once. After that, each app checks for a new version when it opens:
+You only download Clawd once. After that, each app checks for a new version when it opens and whenever you come back to it (on Windows, also every hour while Clawd floats):
 
 - **Android**: the button at the top right of the app says **Update to 1.N** when there is one. Tap it, and Android asks **Update this app?**; tap **Update**. The first time, Android first asks you to let Clawd install apps (**Allow from this source**). The button also shows **Up to date** or lets you check again.
 - **Windows** (installed version): Clawd downloads a new version in the background. **Restart to update** in the tray or right-click menu installs it and starts him again; otherwise it installs the next time Clawd quits. **Check for updates** in the menu checks right away. The portable .exe opens the Releases page instead.

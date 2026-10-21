@@ -41,6 +41,7 @@ function sendAll(channel, ...args) {
 
 // ---- The app window ----
 function showApp() {
+  refreshUpdates();
   if (appWin) {
     if (appWin.isMinimized()) appWin.restore();
     appWin.show();
@@ -195,6 +196,7 @@ const shortVersion = (v) => String(v || "").replace(/\.0$/, "");
 let updater = null;
 let update = { state: "off" };   // off, portable, idle, checking, none, downloading, ready or error
 let checkFromMenu = false;
+let lastCheck = 0;
 
 function setUpdate(next) {
   update = { current: app.getVersion(), ...next };
@@ -224,12 +226,18 @@ function initUpdates() {
   });
   setUpdate({ state: "idle" });
   checkUpdates(false);
+  setInterval(refreshUpdates, 60 * 60 * 1000);   // Clawd may float all day: look again every hour
 }
 function checkUpdates(fromMenu) {
   if (update.state === "portable") return shell.openExternal(RELEASES_URL);
   if (!updater || ["checking", "downloading", "ready"].includes(update.state)) return;
   checkFromMenu = fromMenu;
+  lastCheck = Date.now();
   updater.checkForUpdates().catch(() => { /* reported through the "error" event */ });
+}
+// A quiet check, when the app window comes up or the hour is up, unless the last one was under a minute ago.
+function refreshUpdates() {
+  if (updater && Date.now() - lastCheck > 60 * 1000) checkUpdates(false);
 }
 function installUpdate() {
   if (updater && update.state === "ready") updater.quitAndInstall(true, true);   // silent install, then start again

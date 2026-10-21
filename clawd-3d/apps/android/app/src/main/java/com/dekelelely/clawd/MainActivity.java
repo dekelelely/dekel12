@@ -46,7 +46,6 @@ public class MainActivity extends Activity {
         web.loadUrl("file:///android_asset/www/index.html#mode=full&platform=android");
         setContentView(web);
         hideSystemBars();
-        updater.check();   // the update button shows the result
 
         if (Build.VERSION.SDK_INT >= 33
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
@@ -122,6 +121,7 @@ public class MainActivity extends Activity {
         super.onResume();
         resumed = true;
         web.onResume();
+        updater.refresh();   // on opening and each time the app comes back; the update button shows the result
         if (bubbleAfterPermission && Settings.canDrawOverlays(this)) {
             bubbleAfterPermission = false;
             startBubble();
