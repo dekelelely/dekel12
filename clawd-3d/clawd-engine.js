@@ -84,24 +84,26 @@
       { pose: "default", offset: 0, x: 0, turnTo: -20, label: "closes laptop" },
       ...run("default", 2), ...BLINK
     ],
-    // Ultra effort: Clawd grabs an electric guitar, an amp pops up, and he rocks out. Not in Claude Code
-    // (its ultra Clawd holds a glowing wand); added here as a guitar.
+    // Ultra effort, after the Claude app's Ultracode effort row: Clawd plays a lavender electric guitar in front of a
+    // pulsing pixel wall, eyes shut at first, with yellow sparks and pixel music notes, a leaning kick and a jump.
     ultracode: (() => {
       const g = (n, extra) => Array.from({ length: n }, () => ({ pose: "default", offset: 0, x: 0, guitar: 1, ...extra }));
+      const rock = { strum: 1, bang: 0.6, fret: 0.45, zap: true };
       return [
-        ...run("look-right", 3),
-        { pose: "arms-up", offset: 0, x: 0, guitar: 0.5, ripple: "notes", sparks: 14, label: "grabs a guitar" },
-        { pose: "arms-up", offset: 0, x: 0, guitar: 1, label: "grabs a guitar" },
-        ...g(22, { strum: 1, bang: 0.5, fret: 0.25, label: "plays" }),
-        ...g(18, { pose: mood("closed"), strum: 1, bang: 1, fret: 0.75, solo: true, label: "solos" }),
-        ...g(2, { offset: 1, strum: 0.3, fret: 0.5, label: "power chord" }),
+        ...run("look-right", 2),
+        { pose: "default", offset: 0, x: 0, guitar: 0.5, label: "grabs a guitar" },
+        { pose: "default", offset: 0, x: 0, guitar: 1, label: "grabs a guitar" },
+        ...g(18, { ...rock, pose: mood("closed"), label: "rocks, eyes shut" }),
+        ...g(12, { ...rock, notes: "above", label: "plays" }),
+        ...g(10, { ...rock, lean: 0.2, kick: 1, notes: "side", label: "leans into it" }),
+        ...g(3, { offset: 1, strum: 0.3, fret: 0.6, label: "power chord" }),
         ...[0.55, 0.95, 0.95, 0.55].map((lift, i) => ({
-          pose: "default", offset: 0, x: 0, guitar: 1, fret: 0.5, lift, label: "power chord",
-          ...(i === 1 ? { ripple: "notes", sparks: 24 } : {})
+          pose: "default", offset: 0, x: 0, guitar: 1, fret: 0.6, lift, kick: 0.6, label: "power chord",
+          ...(i === 1 ? { flash: true } : {})
         })),
-        { pose: "default", offset: 1, x: 0, guitar: 1, fret: 0.5, poof: "wave", label: "power chord" },
-        ...g(1, { offset: 1, fret: 0.5, label: "power chord" }),
-        ...g(8, { strum: 1, bang: 1, fret: 0.4, label: "plays" }),
+        { pose: "default", offset: 1, x: 0, guitar: 1, fret: 0.6, poof: "wave", label: "power chord" },
+        ...g(1, { offset: 1, fret: 0.6, label: "power chord" }),
+        ...g(12, { ...rock, notes: "above", label: "plays" }),
         { pose: "default", offset: 0, x: 0, guitar: 0.4, label: "puts the guitar down" },
         { pose: "default", offset: 0, x: 0, guitar: 0, label: "puts the guitar down" },
         ...run("default", 2), ...BLINK
@@ -243,6 +245,8 @@
       m.position.y = -LEG_H / 2;
       pivot.add(m);
       pivot.userData.left = x < 0;
+      pivot.userData.outer = Math.abs(x) > 3;
+      pivot.userData.homeX = x;
       root.add(pivot);
       return pivot;
     });
@@ -302,13 +306,11 @@
     }
     drawScreen(0);
 
-    // ---- Electric guitar and amp for ultra effort ----
-    const darkMat = new THREE.MeshStandardMaterial({ color: lin("#1c1d21"), roughness: 0.6, clippingPlanes: floorClip });
-    const guitarMat = new THREE.MeshStandardMaterial({ color: lin("#2e5bff"), roughness: 0.3, metalness: 0.1, clippingPlanes: floorClip });
-    const guardMat = new THREE.MeshStandardMaterial({ color: lin("#f2f2ef"), roughness: 0.5, clippingPlanes: floorClip });
-    const neckMat = new THREE.MeshStandardMaterial({ color: lin("#d9b382"), roughness: 0.6, clippingPlanes: floorClip });
-    const boardMat = new THREE.MeshStandardMaterial({ color: lin("#3b2a20"), roughness: 0.7, clippingPlanes: floorClip });
-    const metalMat = new THREE.MeshStandardMaterial({ color: lin("#c9ced6"), roughness: 0.3, metalness: 0.8, clippingPlanes: floorClip });
+    // ---- Electric guitar for ultra effort: dark body, lavender face and headstock, as in the Claude app ----
+    const darkMat = new THREE.MeshStandardMaterial({ color: lin("#23202c"), roughness: 0.55, clippingPlanes: floorClip });
+    const lavMat = new THREE.MeshStandardMaterial({ color: lin("#a49cf0"), roughness: 0.4, clippingPlanes: floorClip });
+    const boardMat = new THREE.MeshStandardMaterial({ color: lin("#7d74d6"), roughness: 0.6, clippingPlanes: floorClip });
+    const stringMat = new THREE.MeshStandardMaterial({ color: lin("#e4e0ff"), roughness: 0.3, metalness: 0.6, clippingPlanes: floorClip });
     function part(w, h, d, mat, x, y, z) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       m.position.set(x, y, z);
@@ -318,24 +320,25 @@
     }
     const guitar = new THREE.Group();     // neck along +x, strings facing +z
     guitar.add(
-      part(3.8, 4.2, 0.8, guitarMat, 0, 0, 0),             // body
-      part(1.3, 1.1, 0.8, guitarMat, 2.3, 1.45, 0),        // upper horn
-      part(1.0, 1.0, 0.8, guitarMat, 2.15, -1.5, 0),       // lower horn
-      part(2.6, 3.0, 0.08, guardMat, 0.3, 0.2, 0.44),      // pickguard
-      part(0.32, 1.5, 0.14, darkMat, -0.9, 0, 0.5),        // pickups
-      part(0.32, 1.5, 0.14, darkMat, -0.2, 0, 0.5),
-      part(0.32, 1.5, 0.14, darkMat, 0.5, 0, 0.5),
-      part(0.4, 1.7, 0.16, metalMat, -1.5, 0, 0.48),       // bridge
-      part(0.3, 0.3, 0.3, metalMat, -1.2, -1.5, 0.5),      // knobs
-      part(0.3, 0.3, 0.3, metalMat, -0.5, -1.6, 0.5),
-      part(6.6, 0.75, 0.42, neckMat, 5.0, 0, 0.12),        // neck
-      part(6.0, 0.7, 0.08, boardMat, 4.9, 0, 0.37),        // fretboard
-      part(1.7, 1.0, 0.32, guitarMat, 9.1, 0.15, 0.08)     // headstock
+      part(3.8, 4.2, 0.8, darkMat, 0, 0, 0),               // body
+      part(1.3, 1.1, 0.8, darkMat, 2.3, 1.45, 0),          // upper horn
+      part(1.0, 1.0, 0.8, darkMat, 2.15, -1.5, 0),         // lower horn
+      part(3.0, 3.4, 0.1, lavMat, 0.1, 0.1, 0.44),         // lavender face
+      part(0.32, 1.5, 0.14, darkMat, -0.8, 0, 0.52),       // pickups
+      part(0.32, 1.5, 0.14, darkMat, 0.0, 0, 0.52),
+      part(0.4, 1.7, 0.16, stringMat, -1.3, 0, 0.5),       // bridge
+      part(6.6, 0.75, 0.42, darkMat, 5.0, 0, 0.12),        // neck
+      part(6.0, 0.6, 0.08, boardMat, 4.9, 0, 0.37),        // fretboard
+      part(1.7, 1.1, 0.32, lavMat, 9.1, 0.1, 0.08)         // headstock
     );
-    for (let i = 0; i < 7; i++) guitar.add(part(0.06, 0.72, 0.1, metalMat, 2.3 + i * 0.85, 0, 0.42));
-    for (const y of [-0.24, -0.08, 0.08, 0.24]) guitar.add(part(10.2, 0.04, 0.04, metalMat, 3.6, y, 0.52));
-    // Held across the front, neck rising toward Clawd's left hand.
-    const GUITAR_AT = { x: -1.6, y: 3.2, tilt: 0.42 };
+    for (let i = 0; i < 3; i++) {                           // tuning pegs
+      guitar.add(part(0.3, 0.3, 0.3, darkMat, 8.5 + i * 0.55, 0.85, 0.08));
+      guitar.add(part(0.3, 0.3, 0.3, darkMat, 8.5 + i * 0.55, -0.65, 0.08));
+    }
+    for (let i = 0; i < 7; i++) guitar.add(part(0.06, 0.62, 0.1, stringMat, 2.3 + i * 0.85, 0, 0.42));
+    for (const y of [-0.2, -0.07, 0.07, 0.2]) guitar.add(part(10.2, 0.04, 0.04, stringMat, 3.6, y, 0.54));
+    // Held low across the front, body over his right legs, neck rising steeply past his left shoulder.
+    const GUITAR_AT = { x: 0.8, y: 0.6, tilt: 0.9 };
     const guitarPivot = new THREE.Group();
     guitarPivot.position.set(GUITAR_AT.x, GUITAR_AT.y, DEPTH / 2 + 0.75);
     guitarPivot.rotation.z = GUITAR_AT.tilt;
@@ -345,43 +348,114 @@
     // A point along the guitar (distance from the body's centre toward the headstock) in body coordinates.
     const onGuitar = (d) => [GUITAR_AT.x + d * Math.cos(GUITAR_AT.tilt), GUITAR_AT.y + d * Math.sin(GUITAR_AT.tilt)];
 
-    const amp = new THREE.Group();
-    amp.add(
-      part(4.4, 4.8, 3, darkMat, 0, 2.4, 0),
-      part(3.6, 3.2, 0.1, new THREE.MeshStandardMaterial({ color: lin("#3a3d44"), roughness: 0.9, clippingPlanes: floorClip }), 0, 2.0, 1.52),
-      part(3.8, 0.5, 0.1, metalMat, 0, 4.15, 1.52),
-      part(0.6, 0.35, 0.12, clayMat, -1.3, 4.15, 1.58)
-    );
-    for (const x of [0.2, 0.8, 1.4]) amp.add(part(0.25, 0.25, 0.2, neckMat, x, 4.15, 1.62));
-    amp.position.set(10.5, 0, -0.6);
-    amp.rotation.y = -0.35;
-    amp.visible = false;
-    root.add(amp);
-
-    // Sparks off the strings: bright, unlit specks that fly out and fall.
-    const sparkMats = [lin("#ffd54a"), lin("#ff7a45"), lin("#ffffff")].map((color) => new THREE.MeshBasicMaterial({ color }));
-    const sparkGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+    // Yellow lightning bits that crackle off the strings.
+    const zapMats = [lin("#ffd23f"), lin("#ffe680")].map((color) => new THREE.MeshBasicMaterial({ color }));
+    const zapGeo = new THREE.BoxGeometry(0.22, 0.75, 0.22);
     const sparks = Array.from({ length: 48 }, (_, i) => {
-      const m = new THREE.Mesh(sparkGeo, sparkMats[i % 3]);
+      const m = new THREE.Mesh(zapGeo, zapMats[i % 2]);
       m.visible = false;
       m.userData = { v: new THREE.Vector3(), life: 0 };
       scene.add(m);
       return m;
     });
     const sparkFrom = new THREE.Vector3();
-    function emitSparks(count) {
+    // burst: all around (a power chord); otherwise off to his left (the viewer's right), like the app.
+    function emitSparks(count, burst) {
       guitar.getWorldPosition(sparkFrom);
       let made = 0;
       for (const m of sparks) {
         if (m.visible) continue;
-        const a = Math.random() * Math.PI * 2;
-        const sp = 6 + Math.random() * 9;
+        const a = burst ? Math.random() * Math.PI * 2 : -0.4 + Math.random() * 1.6;
+        const sp = burst ? 10 + Math.random() * 8 : 6 + Math.random() * 6;
         m.position.copy(sparkFrom);
-        m.userData.v.set(Math.cos(a) * sp, 4 + Math.random() * 8, Math.sin(a) * sp * 0.6 + 3);
-        m.userData.life = 0.5 + Math.random() * 0.4;
+        m.userData.v.set(Math.cos(a) * sp, Math.sin(a) * sp + (burst ? 0 : 2), (Math.random() - 0.3) * 3);
+        m.userData.life = 0.35 + Math.random() * 0.3;
+        m.rotation.set(0, 0, Math.random() * Math.PI);
         m.visible = true;
         if (++made === count) break;
       }
+    }
+
+    // A wall of pixel cells behind him: lavender blocks pulse outward from Clawd over deep purple, and flash on a chord.
+    const WALL = { cols: 18, rows: 12, cell: 20, w: 36, h: 24 };
+    const wallCanvas = document.createElement("canvas");
+    wallCanvas.width = WALL.cols * WALL.cell;
+    wallCanvas.height = WALL.rows * WALL.cell;
+    const wallCtx = wallCanvas.getContext("2d");
+    const wallTex = new THREE.CanvasTexture(wallCanvas);
+    wallTex.encoding = THREE.sRGBEncoding;
+    wallTex.magFilter = THREE.NearestFilter;
+    const wall = new THREE.Mesh(
+      new THREE.PlaneGeometry(WALL.w, WALL.h),
+      new THREE.MeshBasicMaterial({ map: wallTex, transparent: true, depthWrite: false, clippingPlanes: floorClip })
+    );
+    wall.position.set(0, 9, -5);
+    wall.visible = false;
+    scene.add(wall);
+    function drawWall(t, flashLevel) {
+      const c = wallCtx, { cols, rows, cell } = WALL;
+      c.clearRect(0, 0, wallCanvas.width, wallCanvas.height);
+      const cx = cols / 2, cy = rows / 2 + 1.5;          // Clawd's middle, a little below the wall's
+      const front = ((t * 2.2) % 1) * 11;                 // a ring of light stepping outward on each beat
+      for (let j = 0; j < rows; j++) {
+        for (let i = 0; i < cols; i++) {
+          const dx = i + 0.5 - cx, dy = (j + 0.5 - cy) * 1.15;
+          const d = Math.max(Math.abs(dx), Math.abs(dy)) * 0.6 + Math.hypot(dx, dy) * 0.4;
+          const edge = clamp(1 - d / 7.5, 0, 1);              // fades out well before the wall ends
+          if (edge <= 0) continue;
+          let level = d < front && d > front - 3.5 ? 1 - (front - d) / 3.5 : 0;
+          level = Math.max(level, 0.45 * clamp(1 - d / 4.5, 0, 1), flashLevel);
+          level = Math.round(level * edge * 3) / 3;      // stepped, like the app's pixel blocks
+          c.fillStyle = `rgba(58, 36, 150, ${0.9 * Math.min(1, edge * 1.6)})`;
+          c.fillRect(i * cell, j * cell, cell, cell);
+          if (level > 0) {
+            c.fillStyle = `rgba(190, 182, 255, ${0.85 * level})`;
+            c.fillRect(i * cell + 1, j * cell + 1, cell - 2, cell - 2);
+          }
+          c.strokeStyle = `rgba(36, 22, 110, ${0.7 * edge})`;
+          c.strokeRect(i * cell + 0.5, j * cell + 0.5, cell - 1, cell - 1);
+        }
+      }
+      wallTex.needsUpdate = true;
+    }
+
+    // Pixel music notes drawn over the scene: yellow ones over his head, grey ones beside him.
+    const NOTE_SHAPES = [
+      ["..##.", "..#.#", "..#..", "###..", "###.."],
+      [".####", ".#..#", ".#..#", "##.##", "##.##"]
+    ];
+    const notes = [];
+    let noteSlot = 0;
+    function addNote(where) {
+      const above = where === "above";
+      notes.push({
+        pos: new THREE.Vector3(
+          root.position.x + (above ? -3.5 + 3.5 * (noteSlot++ % 3) : 9 + Math.random() * 1.5),
+          above ? 13 : 3 + Math.random() * 4,
+          above ? 1 : 2
+        ),
+        color: above ? "#ffd23f" : "#8b8a9c",
+        shape: NOTE_SHAPES[Math.random() < 0.5 ? 0 : 1],
+        life: 1
+      });
+    }
+    const notePoint = new THREE.Vector3();
+    function drawNotes(dt) {
+      for (let n = notes.length - 1; n >= 0; n--) {
+        const note = notes[n];
+        note.life -= dt * 1.3;
+        note.pos.y += dt * 1.5;
+        if (note.life <= 0) { notes.splice(n, 1); continue; }
+        notePoint.copy(note.pos).project(camera);
+        const px = (notePoint.x + 1) / 2 * fx.width, py = (1 - notePoint.y) / 2 * fx.height;
+        const size = Math.max(2, Math.round(fx.height / 110));
+        fctx.globalAlpha = Math.min(1, note.life * 2);
+        fctx.fillStyle = note.color;
+        note.shape.forEach((row, r) => [...row].forEach((ch, k) => {
+          if (ch === "#") fctx.fillRect(Math.round(px + (k - 2.5) * size), Math.round(py + (r - 2.5) * size), size, size);
+        }));
+      }
+      fctx.globalAlpha = 1;
     }
 
     // Code that floods out from Clawd, as in the Claude app: a growing disc of text rows with a bright, crisp
@@ -390,41 +464,43 @@
     const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const hash = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
     const RING = { grow: 0.9, hold: 0.35, fade: 1.0, edge: 46, inside: 0.32 };
-    let ripple = null, codeColor = "#0e7486", notesColor = "#b7791f";
-    // "code" is the laptop's flood of code; "notes" is a looser burst of music notes for the guitar.
-    const RIPPLE_STYLES = {
-      code: { glyphs: GLYPHS, cw: 8.5, ch: 13, size: 11, gap: 0.12, words: true, color: () => codeColor },
-      notes: { glyphs: "\u266A\u266B\u266C\u2669", cw: 22, ch: 22, size: 17, gap: 0.55, words: false, color: () => notesColor }
-    };
-    function startRipple(kind) {
+    let ripple = null, codeColor = "#0e7486", fxDirty = false;
+    function startRipple() {
       const p = new THREE.Vector3(root.position.x, 6, 0).project(camera);
-      ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height, style: RIPPLE_STYLES[kind] || RIPPLE_STYLES.code };
+      ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height };
     }
-    function glyphAt(i, j, t, st) {
+    function glyphAt(i, j, t) {
       // Rows read like lines of code: runs of characters broken by spaces, each cell changing now and then.
-      if ((st.words && hash(Math.floor(i / 5), j, 9) < 0.18) || hash(i, j, 3) < st.gap) return null;
+      if (hash(Math.floor(i / 5), j, 9) < 0.18 || hash(i, j, 3) < 0.12) return null;
       const k = Math.floor((t + hash(i, j, 1) * 0.6) / 0.35);
-      return st.glyphs[Math.floor(hash(i, j, k + 17) * 997) % st.glyphs.length];
+      return GLYPHS[Math.floor(hash(i, j, k + 17) * 997) % GLYPHS.length];
+    }
+    // The overlay canvas holds the laptop's code and the guitar's notes; clear it only while something is on it.
+    function drawFx(dt) {
+      const busy = !!ripple || notes.length > 0;
+      if (!busy && !fxDirty) return;
+      fxDirty = busy;
+      fctx.clearRect(0, 0, fx.width, fx.height);
+      drawRipple(dt);
+      drawNotes(dt);
     }
     function drawRipple(dt) {
       if (!ripple) return;
       const s = fx.width / Math.max(1, stage.clientWidth);
       ripple.t += dt;
       const t = ripple.t;
-      fctx.clearRect(0, 0, fx.width, fx.height);
       const far = Math.hypot(Math.max(ripple.x, fx.width - ripple.x), Math.max(ripple.y, fx.height - ripple.y));
       const R = far * Math.min(1, Math.pow(t / RING.grow, 0.85)) + RING.edge * s;
       const fade = 1 - clamp((t - RING.grow - RING.hold) / RING.fade, 0, 1);
       if (fade <= 0) { ripple = null; return; }
-      const st = ripple.style;
-      const edge = RING.edge * s, cw = st.cw * s, ch = st.ch * s;
+      const edge = RING.edge * s, cw = 8.5 * s, ch = 13 * s;
       const cols = Math.ceil(fx.width / cw), rows = Math.ceil(fx.height / ch);
-      fctx.fillStyle = st.color();
+      fctx.fillStyle = codeColor;
       fctx.textAlign = "center";
       fctx.textBaseline = "middle";
       // Two passes so each needs only one font: the dim fill behind the edge, then the bold edge itself.
       for (const rim of [false, true]) {
-        fctx.font = `${rim ? 700 : 500} ${st.size * s}px "Martian Mono", Menlo, Consolas, "Segoe UI Symbol", monospace`;
+        fctx.font = `${rim ? 700 : 500} ${11 * s}px "Martian Mono", Menlo, Consolas, monospace`;
         for (let j = 0; j < rows; j++) {
           const y = (j + 0.5) * ch, dy = y - ripple.y;
           if (Math.abs(dy) > R) continue;
@@ -433,7 +509,7 @@
             if (d > R) continue;
             const onEdge = d > R - edge && R < far + edge;
             if (onEdge !== rim) continue;
-            const g = glyphAt(i, j, t, st);
+            const g = glyphAt(i, j, t);
             if (!g) continue;
             const shade = 0.55 + 0.45 * hash(i, j, 5);
             fctx.globalAlpha = fade * shade * (rim ? 1 : RING.inside);
@@ -512,7 +588,6 @@
       if (c.dots) dotMat.color.copy(lin(c.dots));
       if (c.dust) dustMat.color.copy(lin(c.dust));
       if (c.code) codeColor = c.code;
-      if (c.notes) notesColor = c.notes;
     }
 
     // ---- Turning a frame into 3D targets ----
@@ -520,7 +595,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -550,13 +625,16 @@
       goal.strum = f.strum || 0;
       goal.bang = f.bang || 0;
       if (f.fret !== undefined) goal.fret = f.fret;
-      soloing = !!f.solo;
+      goal.lean = f.lean || 0;
+      goal.kick = f.kick || 0;
+      zapping = !!f.zap;
       // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
       if (ultra && seqName === "idle") {
         goal.guitar = 1;
         goal.strum = 0.35;
         goal.bang = 0.25;
         goal.fret = 0.35;
+        zapping = false;
       }
     }
 
@@ -564,15 +642,16 @@
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
     let auto = false, autoNext = 0;
     let ambient = false, nextAmbient = 0;   // pet mode: a random move every so often, between look-arounds
-    let ultra = false, soloing = false, sparkClock = 0;
+    let ultra = false, zapping = false, sparkClock = 0, flash = 0, noteClock = 0;
     let clock = 0;
 
     function enterFrame() {
       const f = seq[idx];
       targetsFor(f);
       if (f.poof) puff(f.poof);
-      if (f.ripple) { startRipple(f.ripple); typeTarget = 0; }
-      if (f.sparks) emitSparks(f.sparks);
+      if (f.ripple) { startRipple(); typeTarget = 0; }
+      if (f.notes && idx % 3 === 0) addNote(f.notes);
+      if (f.flash) { flash = 1; emitSparks(28, true); }
       if (f.typing) typeTarget = Math.min(SCREEN_TEXT.length, typeTarget + 4);
       if (f.laptop) drawScreen(typeTarget);
       on("onFrame", { name: seqName, index: idx, length: seq.length, frame: f });
@@ -744,7 +823,7 @@
       }
 
       root.position.set(state.x, state.y, 0);
-      root.rotation.y = state.ry;
+      root.rotation.set(0, state.ry, state.lean);
       const legScale = 1 - 0.85 * state.crouch;
       body.position.y = LEG_H * legScale + state.type * 0.25 * (1 - Math.abs(Math.sin(clock * 42)));   // dips into each keystroke
       body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
@@ -752,7 +831,9 @@
       legs.forEach((leg) => {
         leg.scale.y = legScale;
         const stomp = state.strum * 0.55 * Math.max(0, Math.sin(clock * 6.5 + (leg.userData.left ? 0 : Math.PI)));
-        leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR) + stomp;
+        const kick = leg.userData.left ? 0 : state.kick * (leg.userData.outer ? 1 : 0.5);   // a rock kick with his left legs
+        leg.position.x = leg.userData.homeX + 1.2 * kick;
+        leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR) + stomp + 1.3 * kick;
       });
       // Typing, as in the recording: the arms reach straight forward and stay level (no rotation);
       // the hands move only by sliding: down onto the keys in turn, side to side, and in and out.
@@ -770,7 +851,7 @@
         const hold = clamp(state.guitar * 1.5 - 0.3, 0, 1);
         if (hold > 0) {
           const [gx, gy] = i
-            ? onGuitar(3 + 4 * clamp(state.fret + (soloing ? 0.08 * Math.sin(clock * 9) : 0), 0, 1))
+            ? onGuitar(3 + 4 * clamp(state.fret + (zapping ? 0.08 * Math.sin(clock * 9) : 0), 0, 1))
             : onGuitar(-0.3);
           const strumY = i ? 0 : state.strum * 0.9 * Math.sin(clock * 24);
           arm.position.x += (gx - arm.position.x) * hold;
@@ -781,30 +862,39 @@
         }
       });
       const gShown = clamp(state.guitar * 2, 0, 1);
-      guitarPivot.visible = amp.visible = gShown > 0.01;
+      guitarPivot.visible = gShown > 0.01;
       guitarPivot.scale.setScalar(Math.max(gShown, 0.001));
-      amp.scale.setScalar(Math.max(gShown, 0.001) * (1 + 0.05 * state.strum * Math.abs(Math.sin(clock * 24))));
-      rim.color.setRGB(1, 1 - 0.4 * state.strum, 1 - 0.05 * state.strum);   // a hint of stage lighting while he plays
-      rim.intensity = 0.35 + state.strum * (0.25 + 0.15 * Math.sin(clock * 6));
-      if (soloing) {
+      flash = Math.max(0, flash - dt * 2.5);
+      wall.visible = state.guitar > 0.02;
+      if (wall.visible) {
+        wall.position.x = root.position.x;
+        wall.material.opacity = clamp(state.guitar * 1.2, 0, 1);
+        drawWall(clock, flash);
+      }
+      if (zapping) {
         sparkClock += dt;
-        while (sparkClock > 0.06) { sparkClock -= 0.06; emitSparks(1); }
+        while (sparkClock > 0.08) { sparkClock -= 0.08; emitSparks(2); }
+      }
+      // While he keeps the guitar between moves, a note drifts up now and then.
+      if (ultra && seqName === "idle") {
+        noteClock += dt;
+        if (noteClock > 1.1) { noteClock = 0; addNote(Math.random() < 0.5 ? "above" : "side"); }
       }
       for (const m of sparks) {
         if (!m.visible) continue;
         const d = m.userData;
         d.life -= dt * 1.4;
         if (d.life <= 0) { m.visible = false; continue; }
-        d.v.y -= 22 * dt;
+        d.v.multiplyScalar(1 - 3 * dt);
         m.position.addScaledVector(d.v, dt);
-        if (m.position.y < 0.2) { m.position.y = 0.2; d.v.y *= -0.3; }
-        m.scale.setScalar(d.life * 1.6);
+        m.rotation.z += dt * 9;
+        m.scale.setScalar(Math.min(1, d.life * 3));
       }
       const shown = clamp(state.laptop * 2.5, 0, 1);
       laptop.visible = shown > 0.01;
       laptop.scale.setScalar(Math.max(shown, 0.001));
       hinge.rotation.x = clamp((state.laptop - 0.2) / 0.8, 0, 1) * THREE.MathUtils.degToRad(105);
-      drawRipple(dt);
+      drawFx(dt);
       eyes.forEach((eye, i) => {
         const lid = i === 0 ? state.lidL : state.lidR;
         eye.scale.y = 1 - 0.82 * lid;

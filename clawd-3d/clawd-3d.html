@@ -20,7 +20,6 @@
     --floor-dots: #8d949e;
     --dust: #a9b0ba;
     --code: #0e7486;
-    --notes: #a8650f;
     --f-display: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
     --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
   }
@@ -28,14 +27,14 @@
     :root:not([data-theme="light"]) {
       --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
       --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
-      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db; --notes: #f5b942;
+      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
     --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
     --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
-    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db; --notes: #f5b942;
+    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
     color-scheme: dark;
   }
 
@@ -233,7 +232,7 @@
       </div>
       <div class="auto-row">
         <button type="button" id="ultra" aria-pressed="false">Ultra effort</button>
-        <p>Like switching Claude Code to ultra effort: Clawd grabs an electric guitar and rocks out, then keeps jamming between moves.</p>
+        <p>Like picking Ultracode in the Claude app's effort menu: Clawd grabs an electric guitar and rocks out in front of a pulsing pixel wall, then keeps jamming between moves.</p>
       </div>
     </section>
 
@@ -247,7 +246,7 @@
         <dt>x</dt><dd id="rd-x">0</dd>
       </dl>
       <div class="meter" aria-hidden="true"><i id="rd-meter"></i></div>
-      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. Two moves aren't in that version: the laptop move is rebuilt from a screen recording of the Claude app, and the guitar for ultra effort is new (Claude Code's own ultra Clawd holds a glowing wand). The 3D version eases between frames. Unofficial fan recreation.</p>
+      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. Two moves aren't in that version and are rebuilt from screen recordings of the Claude app: the laptop move (clicking Clawd) and the guitar (the Ultracode effort setting). The 3D version eases between frames. Unofficial fan recreation.</p>
     </section>
   </div>
 </main>
@@ -320,8 +319,7 @@
       floor: get("--floor", "#b8bec6"),
       dots: get("--floor-dots", "#8d949e"),
       dust: get("--dust", "#a9b0ba"),
-      code: get("--code", "#0e7486"),
-      notes: get("--notes", "#a8650f")
+      code: get("--code", "#0e7486")
     });
   }
   applyTheme();
