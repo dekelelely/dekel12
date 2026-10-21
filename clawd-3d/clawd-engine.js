@@ -766,7 +766,9 @@
     // ---- Playback ----
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
     let auto = false, autoNext = 0;
-    let ambient = false, nextAmbient = 0;   // pet mode: a random move AMBIENT_GAP seconds after the last one ends
+    // Pet mode loops on its own: a random move AMBIENT_GAP seconds after the last one ends. Tapping takes over,
+    // and the loop picks up again once he has finished and AMBIENT_GAP seconds have passed since the last tap.
+    let ambient = false, nextAmbient = 0, lastTapAt = -Infinity;
     const AMBIENT_GAP = 5;
     let ultra = false, zapping = false, sparkClock = 0, flash = 0, noteClock = 0;
     let clock = 0;
@@ -794,6 +796,7 @@
       if (snap) for (const prop of Object.keys(state)) state[prop] = goal[prop];
     }
     const pick = (list) => list[Math.floor(Math.random() * list.length)];
+    const pickOther = (list) => pick(list.filter((name) => name !== seqName));
     function scheduleAmbient() { nextAmbient = clock + AMBIENT_GAP; }
     function finished() {
       if (seqName === "idle" && auto) {
@@ -857,6 +860,13 @@
       on("onHover", over);
     }
     function playClickMove() {
+      // Floating: every tap plays a new move right away, even mid-move.
+      if (ambient) {
+        lastTapAt = clock;
+        setAuto(false);
+        play(pickOther(ON_CLICK));
+        return;
+      }
       // As in the terminal, a click starts a random move only while Clawd is idle.
       if (seqName !== "idle") return;
       setAuto(false);
@@ -966,8 +976,9 @@
         if (idx >= seq.length) finished();
         else enterFrame();
       }
-      // Pet mode: once he has idled AMBIENT_GAP seconds since his last move, start a random one (mid look-around is fine).
-      if (ambient && !auto && seqName === "idle" && clock >= nextAmbient) play(pick(ON_CLICK));
+      // Pet mode: once he has idled AMBIENT_GAP seconds since his last move and the last tap, start a random one
+      // (mid look-around is fine).
+      if (ambient && !auto && seqName === "idle" && clock >= nextAmbient && clock >= lastTapAt + AMBIENT_GAP) play(pick(ON_CLICK));
 
       const k = 1 - Math.exp(-dt / 0.045);
       for (const prop of Object.keys(state)) {

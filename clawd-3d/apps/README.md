@@ -17,22 +17,22 @@ Clawd stands on the taskbar in the bottom-right corner, always on top, with no w
 
 | | |
 |---|---|
-| Click Clawd | A random move |
+| Click Clawd | A new random move right away, even in the middle of one |
 | Drag Clawd | Move him anywhere; he remembers the spot |
 | Double-click Clawd | Fullscreen (Esc or **Back to corner** to return) |
 | Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, quit |
 
-Five seconds after each move ends, he plays another one on his own. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
+On his own he loops: a random move, five seconds of rest after it ends, then the next. Clicking him takes over, and each click plays a new move. Once you stop, he finishes the move, waits five more seconds and goes back to looping. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
 
 ## Android
 
-Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one. After that he plays a random move five seconds after each one ends.
+Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one. After that he loops on his own: a random move, five seconds of rest after it ends, then the next. Tapping him takes over, and each tap plays a new move right away. Once you stop, he finishes the move, waits five more seconds and goes back to looping.
 
 **Taps through** in the app decides what happens to taps on the space just around him. Off (the default): he is drawn in full colour, and that space takes your taps. On: taps there go to the app below, but on Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through. Either way, taps on Clawd himself are his.
 
 | | |
 |---|---|
-| Tap Clawd | A random move |
+| Tap Clawd | A new random move right away, even in the middle of one |
 | Drag Clawd | Move the bubble |
 | Double-tap Clawd | Open the fullscreen app and hide the bubble |
 | Triple-tap Clawd | Close the app and the bubble |
