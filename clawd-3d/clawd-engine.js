@@ -21,10 +21,24 @@
   const MOVES = {
     jump: JUMP,
     look: [...run("look-right", 5), ...run("look-left", 5), ...run("default", 1)],
-    // Claude Code's celebrate is the jump plus a last crouch; here each hop also throws a burst of confetti.
+    // In Claude Code, celebrate is just the jump plus a last crouch, so it looks the same as jump. Here it gets its own
+    // routine: a spinning jump, a happy hop, and a swaying victory dance, with confetti.
     celebrate: [
-      ...JUMP.map((f, i) => (f.pose === "arms-up" && JUMP[i - 1].offset === 1 ? { ...f, confetti: 34 } : { ...f })),
-      ...run("default", 3, { offset: 1 })
+      ...crouch(),
+      ...[70, 140, 210, 280, 350].map((turnTo, i) => ({
+        pose: "arms-up", offset: 0, x: 0, turnTo, label: "spins in the air", ...(i === 2 ? { confetti: 40 } : {})
+      })),
+      { pose: "default", offset: 1, x: 0, poof: "wave", label: "lands" },
+      { pose: "default", offset: 1, x: 0, label: "lands" },
+      ...[0.55, 0.9, 0.55].map((lift, i) => ({
+        pose: mood("closed", i % 2 ? "one-up" : "up"), offset: 0, x: 0, lift, label: "hops", ...(i === 1 ? { confetti: 30 } : {})
+      })),
+      { pose: "default", offset: 1, x: 0, poof: "dot", label: "lands" },
+      ...Array.from({ length: 12 }, (_, i) => ({
+        pose: mood("closed", i % 4 < 2 ? "up" : "one-up"), offset: 0, x: 0, lean: i % 4 < 2 ? 0.14 : -0.14,
+        label: "victory dance", ...(i === 0 ? { confetti: 24 } : {})
+      })),
+      ...run("default", 2), ...BLINK
     ],
     skip: [
       ...run("default", 1, { offset: 1, x: -9 }), ...run("arms-up", 2, { x: -6 }), ...run("default", 1, { x: -6 }),
