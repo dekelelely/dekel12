@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clawd</title>
+<style>
+  :root {
+    --ink: #eceef1;
+    --muted: #9ba2ac;
+    --line: #39404a;
+    --chip: #1b1f24;
+    --clay: #d77757;
+    --on-clay: #1a0f0a;
+    --stage-hi: #1e2227;
+    --stage-lo: #0d0f12;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: transparent;
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  body { font-family: system-ui, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  body.full { background: radial-gradient(120% 90% at 50% 30%, var(--stage-hi), var(--stage-lo)); }
+  #stage { position: fixed; inset: 0; }
+  #stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab; }
+  #stage canvas.over { cursor: pointer; }
+  #stage canvas.dragging { cursor: grabbing; }
+  #fx { pointer-events: none; }
+  .hint, .bar { display: none; }
+  body.full .hint, body.full .bar { display: flex; }
+  .hint {
+    position: fixed;
+    top: max(12px, env(safe-area-inset-top));
+    left: max(16px, env(safe-area-inset-left));
+    right: max(16px, env(safe-area-inset-right));
+    margin: 0;
+    font: 12px ui-monospace, Menlo, Consolas, monospace;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .bar {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    gap: 10px;
+    align-items: center;
+    padding: 28px max(16px, env(safe-area-inset-right)) max(14px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
+  }
+  .chips { display: flex; gap: 6px; overflow-x: auto; flex: 1; min-width: 0; scrollbar-width: none; }
+  .chips::-webkit-scrollbar { display: none; }
+  .bar button {
+    flex: none;
+    font: 600 13px ui-monospace, Menlo, Consolas, monospace;
+    padding: 9px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--chip);
+    color: var(--ink);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  .bar button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  .bar button[aria-pressed="true"], .bar button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  /* Update button (Windows and Android apps), top right in the fullscreen view. */
+  .update {
+    display: none;
+    position: fixed;
+    top: max(8px, env(safe-area-inset-top));
+    right: max(16px, env(safe-area-inset-right));
+    font: 600 12px ui-monospace, Menlo, Consolas, monospace;
+    padding: 7px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--chip);
+    color: var(--muted);
+    cursor: pointer;
+  }
+  body.full .update:not([hidden]) { display: block; }
+  .update.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  .update:disabled { cursor: default; }
+  .update:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  body.has-update .hint { right: calc(max(16px, env(safe-area-inset-right)) + 230px); }
+  @media (max-width: 600px) {
+    body.has-update .hint { top: calc(max(8px, env(safe-area-inset-top)) + 40px); right: max(16px, env(safe-area-inset-right)); }
+  }
+  .fallback { position: fixed; inset: 0; display: grid; place-items: center; margin: 0; padding: 24px; text-align: center; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="scene" aria-label="Clawd"></canvas>
+  <canvas id="fx" aria-hidden="true"></canvas>
+</div>
+<p class="hint" id="hint"></p>
+<button type="button" class="update" id="update" hidden></button>
+<div class="bar">
+  <div class="chips" id="chips" role="group" aria-label="Moves"></div>
+  <button type="button" id="auto" aria-pressed="false">Auto-play</button>
+  <button type="button" id="through" aria-pressed="false" hidden>Taps through</button>
+  <button type="button" id="secondary" hidden></button>
+  <button type="button" id="primary" class="main"></button>
+</div>
+<p class="fallback" id="fallback" hidden>This device couldn't start 3D graphics, so Clawd can't appear.</p>
+
+<script src="three.min.js"></script>
+<script src="clawd-engine.js"></script>
+<script>
+(() => {
+  // How the page was opened: "#mode=pet|full&platform=electron|android|web" (a hash, since Android asset URLs drop queries).
+  const params = new URLSearchParams(location.hash.replace(/^#/, "") || location.search.replace(/^\?/, ""));
+  const desk = window.clawdDesktop;   // Windows app (Electron preload)
+  const droid = window.ClawdNative;   // Android app (JavaScript interface)
+  const platform = desk ? "electron" : droid ? "android" : params.get("platform") || "web";
+  let mode = params.get("mode") === "pet" ? "pet" : "full";
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  const E = window.ClawdEngine;
+  const chips = document.getElementById("chips");
+  const autoBtn = document.getElementById("auto");
+  // Ultra effort (the guitar between moves) is only switched from the Windows tray menu, which remembers it.
+  // Elsewhere the "ultracode" move plays the guitar once, and any setting saved by an older version is dropped.
+  let savedUltra = false;
+  try {
+    if (desk) savedUltra = localStorage.getItem("clawd-ultra") === "1";
+    else localStorage.removeItem("clawd-ultra");
+  } catch (err) { /* storage unavailable */ }
+  const primary = document.getElementById("primary");
+  const secondary = document.getElementById("secondary");
+  const through = document.getElementById("through");
+  let picked = "";   // the move last picked here; floating Clawd opens with it
+  let floating = false;   // Windows: whether Clawd is floating on the desktop (the app tells this page)
+  const hint = document.getElementById("hint");
+
+  // The app and floating Clawd (Windows and Android) stay matched: each sends the other the moves it starts and its
+  // Auto-play switch, and plays what it receives. While he floats, floating Clawd chooses the random moves and the
+  // app follows, making no random picks of its own.
+  const link = desk ? (m) => desk.sync(m) : droid && droid.sync ? (m) => droid.sync(JSON.stringify(m)) : null;
+  let applying = null;   // the message from the other view being played here, so it isn't sent straight back
+  function sendToOther(m) {
+    if (link) link(m);
+  }
+  function fromOther(m) {
+    applying = m;
+    try {
+      if (typeof m.auto === "boolean" && m.auto !== clawd.auto) clawd.setAuto(m.auto);
+      if (typeof m.move === "string" && E.MOVES[m.move]) clawd.play(m.move);
+    } finally {
+      applying = null;
+    }
+  }
+
+  const buttons = (E ? E.ALL : []).map((name) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = name;
+    b.dataset.move = name;
+    b.setAttribute("aria-pressed", "false");
+    chips.appendChild(b);
+    return b;
+  });
+
+  const clawd = E && E.create({
+    stage: document.getElementById("stage"),
+    canvas: document.getElementById("scene"),
+    fx: document.getElementById("fx"),
+    mode: mode === "pet" ? "pet" : "stage",
+    onMove(name) {
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
+      if (name !== "idle" && !(applying && applying.move === name)) sendToOther({ move: name });
+    },
+    onAuto(on) {
+      autoBtn.setAttribute("aria-pressed", String(on));
+      if (desk) desk.reportAuto(on);
+      if (!(applying && "auto" in applying)) sendToOther({ auto: on });
+    },
+    onUltra(on) {
+      if (!desk) return;
+      try { localStorage.setItem("clawd-ultra", on ? "1" : "0"); } catch (err) { /* storage unavailable */ }
+      desk.reportUltra(on);
+    },
+    // Windows: the transparent window lets clicks through everywhere except over Clawd himself.
+    onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
+    onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
+    onDragEnd() { if (desk) desk.dragEnd(); },
+    // Floating Clawd, on Windows as on Android (where the bubble's native touch pad does the same): long-press opens
+    // the app, double-tap opens the app and puts him away, triple-tap closes both.
+    onLongPress() {
+      if (mode !== "pet") return;
+      if (desk) desk.openApp();
+      else if (droid) droid.openApp();
+    },
+    onDoubleClick() {
+      if (mode !== "pet") return;
+      if (desk) {
+        desk.openApp();
+        desk.stopFloating();
+      } else if (droid) {
+        droid.openApp();
+        droid.stopBubble();
+      }
+    },
+    onTripleClick() {
+      if (mode !== "pet") return;
+      if (desk) desk.quit();
+      else if (droid && droid.closeAll) droid.closeAll();
+    }
+  });
+  if (!clawd) {
+    document.getElementById("fallback").hidden = false;
+    return;
+  }
+  clawd.setColors({ floor: "#2b3138", dots: "#4a525c", dust: "#4a525c", code: "#4cc9db" });
+
+  function refreshControls() {
+    secondary.hidden = true;
+    clawd.setFollowing(mode === "full" && (platform === "electron" ? floating : platform === "android" && droid.bubbleRunning()));
+    if (platform === "electron") {
+      primary.textContent = floating ? "Hide floating Clawd" : "Float on screen";
+      hint.textContent = "Drag to turn · click Clawd for a move · “Float on screen” puts him on your desktop";
+    } else if (platform === "android") {
+      const floating = droid.bubbleRunning();
+      primary.textContent = floating ? "Hide bubble" : "Float on screen";
+      through.hidden = false;
+      through.setAttribute("aria-pressed", String(droid.touchThrough()));
+      hint.textContent = "Drag to turn · tap Clawd for a move · “Float on screen” puts him over your other apps";
+    } else {
+      primary.textContent = document.fullscreenElement ? "Exit fullscreen" : "Fullscreen";
+      hint.textContent = "Drag to turn · click Clawd for a move";
+    }
+  }
+  function applyMode(next) {
+    mode = next === "pet" ? "pet" : "full";
+    document.body.classList.toggle("full", mode === "full");
+    clawd.setMode(mode === "pet" ? "pet" : "stage");
+    clawd.setAmbient(mode === "pet");
+    if (desk) desk.setClickThrough(mode === "pet");
+    refreshControls();
+  }
+
+  // A mouse wheel scrolls the row of moves sideways (Windows; touch and touchpads already can).
+  chips.addEventListener("wheel", (e) => {
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    chips.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }, { passive: false });
+  buttons.forEach((b) => b.addEventListener("click", () => {
+    picked = b.dataset.move;
+    clawd.setAuto(false);
+    clawd.play(b.dataset.move);
+  }));
+  // Android: let taps through the space around the bubble (Clawd slightly see-through) or not (full colour).
+  through.addEventListener("click", () => {
+    droid.setTouchThrough(!droid.touchThrough());
+    refreshControls();
+  });
+  autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
+  primary.addEventListener("click", () => {
+    if (platform === "electron") {
+      if (floating) desk.stopFloating();
+      else desk.startFloating(picked, clawd.auto);
+    } else if (platform === "android") {
+      if (droid.bubbleRunning()) droid.stopBubble();
+      else droid.startBubble(picked, clawd.auto);
+      setTimeout(refreshControls, 400);
+    } else if (document.fullscreenElement) document.exitFullscreen();
+    else document.documentElement.requestFullscreen().catch(() => {});
+  });
+  document.addEventListener("fullscreenchange", refreshControls);
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    refreshControls();
+    setTimeout(refreshControls, 600);   // the bubble may still be closing as the app comes back
+  });
+  document.addEventListener("contextmenu", (e) => {
+    e.preventDefault();
+    if (desk) desk.showMenu();
+  });
+
+  if (link) {
+    window.clawdSync = (m) => fromOther(typeof m === "string" ? JSON.parse(m) : m);
+    if (desk) desk.onSync(window.clawdSync);
+  }
+  if (desk) {
+    desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
+    desk.onAuto((on) => clawd.setAuto(on));
+    desk.onUltra((on) => { clawd.setAuto(false); clawd.setUltra(on); });
+    desk.onFloating((on) => {
+      floating = on;
+      refreshControls();
+    });
+  }
+
+  // Android bubble: the window that draws Clawd lets touches through to the apps below, and a small native touch pad
+  // follows him instead. Tell it where he is, and let it pass taps back.
+  if (droid && mode === "pet" && droid.setHitRect) {
+    window.clawdPet = {
+      tap: () => clawd.tap(),
+      play: (name) => { if (E.MOVES[name]) { clawd.setAuto(false); clawd.play(name); } }
+    };
+    setInterval(() => {
+      const r = clawd.screenRect();
+      if (r) droid.setHitRect(r.x, r.y, r.w, r.h);
+    }, 150);
+  }
+
+  // Updates (Windows and Android apps): the app checks when it opens and reports here; the button checks again,
+  // or installs the new version once there is one.
+  const updateBtn = document.getElementById("update");
+  const updater = desk
+    ? { check: () => desk.checkUpdates(), install: () => desk.installUpdate() }
+    : droid && droid.updateState ? { check: () => droid.checkUpdates(), install: () => droid.installUpdate() } : null;
+  let update = { state: "off" };
+  const shortVersion = (v) => String(v || "").replace(/\.0$/, "");
+  function showUpdate(next) {
+    update = next || { state: "off" };
+    const v = shortVersion(update.version);
+    const label = {
+      idle: "Check for updates",
+      checking: "Checking for updates…",
+      none: `Up to date · ${shortVersion(update.current)}`,
+      available: `Update to ${v}`,
+      downloading: `Downloading ${v}… ${update.percent || 0}%`,
+      installing: `Installing ${v}…`,
+      ready: `Restart to update to ${v}`,
+      error: `${shortVersion(update.current)} · update check failed, try again`.replace(/^ · /, ""),
+      portable: "Get the latest version"
+    }[update.state];
+    updateBtn.hidden = !label;
+    document.body.classList.toggle("has-update", !!label);
+    if (!label) return;
+    updateBtn.textContent = label;
+    updateBtn.title = update.message || (update.current ? `Clawd ${shortVersion(update.current)}` : "");
+    updateBtn.disabled = update.state === "checking" || update.state === "downloading";
+    updateBtn.classList.toggle("main", update.state === "available" || update.state === "ready");
+  }
+  if (updater) {
+    window.clawdUpdate = (next) => showUpdate(typeof next === "string" ? JSON.parse(next) : next);
+    updateBtn.addEventListener("click", () => {
+      if (update.state === "available" || update.state === "ready") updater.install();
+      else updater.check();
+    });
+    if (desk) desk.onUpdate(window.clawdUpdate);
+    else window.clawdUpdate(droid.updateState());
+  }
+
+  applyMode(mode);
+  // The bubble opens with the move picked in the app, if any; then random moves as usual.
+  const first = mode === "pet" ? params.get("first") : null;
+  if (savedUltra) clawd.setUltra(true);
+  else if (first && E.MOVES[first]) clawd.play(first, { snap: true });
+  else if (reduceMotion) clawd.play("idle", { snap: true });
+  else clawd.entrance({ snap: true });
+  // Floating Clawd starts with the app's Auto-play switch; an app opened while he floats takes his.
+  if (mode === "pet" && params.get("auto") === "1") clawd.setAuto(true);
+  if (mode === "full" && droid && droid.linkedAuto && droid.bubbleRunning()) fromOther({ auto: droid.linkedAuto() });
+})();
+</script>
+</body>
+</html>

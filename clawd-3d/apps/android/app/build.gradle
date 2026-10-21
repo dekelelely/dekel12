@@ -1,0 +1,45 @@
+plugins {
+    id "com.android.application"
+}
+
+// CI passes -PclawdBuild=<run number>, making this version 1.<run number>; the update button compares it with the
+// newest GitHub Release (tag v1.<run number>.0). Local builds are 1.1, so any release counts as newer.
+def clawdBuild = Integer.parseInt((project.findProperty("clawdBuild") ?: "1").toString())
+
+android {
+    namespace "com.dekelelely.clawd"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.dekelelely.clawd"
+        minSdk 26
+        targetSdk 34
+        versionCode clawdBuild
+        versionName "1." + clawdBuild
+    }
+
+    // One fixed debug key for every build (CI included), so a new APK installs over the previous one.
+    // It is an ordinary debug key, not a secret: these builds are for sideloading, not the Play Store.
+    signingConfigs {
+        debug {
+            storeFile file("debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            minifyEnabled false
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}

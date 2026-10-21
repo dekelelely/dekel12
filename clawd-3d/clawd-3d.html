@@ -1,0 +1,338 @@
+<title>Clawd 3D</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Martian+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: one wide stage for the scene; under it, the move list beside a live readout of the current frame */
+  :root {
+    --bg: #e8eaed;
+    --surface: #f5f6f7;
+    --ink: #16181b;
+    --muted: #555b64;
+    --line: #cdd2d8;
+    --clay: #d77757;
+    --clay-ink: #9a4526;
+    --on-clay: #1a0f0a;
+    --stage-hi: #f8f9fa;
+    --stage-lo: #dbdfe4;
+    --floor: #b8bec6;
+    --floor-dots: #8d949e;
+    --dust: #a9b0ba;
+    --code: #0e7486;
+    --f-display: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
+    --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
+      --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
+      --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0f1114; --surface: #171a1e; --ink: #eceef1; --muted: #9ba2ac; --line: #2a2f36;
+    --clay: #e0805f; --clay-ink: #f29d7d; --on-clay: #1a0f0a;
+    --stage-hi: #1e2227; --stage-lo: #101215; --floor: #2b3138; --floor-dots: #4a525c; --dust: #4a525c; --code: #4cc9db;
+    color-scheme: dark;
+  }
+
+  [hidden] { display: none !important; }
+  html { background: var(--bg); }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--f-body);
+    font-size: 16px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding-block: clamp(20px, 4vw, 44px) 56px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .top {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px 40px;
+  }
+  h1 {
+    margin: 0;
+    font-family: var(--f-display);
+    font-weight: 600;
+    font-size: clamp(28px, 4.4vw, 44px);
+    line-height: 1.1;
+    letter-spacing: -0.03em;
+    text-wrap: balance;
+  }
+  h1 span { color: var(--clay-ink); }
+  .lede { margin: 0; max-width: 54ch; color: var(--muted); }
+
+  .stage {
+    position: relative;
+    height: clamp(340px, 52vw, 580px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 30%, var(--stage-hi), var(--stage-lo));
+  }
+  .stage canvas { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: grab; }
+  .stage canvas.over { cursor: pointer; }
+  .stage canvas.dragging { cursor: grabbing; }
+  .stage canvas.fx { position: absolute; inset: 0; pointer-events: none; }
+  .prompt {
+    position: absolute;
+    left: 10px;
+    top: 8px;
+    margin: 0;
+    padding: 4px 8px;
+    border-radius: 6px;
+    background: var(--stage-hi);
+    font-family: var(--f-display);
+    font-size: 13px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .prompt b { color: var(--clay-ink); font-weight: 600; }
+  .caret {
+    display: inline-block;
+    width: 0.6em;
+    height: 1.05em;
+    margin-left: 3px;
+    vertical-align: -0.18em;
+    background: var(--clay);
+    animation: blink 1.1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .hint {
+    position: absolute;
+    right: 14px;
+    bottom: 12px;
+    left: 14px;
+    margin: 0;
+    text-align: right;
+    font-size: 13px;
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .fallback {
+    position: absolute;
+    inset: 0;
+    margin: 0;
+    padding: 24px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    color: var(--muted);
+  }
+
+  .lower {
+    display: grid;
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 760px) { .lower { grid-template-columns: minmax(0, 1fr); } }
+  .panel {
+    min-width: 0;
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+  }
+  .label {
+    margin: 0;
+    font-family: var(--f-display);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+  .moves { display: flex; flex-wrap: wrap; gap: 8px; }
+  button {
+    font-family: var(--f-display);
+    font-size: 14px;
+    line-height: 1.2;
+    padding: 9px 13px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--ink);
+    cursor: pointer;
+    transition: background-color 0.15s, border-color 0.15s;
+  }
+  button:hover:not(:disabled) { border-color: var(--clay); }
+  button:focus-visible { outline: 2px solid var(--clay-ink); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .auto-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    padding-top: 14px;
+    border-top: 1px solid var(--line);
+  }
+  .auto-row p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  .readout {
+    margin: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 6px 16px;
+    font-family: var(--f-display);
+    font-size: 14px;
+  }
+  .readout dt { color: var(--muted); }
+  .readout dd { margin: 0; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .meter { height: 4px; border-radius: 2px; background: var(--line); overflow: hidden; }
+  .meter i { display: block; height: 100%; width: 0; background: var(--clay); }
+  .note { margin: 0; max-width: 62ch; font-size: 15px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .caret { animation: none; }
+    button { transition: none; }
+  }
+</style>
+
+<main class="wrap">
+  <header class="top">
+    <h1>Clawd <span>3D</span></h1>
+    <p class="lede">The moves Clawd makes on Claude Code's welcome screen, played in three dimensions with the same frames and timing. Drag to turn the stage. Click Clawd for a random move.</p>
+  </header>
+
+  <section class="stage" id="stage" aria-label="3D scene">
+    <canvas id="scene" role="img" aria-label="An animated 3D Clawd, an orange blocky creature with two square eyes, short arms and four legs"></canvas>
+    <canvas class="fx" id="fx" aria-hidden="true"></canvas>
+    <p class="prompt" aria-live="polite">&gt; clawd <b id="move-name">idle</b><span class="caret" aria-hidden="true"></span></p>
+    <p class="hint">Drag to orbit · click Clawd for a random move</p>
+    <p class="fallback" id="fallback" hidden>This browser couldn't start WebGL, so the 3D scene can't run here.</p>
+    <noscript><p class="fallback">The 3D scene needs JavaScript.</p></noscript>
+  </section>
+
+  <div class="lower">
+    <section class="panel" aria-labelledby="moves-label">
+      <p class="label" id="moves-label">Moves</p>
+      <div class="moves" id="moves" role="group" aria-labelledby="moves-label"></div>
+      <div class="auto-row">
+        <button type="button" id="auto" aria-pressed="true">Auto-play</button>
+        <p>Plays random moves back to back. Picking a move stops it.</p>
+      </div>
+      <div class="auto-row">
+        <button type="button" id="ultra" aria-pressed="false">Ultra effort</button>
+        <p>Like picking Ultracode in the Claude app's effort menu: Clawd grabs an electric guitar and goes all out in front of a pulsing pixel wall: big jumps, a spin, a knee slide, a duck walk and a windmill. Then he keeps jamming between moves.</p>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="frame-label">
+      <p class="label" id="frame-label">Current frame</p>
+      <dl class="readout">
+        <dt>move</dt><dd id="rd-move">idle</dd>
+        <dt>frame</dt><dd id="rd-frame">1 / 22</dd>
+        <dt>pose</dt><dd id="rd-pose">default</dd>
+        <dt>offset</dt><dd id="rd-offset">0</dd>
+        <dt>x</dt><dd id="rd-x">0</dd>
+      </dl>
+      <div class="meter" aria-hidden="true"><i id="rd-meter"></i></div>
+      <p class="note">Each move is a list of 60 ms frames, copied from Claude Code 2.1.304. A frame names a pose (eyes, arms, feet, or a turn angle), how many rows Clawd sits below or above the floor line, and how many columns it stands off to the left. Two moves aren't in that version and are rebuilt from screen recordings of the Claude app: the laptop move (clicking Clawd) and the guitar (the Ultracode effort setting). Celebrate is extended with a spin, a victory dance and confetti, since in Claude Code it matches jump. The 3D version eases between frames. Unofficial fan recreation.</p>
+    </section>
+  </div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="clawd-engine.js?v=9"></script>
+<script>
+(() => {
+  const E = window.ClawdEngine;
+  const canvas = document.getElementById("scene");
+  const stage = document.getElementById("stage");
+  const nameEl = document.getElementById("move-name");
+  const movesEl = document.getElementById("moves");
+  const autoBtn = document.getElementById("auto");
+  const ultraBtn = document.getElementById("ultra");
+  const rd = {
+    move: document.getElementById("rd-move"),
+    frame: document.getElementById("rd-frame"),
+    pose: document.getElementById("rd-pose"),
+    offset: document.getElementById("rd-offset"),
+    x: document.getElementById("rd-x"),
+    meter: document.getElementById("rd-meter")
+  };
+  const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  const moveNames = E ? E.ALL : [];
+  const buttons = moveNames.map((name) => {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.id = `move-${name}`;
+    b.textContent = name;
+    b.dataset.move = name;
+    b.setAttribute("aria-pressed", "false");
+    movesEl.appendChild(b);
+    return b;
+  });
+
+  const clawd = E && E.create({
+    stage,
+    canvas,
+    fx: document.getElementById("fx"),
+    mode: "stage",
+    onMove(name) {
+      nameEl.textContent = name;
+      rd.move.textContent = name;
+      buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
+    },
+    onFrame({ index, length, frame: f }) {
+      rd.frame.textContent = `${index + 1} / ${length}`;
+      rd.pose.textContent = E.describe(f);
+      rd.offset.textContent = f.offset > 0 ? `${f.offset} below` : f.offset < 0 ? `${-f.offset} above` : "0";
+      rd.x.textContent = f.x ? `${-f.x} columns left` : "0";
+      rd.meter.style.width = `${((index + 1) / length) * 100}%`;
+    },
+    onAuto(on) { autoBtn.setAttribute("aria-pressed", String(on)); },
+    onUltra(on) { ultraBtn.setAttribute("aria-pressed", String(on)); }
+  });
+  if (!clawd) {
+    document.getElementById("fallback").hidden = false;
+    canvas.hidden = true;
+    buttons.forEach((b) => (b.disabled = true));
+    autoBtn.disabled = true;
+    ultraBtn.disabled = true;
+    return;
+  }
+
+  function applyTheme() {
+    const cs = getComputedStyle(document.documentElement);
+    const get = (n, d) => cs.getPropertyValue(n).trim() || d;
+    clawd.setColors({
+      floor: get("--floor", "#b8bec6"),
+      dots: get("--floor-dots", "#8d949e"),
+      dust: get("--dust", "#a9b0ba"),
+      code: get("--code", "#0e7486")
+    });
+  }
+  applyTheme();
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", applyTheme);
+  new MutationObserver(applyTheme).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+
+  buttons.forEach((b) => b.addEventListener("click", () => { clawd.setAuto(false); clawd.play(b.dataset.move); }));
+  autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
+  ultraBtn.addEventListener("click", () => { clawd.setAuto(false); clawd.setUltra(!clawd.ultra); });
+
+  // First launch: a random entrance, as Claude Code does after an update.
+  clawd.setAuto(!reduceMotion.matches);
+  if (reduceMotion.matches) clawd.play("idle", { snap: true });
+  else clawd.entrance({ snap: true });
+})();
+</script>

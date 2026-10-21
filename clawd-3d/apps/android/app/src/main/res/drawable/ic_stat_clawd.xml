@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Clawd as a one-colour status-bar icon; the eyes are holes in the body. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="16"
+    android:viewportHeight="16">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M3,3h10v7h-10z M1,6h2v2h-2z M13,6h2v2h-2z M4,10h1v2h-1z M6,10h1v2h-1z M9,10h1v2h-1z M11,10h1v2h-1z M5,5h1v1h-1z M10,5h1v1h-1z" />
+</vector>
