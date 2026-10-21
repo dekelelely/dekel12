@@ -4,7 +4,7 @@ const { app, BrowserWindow, Tray, Menu, ipcMain, screen, nativeImage } = require
 const path = require("path");
 const fs = require("fs");
 
-const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "laptop"];
+const MOVES = ["jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop", "laptop", "ultracode"];
 const SIZES = { Small: 170, Medium: 240, Large: 330 };
 const MARGIN = 12;
 
@@ -13,6 +13,7 @@ let tray = null;
 let full = false;
 let petBounds = null;
 let autoOn = false;
+let ultraOn = false;
 let settings = { size: "Medium", x: null, y: null };
 const settingsFile = () => path.join(app.getPath("userData"), "settings.json");
 
@@ -129,6 +130,7 @@ function menuTemplate() {
   return [
     { label: "Play a move", submenu: MOVES.map((name) => ({ label: name, click: () => win && win.webContents.send("play", name) })) },
     { label: "Auto-play every move", type: "checkbox", checked: autoOn, click: (item) => win && win.webContents.send("auto", item.checked) },
+    { label: "Ultra effort (electric guitar)", type: "checkbox", checked: ultraOn, click: (item) => win && win.webContents.send("ultra", item.checked) },
     { type: "separator" },
     { label: full ? "Back to corner" : "Fullscreen", click: () => setFull(!full) },
     { label: "Size", submenu: Object.keys(SIZES).map((name) => ({ label: name, type: "radio", checked: settings.size === name, click: () => setSize(name) })) },
@@ -156,6 +158,7 @@ ipcMain.on("menu", () => {
 });
 ipcMain.on("set-fullscreen", (_e, on) => setFull(!!on));
 ipcMain.on("auto-changed", (_e, on) => { autoOn = !!on; refreshTray(); });
+ipcMain.on("ultra-changed", (_e, on) => { ultraOn = !!on; refreshTray(); });
 
 if (!app.requestSingleInstanceLock()) {
   app.quit();

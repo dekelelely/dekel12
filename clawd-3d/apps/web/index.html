@@ -81,6 +81,7 @@
 <p class="hint" id="hint"></p>
 <div class="bar">
   <div class="chips" id="chips" role="group" aria-label="Moves"></div>
+  <button type="button" id="ultra" aria-pressed="false">Ultra effort</button>
   <button type="button" id="auto" aria-pressed="false">Auto-play</button>
   <button type="button" id="secondary" hidden></button>
   <button type="button" id="primary" class="main"></button>
@@ -102,6 +103,10 @@
   const E = window.ClawdEngine;
   const chips = document.getElementById("chips");
   const autoBtn = document.getElementById("auto");
+  const ultraBtn = document.getElementById("ultra");
+  // Ultra effort is remembered, so Clawd keeps his guitar after a restart (and the Android bubble picks it up).
+  let savedUltra = false;
+  try { savedUltra = localStorage.getItem("clawd-ultra") === "1"; } catch (err) { /* storage unavailable */ }
   const primary = document.getElementById("primary");
   const secondary = document.getElementById("secondary");
   const hint = document.getElementById("hint");
@@ -126,6 +131,11 @@
       autoBtn.setAttribute("aria-pressed", String(on));
       if (desk) desk.reportAuto(on);
     },
+    onUltra(on) {
+      ultraBtn.setAttribute("aria-pressed", String(on));
+      try { localStorage.setItem("clawd-ultra", on ? "1" : "0"); } catch (err) { /* storage unavailable */ }
+      if (desk) desk.reportUltra(on);
+    },
     // Windows: the transparent window lets clicks through everywhere except over Clawd himself.
     onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
     onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
@@ -137,7 +147,7 @@
     document.getElementById("fallback").hidden = false;
     return;
   }
-  clawd.setColors({ floor: "#2b3138", dots: "#4a525c", dust: "#4a525c", code: "#4cc9db" });
+  clawd.setColors({ floor: "#2b3138", dots: "#4a525c", dust: "#4a525c", code: "#4cc9db", notes: "#f5b942" });
 
   function refreshControls() {
     secondary.hidden = true;
@@ -164,6 +174,7 @@
 
   buttons.forEach((b) => b.addEventListener("click", () => { clawd.setAuto(false); clawd.play(b.dataset.move); }));
   autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
+  ultraBtn.addEventListener("click", () => { clawd.setAuto(false); clawd.setUltra(!clawd.ultra); });
   primary.addEventListener("click", () => {
     if (platform === "electron") desk.setFullscreen(false);
     else if (platform === "android") {
@@ -186,11 +197,13 @@
   if (desk) {
     desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
     desk.onAuto((on) => clawd.setAuto(on));
+    desk.onUltra((on) => { clawd.setAuto(false); clawd.setUltra(on); });
     desk.onMode(applyMode);
   }
 
   applyMode(mode);
-  if (reduceMotion) clawd.play("idle", { snap: true });
+  if (savedUltra) clawd.setUltra(true);
+  else if (reduceMotion) clawd.play("idle", { snap: true });
   else clawd.entrance({ snap: true });
 })();
 </script>

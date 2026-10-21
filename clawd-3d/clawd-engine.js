@@ -83,11 +83,34 @@
       ...Array.from({ length: 2 }, () => ({ pose: mood("left"), offset: 0, x: 0, squat: 0.4, turnTo: -55, laptop: 0.4, label: "closes laptop" })),
       { pose: "default", offset: 0, x: 0, turnTo: -20, label: "closes laptop" },
       ...run("default", 2), ...BLINK
-    ]
+    ],
+    // Ultra effort: Clawd grabs an electric guitar, an amp pops up, and he rocks out. Not in Claude Code
+    // (its ultra Clawd holds a glowing wand); added here as a guitar.
+    ultracode: (() => {
+      const g = (n, extra) => Array.from({ length: n }, () => ({ pose: "default", offset: 0, x: 0, guitar: 1, ...extra }));
+      return [
+        ...run("look-right", 3),
+        { pose: "arms-up", offset: 0, x: 0, guitar: 0.5, ripple: "notes", sparks: 14, label: "grabs a guitar" },
+        { pose: "arms-up", offset: 0, x: 0, guitar: 1, label: "grabs a guitar" },
+        ...g(22, { strum: 1, bang: 0.5, fret: 0.25, label: "plays" }),
+        ...g(18, { pose: mood("closed"), strum: 1, bang: 1, fret: 0.75, solo: true, label: "solos" }),
+        ...g(2, { offset: 1, strum: 0.3, fret: 0.5, label: "power chord" }),
+        ...[0.55, 0.95, 0.95, 0.55].map((lift, i) => ({
+          pose: "default", offset: 0, x: 0, guitar: 1, fret: 0.5, lift, label: "power chord",
+          ...(i === 1 ? { ripple: "notes", sparks: 24 } : {})
+        })),
+        { pose: "default", offset: 1, x: 0, guitar: 1, fret: 0.5, poof: "wave", label: "power chord" },
+        ...g(1, { offset: 1, fret: 0.5, label: "power chord" }),
+        ...g(8, { strum: 1, bang: 1, fret: 0.4, label: "plays" }),
+        { pose: "default", offset: 0, x: 0, guitar: 0.4, label: "puts the guitar down" },
+        { pose: "default", offset: 0, x: 0, guitar: 0, label: "puts the guitar down" },
+        ...run("default", 2), ...BLINK
+      ];
+    })()
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
-  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop"];
+  const ON_CLICK = [...ENTRANCES.filter((n) => (MOVES[n][0].x || 0) === 0), "laptop", "ultracode"];
   const ALL = Object.keys(MOVES);
 
   // Turn angles: each facing name is an angle; pick the reading that keeps the turn going one way.
@@ -279,22 +302,109 @@
     }
     drawScreen(0);
 
+    // ---- Electric guitar and amp for ultra effort ----
+    const darkMat = new THREE.MeshStandardMaterial({ color: lin("#1c1d21"), roughness: 0.6, clippingPlanes: floorClip });
+    const guitarMat = new THREE.MeshStandardMaterial({ color: lin("#2e5bff"), roughness: 0.3, metalness: 0.1, clippingPlanes: floorClip });
+    const guardMat = new THREE.MeshStandardMaterial({ color: lin("#f2f2ef"), roughness: 0.5, clippingPlanes: floorClip });
+    const neckMat = new THREE.MeshStandardMaterial({ color: lin("#d9b382"), roughness: 0.6, clippingPlanes: floorClip });
+    const boardMat = new THREE.MeshStandardMaterial({ color: lin("#3b2a20"), roughness: 0.7, clippingPlanes: floorClip });
+    const metalMat = new THREE.MeshStandardMaterial({ color: lin("#c9ced6"), roughness: 0.3, metalness: 0.8, clippingPlanes: floorClip });
+    function part(w, h, d, mat, x, y, z) {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      m.castShadow = true;
+      m.receiveShadow = true;
+      return m;
+    }
+    const guitar = new THREE.Group();     // neck along +x, strings facing +z
+    guitar.add(
+      part(3.8, 4.2, 0.8, guitarMat, 0, 0, 0),             // body
+      part(1.3, 1.1, 0.8, guitarMat, 2.3, 1.45, 0),        // upper horn
+      part(1.0, 1.0, 0.8, guitarMat, 2.15, -1.5, 0),       // lower horn
+      part(2.6, 3.0, 0.08, guardMat, 0.3, 0.2, 0.44),      // pickguard
+      part(0.32, 1.5, 0.14, darkMat, -0.9, 0, 0.5),        // pickups
+      part(0.32, 1.5, 0.14, darkMat, -0.2, 0, 0.5),
+      part(0.32, 1.5, 0.14, darkMat, 0.5, 0, 0.5),
+      part(0.4, 1.7, 0.16, metalMat, -1.5, 0, 0.48),       // bridge
+      part(0.3, 0.3, 0.3, metalMat, -1.2, -1.5, 0.5),      // knobs
+      part(0.3, 0.3, 0.3, metalMat, -0.5, -1.6, 0.5),
+      part(6.6, 0.75, 0.42, neckMat, 5.0, 0, 0.12),        // neck
+      part(6.0, 0.7, 0.08, boardMat, 4.9, 0, 0.37),        // fretboard
+      part(1.7, 1.0, 0.32, guitarMat, 9.1, 0.15, 0.08)     // headstock
+    );
+    for (let i = 0; i < 7; i++) guitar.add(part(0.06, 0.72, 0.1, metalMat, 2.3 + i * 0.85, 0, 0.42));
+    for (const y of [-0.24, -0.08, 0.08, 0.24]) guitar.add(part(10.2, 0.04, 0.04, metalMat, 3.6, y, 0.52));
+    // Held across the front, neck rising toward Clawd's left hand.
+    const GUITAR_AT = { x: -1.6, y: 3.2, tilt: 0.42 };
+    const guitarPivot = new THREE.Group();
+    guitarPivot.position.set(GUITAR_AT.x, GUITAR_AT.y, DEPTH / 2 + 0.75);
+    guitarPivot.rotation.z = GUITAR_AT.tilt;
+    guitarPivot.add(guitar);
+    guitarPivot.visible = false;
+    body.add(guitarPivot);
+    // A point along the guitar (distance from the body's centre toward the headstock) in body coordinates.
+    const onGuitar = (d) => [GUITAR_AT.x + d * Math.cos(GUITAR_AT.tilt), GUITAR_AT.y + d * Math.sin(GUITAR_AT.tilt)];
+
+    const amp = new THREE.Group();
+    amp.add(
+      part(4.4, 4.8, 3, darkMat, 0, 2.4, 0),
+      part(3.6, 3.2, 0.1, new THREE.MeshStandardMaterial({ color: lin("#3a3d44"), roughness: 0.9, clippingPlanes: floorClip }), 0, 2.0, 1.52),
+      part(3.8, 0.5, 0.1, metalMat, 0, 4.15, 1.52),
+      part(0.6, 0.35, 0.12, clayMat, -1.3, 4.15, 1.58)
+    );
+    for (const x of [0.2, 0.8, 1.4]) amp.add(part(0.25, 0.25, 0.2, neckMat, x, 4.15, 1.62));
+    amp.position.set(10.5, 0, -0.6);
+    amp.rotation.y = -0.35;
+    amp.visible = false;
+    root.add(amp);
+
+    // Sparks off the strings: bright, unlit specks that fly out and fall.
+    const sparkMats = [lin("#ffd54a"), lin("#ff7a45"), lin("#ffffff")].map((color) => new THREE.MeshBasicMaterial({ color }));
+    const sparkGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+    const sparks = Array.from({ length: 48 }, (_, i) => {
+      const m = new THREE.Mesh(sparkGeo, sparkMats[i % 3]);
+      m.visible = false;
+      m.userData = { v: new THREE.Vector3(), life: 0 };
+      scene.add(m);
+      return m;
+    });
+    const sparkFrom = new THREE.Vector3();
+    function emitSparks(count) {
+      guitar.getWorldPosition(sparkFrom);
+      let made = 0;
+      for (const m of sparks) {
+        if (m.visible) continue;
+        const a = Math.random() * Math.PI * 2;
+        const sp = 6 + Math.random() * 9;
+        m.position.copy(sparkFrom);
+        m.userData.v.set(Math.cos(a) * sp, 4 + Math.random() * 8, Math.sin(a) * sp * 0.6 + 3);
+        m.userData.life = 0.5 + Math.random() * 0.4;
+        m.visible = true;
+        if (++made === count) break;
+      }
+    }
+
     // Code that floods out from Clawd, as in the Claude app: a growing disc of text rows with a bright, crisp
     // leading edge and dimmer characters behind it; once it covers the stage it holds, then fades out together.
     const fctx = fx.getContext("2d");
     const GLYPHS = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     const hash = (i, j, k) => { const v = Math.sin(i * 127.1 + j * 311.7 + k * 74.7) * 43758.5453; return v - Math.floor(v); };
     const RING = { grow: 0.9, hold: 0.35, fade: 1.0, edge: 46, inside: 0.32 };
-    let ripple = null, codeColor = "#0e7486";
-    function startRipple() {
+    let ripple = null, codeColor = "#0e7486", notesColor = "#b7791f";
+    // "code" is the laptop's flood of code; "notes" is a looser burst of music notes for the guitar.
+    const RIPPLE_STYLES = {
+      code: { glyphs: GLYPHS, cw: 8.5, ch: 13, size: 11, gap: 0.12, words: true, color: () => codeColor },
+      notes: { glyphs: "\u266A\u266B\u266C\u2669", cw: 22, ch: 22, size: 17, gap: 0.55, words: false, color: () => notesColor }
+    };
+    function startRipple(kind) {
       const p = new THREE.Vector3(root.position.x, 6, 0).project(camera);
-      ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height };
+      ripple = { t: 0, x: (p.x + 1) / 2 * fx.width, y: (1 - p.y) / 2 * fx.height, style: RIPPLE_STYLES[kind] || RIPPLE_STYLES.code };
     }
-    function glyphAt(i, j, t) {
+    function glyphAt(i, j, t, st) {
       // Rows read like lines of code: runs of characters broken by spaces, each cell changing now and then.
-      if (hash(Math.floor(i / 5), j, 9) < 0.18 || hash(i, j, 3) < 0.12) return null;
+      if ((st.words && hash(Math.floor(i / 5), j, 9) < 0.18) || hash(i, j, 3) < st.gap) return null;
       const k = Math.floor((t + hash(i, j, 1) * 0.6) / 0.35);
-      return GLYPHS[Math.floor(hash(i, j, k + 17) * 997) % GLYPHS.length];
+      return st.glyphs[Math.floor(hash(i, j, k + 17) * 997) % st.glyphs.length];
     }
     function drawRipple(dt) {
       if (!ripple) return;
@@ -306,14 +416,15 @@
       const R = far * Math.min(1, Math.pow(t / RING.grow, 0.85)) + RING.edge * s;
       const fade = 1 - clamp((t - RING.grow - RING.hold) / RING.fade, 0, 1);
       if (fade <= 0) { ripple = null; return; }
-      const edge = RING.edge * s, cw = 8.5 * s, ch = 13 * s;
+      const st = ripple.style;
+      const edge = RING.edge * s, cw = st.cw * s, ch = st.ch * s;
       const cols = Math.ceil(fx.width / cw), rows = Math.ceil(fx.height / ch);
-      fctx.fillStyle = codeColor;
+      fctx.fillStyle = st.color();
       fctx.textAlign = "center";
       fctx.textBaseline = "middle";
       // Two passes so each needs only one font: the dim fill behind the edge, then the bold edge itself.
       for (const rim of [false, true]) {
-        fctx.font = `${rim ? 700 : 500} ${11 * s}px "Martian Mono", Menlo, Consolas, monospace`;
+        fctx.font = `${rim ? 700 : 500} ${st.size * s}px "Martian Mono", Menlo, Consolas, "Segoe UI Symbol", monospace`;
         for (let j = 0; j < rows; j++) {
           const y = (j + 0.5) * ch, dy = y - ripple.y;
           if (Math.abs(dy) > R) continue;
@@ -322,7 +433,7 @@
             if (d > R) continue;
             const onEdge = d > R - edge && R < far + edge;
             if (onEdge !== rim) continue;
-            const g = glyphAt(i, j, t);
+            const g = glyphAt(i, j, t, st);
             if (!g) continue;
             const shade = 0.55 + 0.45 * hash(i, j, 5);
             fctx.globalAlpha = fade * shade * (rim ? 1 : RING.inside);
@@ -401,6 +512,7 @@
       if (c.dots) dotMat.color.copy(lin(c.dots));
       if (c.dust) dustMat.color.copy(lin(c.dust));
       if (c.code) codeColor = c.code;
+      if (c.notes) notesColor = c.notes;
     }
 
     // ---- Turning a frame into 3D targets ----
@@ -408,7 +520,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -434,19 +546,33 @@
       goal.lidR = p.eyes === "closed" || p.eyes === "wink" ? 1 : 0;
       goal.laptop = f.laptop || 0;
       goal.type = f.typing ? 1 : 0;
+      goal.guitar = f.guitar || 0;
+      goal.strum = f.strum || 0;
+      goal.bang = f.bang || 0;
+      if (f.fret !== undefined) goal.fret = f.fret;
+      soloing = !!f.solo;
+      // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
+      if (ultra && seqName === "idle") {
+        goal.guitar = 1;
+        goal.strum = 0.35;
+        goal.bang = 0.25;
+        goal.fret = 0.35;
+      }
     }
 
     // ---- Playback ----
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
     let auto = false, autoNext = 0;
     let ambient = false, nextAmbient = 0;   // pet mode: a random move every so often, between look-arounds
+    let ultra = false, soloing = false, sparkClock = 0;
     let clock = 0;
 
     function enterFrame() {
       const f = seq[idx];
       targetsFor(f);
       if (f.poof) puff(f.poof);
-      if (f.ripple) { startRipple(); typeTarget = 0; }
+      if (f.ripple) { startRipple(f.ripple); typeTarget = 0; }
+      if (f.sparks) emitSparks(f.sparks);
       if (f.typing) typeTarget = Math.min(SCREEN_TEXT.length, typeTarget + 4);
       if (f.laptop) drawScreen(typeTarget);
       on("onFrame", { name: seqName, index: idx, length: seq.length, frame: f });
@@ -477,6 +603,13 @@
     function setAuto(value) {
       auto = !!value;
       on("onAuto", auto);
+    }
+    // Switching to ultra effort starts the guitar move right away, like changing the setting in Claude Code.
+    function setUltra(value) {
+      ultra = !!value;
+      on("onUltra", ultra);
+      if (ultra) play("ultracode");
+      else if (seqName === "idle") targetsFor(seq[idx]);
     }
     function setAmbient(value) {
       ambient = !!value;
@@ -615,9 +748,11 @@
       const legScale = 1 - 0.85 * state.crouch;
       body.position.y = LEG_H * legScale + state.type * 0.25 * (1 - Math.abs(Math.sin(clock * 42)));   // dips into each keystroke
       body.scale.set(1 / Math.sqrt(state.squash), state.squash, 1 / Math.sqrt(state.squash));
+      body.rotation.x = state.bang * 0.14 * Math.sin(clock * 13);   // headbanging
       legs.forEach((leg) => {
         leg.scale.y = legScale;
-        leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR);
+        const stomp = state.strum * 0.55 * Math.max(0, Math.sin(clock * 6.5 + (leg.userData.left ? 0 : Math.PI)));
+        leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR) + stomp;
       });
       // Typing, as in the recording: the arms reach straight forward and stay level (no rotation);
       // the hands move only by sliding: down onto the keys in turn, side to side, and in and out.
@@ -631,7 +766,40 @@
         arm.position.z = state.type * (DEPTH / 2 + 0.1 - 0.9 * reach);
         arm.rotation.y = -side * Math.PI / 2 * state.type;
         arm.rotation.z = side * (i ? state.armR : state.armL);
+        // Holding the guitar: the right hand (viewer's left) strums over the pickups, the left frets up the neck.
+        const hold = clamp(state.guitar * 1.5 - 0.3, 0, 1);
+        if (hold > 0) {
+          const [gx, gy] = i
+            ? onGuitar(3 + 4 * clamp(state.fret + (soloing ? 0.08 * Math.sin(clock * 9) : 0), 0, 1))
+            : onGuitar(-0.3);
+          const strumY = i ? 0 : state.strum * 0.9 * Math.sin(clock * 24);
+          arm.position.x += (gx - arm.position.x) * hold;
+          arm.position.y += (gy + strumY - arm.position.y) * hold;
+          arm.position.z += (DEPTH / 2 - 0.3 - arm.position.z) * hold;
+          arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * hold;
+          arm.rotation.z *= 1 - hold;
+        }
       });
+      const gShown = clamp(state.guitar * 2, 0, 1);
+      guitarPivot.visible = amp.visible = gShown > 0.01;
+      guitarPivot.scale.setScalar(Math.max(gShown, 0.001));
+      amp.scale.setScalar(Math.max(gShown, 0.001) * (1 + 0.05 * state.strum * Math.abs(Math.sin(clock * 24))));
+      rim.color.setRGB(1, 1 - 0.4 * state.strum, 1 - 0.05 * state.strum);   // a hint of stage lighting while he plays
+      rim.intensity = 0.35 + state.strum * (0.25 + 0.15 * Math.sin(clock * 6));
+      if (soloing) {
+        sparkClock += dt;
+        while (sparkClock > 0.06) { sparkClock -= 0.06; emitSparks(1); }
+      }
+      for (const m of sparks) {
+        if (!m.visible) continue;
+        const d = m.userData;
+        d.life -= dt * 1.4;
+        if (d.life <= 0) { m.visible = false; continue; }
+        d.v.y -= 22 * dt;
+        m.position.addScaledVector(d.v, dt);
+        if (m.position.y < 0.2) { m.position.y = 0.2; d.v.y *= -0.3; }
+        m.scale.setScalar(d.life * 1.6);
+      }
       const shown = clamp(state.laptop * 2.5, 0, 1);
       laptop.visible = shown > 0.01;
       laptop.scale.setScalar(Math.max(shown, 0.001));
@@ -683,6 +851,8 @@
       get auto() { return auto; },
       get move() { return seqName; },
       setAmbient,
+      setUltra,
+      get ultra() { return ultra; },
       setMode,
       get mode() { return mode; },
       setColors,

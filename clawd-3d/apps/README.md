@@ -22,7 +22,7 @@ Clawd stands on the taskbar in the bottom-right corner, always on top, with no w
 | Double-click Clawd | Fullscreen (Esc or **Back to corner** to return) |
 | Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, quit |
 
-Every so often he plays a move on his own.
+Every so often he plays a move on his own. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
 
 ## Android
 
@@ -34,6 +34,8 @@ Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**,
 | Drag Clawd | Move the bubble |
 | Long-press Clawd | Open the fullscreen app |
 | Notification → **Hide Clawd**, or **Hide bubble** in the app | Remove the bubble |
+
+**Ultra effort** in the app gives Clawd an electric guitar; the bubble keeps it too the next time it starts.
 
 ## Building them yourself
 
