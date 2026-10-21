@@ -766,7 +766,8 @@
     // ---- Playback ----
     let seq = IDLE, seqName = "idle", idx = 0, acc = 0;
     let auto = false, autoNext = 0;
-    let ambient = false, nextAmbient = 0;   // pet mode: a random move every so often, between look-arounds
+    let ambient = false, nextAmbient = 0;   // pet mode: a random move AMBIENT_GAP seconds after the last one ends
+    const AMBIENT_GAP = 5;
     let ultra = false, zapping = false, sparkClock = 0, flash = 0, noteClock = 0;
     let clock = 0;
 
@@ -793,15 +794,13 @@
       if (snap) for (const prop of Object.keys(state)) state[prop] = goal[prop];
     }
     const pick = (list) => list[Math.floor(Math.random() * list.length)];
-    function scheduleAmbient() { nextAmbient = clock + 18 + Math.random() * 27; }
+    function scheduleAmbient() { nextAmbient = clock + AMBIENT_GAP; }
     function finished() {
       if (seqName === "idle" && auto) {
         play(ALL[autoNext]);
         autoNext = (autoNext + 1) % ALL.length;
-      } else if (seqName === "idle" && ambient && clock >= nextAmbient) {
-        scheduleAmbient();
-        play(pick(ON_CLICK));
       } else {
+        if (seqName !== "idle") scheduleAmbient();   // a move just ended: the next random one is due in 5 s
         play("idle");
       }
     }
@@ -967,6 +966,8 @@
         if (idx >= seq.length) finished();
         else enterFrame();
       }
+      // Pet mode: once he has idled AMBIENT_GAP seconds since his last move, start a random one (mid look-around is fine).
+      if (ambient && !auto && seqName === "idle" && clock >= nextAmbient) play(pick(ON_CLICK));
 
       const k = 1 - Math.exp(-dt / 0.045);
       for (const prop of Object.keys(state)) {

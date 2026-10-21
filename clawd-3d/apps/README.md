@@ -22,11 +22,11 @@ Clawd stands on the taskbar in the bottom-right corner, always on top, with no w
 | Double-click Clawd | Fullscreen (Esc or **Back to corner** to return) |
 | Right-click Clawd, or the tray icon | Play a move, auto-play, fullscreen, size (small / medium / large), move to corner, start with Windows, quit |
 
-Every so often he plays a move on his own. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
+Five seconds after each move ends, he plays another one on his own. Turn on **Ultra effort (electric guitar)** in the menu and he grabs an electric guitar and rocks out, then keeps jamming between moves.
 
 ## Android
 
-Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one.
+Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**, allow **Display over other apps** when Android asks, and come back: Clawd now floats over your other apps. If you picked a move in the app first, he opens with that one; otherwise with a random one. After that he plays a random move five seconds after each one ends.
 
 **Taps through** in the app decides what happens to taps on the space just around him. Off (the default): he is drawn in full colour, and that space takes your taps. On: taps there go to the app below, but on Android 12 and newer he is drawn at 80% opacity, the most Android allows for an overlay that lets touches through. Either way, taps on Clawd himself are his.
 
