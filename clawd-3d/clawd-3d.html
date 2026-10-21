@@ -327,9 +327,9 @@
       ...run("look-right", 4),
       { pose: mood("left"), offset: 0, x: 0, turnTo: -25, laptop: 0.35, ripple: true, label: "opens laptop" },
       { pose: mood("left"), offset: 0, x: 0, turnTo: -45, laptop: 0.75, label: "opens laptop" },
-      { pose: mood("left"), offset: 0, x: 0, squat: 0.5, turnTo: -55, laptop: 1, label: "opens laptop" },
-      ...Array.from({ length: 36 }, () => ({ pose: mood("left"), offset: 0, x: 0, squat: 0.5, turnTo: -55, laptop: 1, typing: true, label: "types" })),
-      ...Array.from({ length: 2 }, () => ({ pose: mood("left"), offset: 0, x: 0, squat: 0.5, turnTo: -55, laptop: 0.4, label: "closes laptop" })),
+      { pose: mood("left"), offset: 0, x: 0, turnTo: -55, laptop: 1, label: "opens laptop" },
+      ...Array.from({ length: 36 }, () => ({ pose: mood("left"), offset: 0, x: 0, turnTo: -55, laptop: 1, typing: true, label: "types" })),
+      ...Array.from({ length: 2 }, () => ({ pose: mood("left"), offset: 0, x: 0, turnTo: -55, laptop: 0.4, label: "closes laptop" })),
       { pose: "default", offset: 0, x: 0, turnTo: -20, label: "closes laptop" },
       ...run("default", 2), ...BLINK
     ]
@@ -483,7 +483,7 @@
   });
 
   // ---- Laptop for the laptop move: opens in front of Clawd, screen facing it ----
-  const LT = { W: 8.5, D: 5, BASE: 1.2, LID: 0.25 };   // the base height puts the keys under Clawd's hands
+  const LT = { W: 8.5, D: 5, BASE: 1.7, LID: 0.25 };   // a thick base puts the keys under a standing Clawd's hands
   const laptopMat = new THREE.MeshStandardMaterial({ color: lin("#d5d8dd"), roughness: 0.45, metalness: 0.15, clippingPlanes: floorClip });
   const keysMat = new THREE.MeshStandardMaterial({ color: lin("#3a3f46"), roughness: 0.8, clippingPlanes: floorClip });
   const screenCanvas = document.createElement("canvas");
@@ -846,10 +846,10 @@
       const side = i ? 1 : -1;
       const drift = state.type * 0.07 * Math.sin(clock * 5.3 + i * 2.1);
       arm.position.x = side * (BODY_W / 2 - 2.6 * state.type);
-      arm.position.y = BODY_H * (0.5 - 0.25 * state.type);
+      arm.position.y = BODY_H * (0.5 - 0.3 * state.type);
       arm.position.z = state.type * (DEPTH / 2 - 0.1);
       arm.rotation.y = -side * (Math.PI / 2 + 0.25) * state.type + drift;
-      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 0.56) + tap;   // 0.56 rad, tapping down to the keys
+      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 0.88) + tap;   // 0.88 rad, tapping down to the keys
     });
     const shown = clamp(state.laptop * 2.5, 0, 1);
     laptop.visible = shown > 0.01;
