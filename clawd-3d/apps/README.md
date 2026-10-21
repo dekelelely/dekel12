@@ -35,6 +35,7 @@ Open **Clawd** for the fullscreen view with every move. Tap **Float on screen**,
 | Tap Clawd | A random move |
 | Drag Clawd | Move the bubble |
 | Double-tap Clawd | Open the fullscreen app and hide the bubble |
+| Triple-tap Clawd | Close the app and the bubble |
 | Long-press Clawd | Open the fullscreen app, keeping the bubble |
 | Notification → **Hide Clawd**, or **Hide bubble** in the app | Remove the bubble |
 

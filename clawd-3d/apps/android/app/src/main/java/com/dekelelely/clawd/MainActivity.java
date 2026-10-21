@@ -17,8 +17,11 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.widget.Toast;
 
+import java.lang.ref.WeakReference;
+
 /** Clawd fullscreen, with a button that sends him off to float over other apps. */
 public class MainActivity extends Activity {
+    private static WeakReference<MainActivity> current = new WeakReference<>(null);
     private WebView web;
     private boolean bubbleAfterPermission = false;
     private String firstMove = "";   // the move the person last picked in the app, played first by the bubble
@@ -26,6 +29,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        current = new WeakReference<>(this);
         web = new WebView(this);
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
@@ -95,8 +99,15 @@ public class MainActivity extends Activity {
         super.onPause();
     }
 
+    /** Closes the app's screen if it is open (the bubble's triple-tap). Call on the main thread. */
+    static void closeIfOpen() {
+        MainActivity activity = current.get();
+        if (activity != null) activity.finishAndRemoveTask();
+    }
+
     @Override
     protected void onDestroy() {
+        if (current.get() == this) current.clear();
         web.destroy();
         super.onDestroy();
     }

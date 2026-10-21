@@ -18,7 +18,6 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.DisplayMetrics;
-import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -33,7 +32,8 @@ import android.webkit.WebView;
  * small invisible touch pad that the page keeps over his body. With "taps through" on, the large window lets touches
  * through to the apps below, which Android 12+ only allows at 80% opacity; with it off (the default) he is drawn in
  * full colour and the large window takes the touches around him.
- * Tap him for a move, double-tap to open the app and hide the bubble, long-press to open the app, drag to move him.
+ * Tap him for a move, double-tap to open the app and hide the bubble, triple-tap to close the app and the bubble,
+ * long-press to open the app, drag to move him.
  */
 public class BubbleService extends Service {
     static volatile boolean running = false;
@@ -179,39 +179,38 @@ public class BubbleService extends Service {
         startActivity(intent);
     }
 
+    /** Triple-tap: close the app and the bubble. */
+    private void closeEverything() {
+        MainActivity.closeIfOpen();
+        stopSelf();
+    }
+
     /**
-     * Taps, double-taps and long presses become actions; a drag moves both windows. Drags use raw screen
-     * coordinates, so moving the pad under the finger doesn't feed back into the drag.
+     * Touches on Clawd: a tap plays a move straight away; taps are then counted for a moment, and two mean "open the
+     * app and hide the bubble", three mean "close the app and the bubble". A long press opens the app; a drag moves
+     * both windows, using raw screen coordinates so moving the pad under the finger doesn't feed back into the drag.
      */
     private class PadTouch implements View.OnTouchListener {
+        private static final int MULTI_TAP_MS = 320;   // the most time between taps of a double or triple tap
         private final int slop = ViewConfiguration.get(BubbleService.this).getScaledTouchSlop();
-        private final GestureDetector gestures = new GestureDetector(BubbleService.this,
-                new GestureDetector.SimpleOnGestureListener() {
-                    @Override
-                    public boolean onDown(MotionEvent e) {
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onSingleTapUp(MotionEvent e) {
-                        web.evaluateJavascript("window.clawdPet && window.clawdPet.tap()", null);
-                        return true;
-                    }
-
-                    @Override
-                    public boolean onDoubleTap(MotionEvent e) {
-                        openApp();
-                        stopSelf();
-                        return true;
-                    }
-
-                    @Override
-                    public void onLongPress(MotionEvent e) {
-                        openApp();
-                    }
-                });
         private float downX, downY;
         private int stageX, stageY, padX, padY;
+        private boolean longPressed;
+        private int taps;
+        private final Runnable longPress = () -> {
+            longPressed = true;
+            taps = 0;
+            openApp();
+        };
+        private final Runnable settleTaps = () -> {
+            if (taps == 2) {
+                openApp();
+                stopSelf();
+            } else if (taps >= 3) {
+                closeEverything();
+            }
+            taps = 0;
+        };
 
         @Override
         public boolean onTouch(View view, MotionEvent event) {
@@ -224,16 +223,17 @@ public class BubbleService extends Service {
                     padX = padParams.x;
                     padY = padParams.y;
                     dragging = false;
-                    break;
+                    longPressed = false;
+                    main.removeCallbacks(settleTaps);
+                    main.postDelayed(longPress, ViewConfiguration.getLongPressTimeout());
+                    return true;
                 case MotionEvent.ACTION_MOVE: {
                     int dx = Math.round(event.getRawX() - downX);
                     int dy = Math.round(event.getRawY() - downY);
                     if (!dragging && Math.hypot(dx, dy) > slop * 1.5) {
                         dragging = true;
-                        MotionEvent cancel = MotionEvent.obtain(event);
-                        cancel.setAction(MotionEvent.ACTION_CANCEL);
-                        gestures.onTouchEvent(cancel);
-                        cancel.recycle();
+                        taps = 0;
+                        main.removeCallbacks(longPress);
                     }
                     if (dragging) {
                         stageParams.x = stageX + dx;
@@ -242,21 +242,26 @@ public class BubbleService extends Service {
                         padParams.y = padY + dy;
                         windowManager.updateViewLayout(web, stageParams);
                         windowManager.updateViewLayout(pad, padParams);
-                        return true;
                     }
-                    break;
+                    return true;
                 }
                 case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL:
-                    if (dragging) {
+                    main.removeCallbacks(longPress);
+                    if (dragging || longPressed) {
                         dragging = false;
                         return true;
                     }
-                    break;
+                    taps++;
+                    if (taps == 1) web.evaluateJavascript("window.clawdPet && window.clawdPet.tap()", null);
+                    main.postDelayed(settleTaps, MULTI_TAP_MS);
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    main.removeCallbacks(longPress);
+                    dragging = false;
+                    return true;
                 default:
-                    break;
+                    return true;
             }
-            return gestures.onTouchEvent(event);
         }
     }
 
