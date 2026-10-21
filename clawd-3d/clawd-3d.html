@@ -483,28 +483,28 @@
   });
 
   // ---- Laptop for the laptop move: opens in front of Clawd, screen facing it ----
-  const LT = { W: 7, D: 5, BASE: 0.5, LID: 0.25 };
+  const LT = { W: 10, D: 4, BASE: 0.7, LID: 0.25 };   // wide enough for both arms, shallow so the screen meets the arm tips
   const laptopMat = new THREE.MeshStandardMaterial({ color: lin("#d5d8dd"), roughness: 0.45, metalness: 0.15, clippingPlanes: floorClip });
   const keysMat = new THREE.MeshStandardMaterial({ color: lin("#3a3f46"), roughness: 0.8, clippingPlanes: floorClip });
   const screenCanvas = document.createElement("canvas");
-  screenCanvas.width = 256;
-  screenCanvas.height = 176;
+  screenCanvas.width = 384;
+  screenCanvas.height = 144;
   const screenCtx = screenCanvas.getContext("2d");
   const screenTex = new THREE.CanvasTexture(screenCanvas);
   screenTex.encoding = THREE.sRGBEncoding;
 
   const laptop = new THREE.Group();
-  laptop.position.set(0, 0, DEPTH / 2 + 0.5 + LT.D / 2);
+  laptop.position.set(0, 0, DEPTH / 2 + 0.15 + LT.D / 2);
   const base = new THREE.Mesh(new THREE.BoxGeometry(LT.W, LT.BASE, LT.D), laptopMat);
   base.position.y = LT.BASE / 2;
-  const keys = new THREE.Mesh(new THREE.BoxGeometry(LT.W - 1.2, 0.04, LT.D * 0.45), keysMat);
-  keys.position.set(0, LT.BASE + 0.02, LT.D * 0.12);
+  const keys = new THREE.Mesh(new THREE.BoxGeometry(LT.W - 1.4, 0.04, LT.D * 0.5), keysMat);
+  keys.position.set(0, LT.BASE + 0.02, LT.D * 0.1);
   const hinge = new THREE.Group();
   hinge.position.set(0, LT.BASE, LT.D / 2);
   const lid = new THREE.Mesh(new THREE.BoxGeometry(LT.W, LT.LID, LT.D), laptopMat);
   lid.position.set(0, LT.LID / 2, -LT.D / 2);
   const screen = new THREE.Mesh(
-    new THREE.PlaneGeometry(LT.W - 0.7, LT.D - 0.7),
+    new THREE.PlaneGeometry(LT.W - 0.8, LT.D - 0.6),
     new THREE.MeshBasicMaterial({ map: screenTex, clippingPlanes: floorClip })
   );
   screen.rotation.set(Math.PI / 2, 0, Math.PI);   // faces Clawd once open, top edge at the lid's free end
@@ -525,7 +525,7 @@
     c.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
     c.font = "bold 15px Menlo, Consolas, monospace";
     c.textBaseline = "top";
-    const lines = SCREEN_TEXT.slice(0, n).split("\n").slice(-9);
+    const lines = SCREEN_TEXT.slice(0, n).split("\n").slice(-7);
     lines.forEach((line, i) => {
       c.fillStyle = line.startsWith("  +") ? "#7fe0a0" : line.startsWith(">") ? "#e8a07f" : "#5fd3e4";
       c.fillText(line, 12, 10 + i * 18);
@@ -823,19 +823,19 @@
       leg.scale.y = legScale;
       leg.position.y = LEG_H * legScale + 0.9 * (leg.userData.left ? state.liftL : state.liftR);
     });
-    // Typing: arms swing forward over the keyboard and tap in turn.
-    const tap = state.type * 0.16 * Math.sin(clock * 32);
+    // Typing: as in the app, the arms stay flat stubs, now pointing straight out of the front face at the laptop, tapping in turn.
+    const tap = state.type * 0.07 * Math.sin(clock * 30);
     arms.forEach((arm, i) => {
       const side = i ? 1 : -1;
-      arm.position.x = side * (BODY_W / 2 + 1.1 * state.type);
-      arm.position.z = state.type * DEPTH / 2;
+      arm.position.x = side * (BODY_W / 2 - 1.2 * state.type);
+      arm.position.z = state.type * (DEPTH / 2 - 0.1);
       arm.rotation.y = -side * Math.PI / 2 * state.type;
-      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 1.05) + tap;
+      arm.rotation.z = side * ((i ? state.armR : state.armL) - state.type * 0.22) + tap;
     });
     const shown = clamp(state.laptop * 2.5, 0, 1);
     laptop.visible = shown > 0.01;
     laptop.scale.setScalar(Math.max(shown, 0.001));
-    hinge.rotation.x = clamp((state.laptop - 0.2) / 0.8, 0, 1) * THREE.MathUtils.degToRad(112);
+    hinge.rotation.x = clamp((state.laptop - 0.2) / 0.8, 0, 1) * THREE.MathUtils.degToRad(105);
     drawRipple(dt);
     eyes.forEach((eye, i) => {
       const lid = i === 0 ? state.lidL : state.lidR;
