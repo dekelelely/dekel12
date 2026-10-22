@@ -68,6 +68,13 @@
     white-space: nowrap;
     cursor: pointer;
   }
+  /* A phone held upright: the moves get a row of their own, the switches the next one, and the main button the last. */
+  @media (max-width: 640px) {
+    .bar { flex-wrap: wrap; row-gap: 8px; }
+    .chips { flex: 1 1 100%; }
+    .bar > button { flex: 1 1 auto; }
+    .bar > button.main { flex-basis: 100%; }
+  }
   .bar button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
   .bar button[aria-pressed="true"], .bar button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
   /* Update button (desktop and Android apps), top right in the fullscreen view. */
