@@ -100,7 +100,9 @@ impl Mips {
         self.levels.clear();
         let base: Vec<[f32; 4]> = t
             .rgba
-            .chunks_exact(4)
+            .as_chunks::<4>()
+            .0
+            .iter()
             .map(|p| [p[0] as f32 / 255.0, p[1] as f32 / 255.0, p[2] as f32 / 255.0, p[3] as f32 / 255.0])
             .collect();
         self.levels.push((t.width, t.height, base));
@@ -307,7 +309,7 @@ impl Renderer {
     fn resolve(&mut self, ss: usize) {
         let (w, h, sw) = (self.width, self.height, self.width * ss);
         if ss == 1 {
-            for (o, c) in self.out.chunks_exact_mut(4).zip(self.color.iter()) {
+            for (o, c) in self.out.as_chunks_mut::<4>().0.iter_mut().zip(self.color.iter()) {
                 o.copy_from_slice(c);
             }
             return;
