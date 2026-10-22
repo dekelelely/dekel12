@@ -1,8 +1,8 @@
 name: Clawd apps
 
-# Builds Clawd for Windows, macOS and Linux (the Rust desktop app in clawd-3d/apps/desktop) and Android from
-# clawd-3d/, and publishes them as GitHub Release v1.<run number>.0, where the apps' update buttons find them. Each
-# build is version 1.<run number>. No secrets or paid services are used: the release is made with the workflow's own
+# Builds Clawd for Windows, macOS and Linux (the Rust desktop app in clawd-3d/apps/desktop), Android, the Nintendo
+# Switch and the terminal from clawd-3d/, and publishes them as GitHub Release v1.<run number>.0, where the apps'
+# update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used: the release is made with the workflow's own
 # token. Pull requests and forks build everything too, but don't publish: their builds are the run's artifacts.
 on:
   push:
@@ -264,10 +264,26 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  switch:
+    # Nintendo Switch homebrew (clawd-3d/apps/switch): the Rust engine and a small libnx program, built with devkitPro.
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Clawd for Nintendo Switch
+        working-directory: clawd-3d/apps/switch
+        run: ./ci-build.sh "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Switch
+          path: clawd-3d/apps/switch/clawd.nro
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     # Only pushes to the original repository publish: the apps' update buttons read its Releases page.
     if: github.event_name != 'pull_request' && github.repository == 'dekelelely/dekel12'
-    needs: [windows, macos, linux, android, terminal]
+    needs: [windows, macos, linux, android, switch, terminal]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -289,7 +305,7 @@ jobs:
             echo
             echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows, macOS and Linux."
             echo
-            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd-term, Clawd in a terminal (make it executable and run it)."
+            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd.nro for a Nintendo Switch with homebrew (copy it to /switch on the SD card), and clawd-term, Clawd in a terminal (make it executable and run it)."
           } > notes.md
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber   # a re-run of the same build
