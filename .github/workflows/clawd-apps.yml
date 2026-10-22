@@ -1,10 +1,16 @@
 name: Clawd apps
 
-# Builds the Windows app (installer + portable .exe) and the Android app (.apk) from clawd-3d/, and publishes them
-# as GitHub Release v1.<run number>.0, where the apps' update buttons find them. Each build is version
-# 1.<run number>. No secrets or paid services are used: the release is made with the workflow's own token.
+# Builds Clawd for Windows, macOS and Linux (the Rust desktop app in clawd-3d/apps/desktop), Android, the Nintendo
+# Switch, the terminal and the Game Boy Advance from clawd-3d/, and publishes them as GitHub Release v1.<run number>.0,
+# where the apps' update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used:
+# the release is made with the workflow's own token. Pull requests and forks build everything too, but don't publish:
+# their builds are the run's artifacts.
 on:
   push:
+    paths:
+      - "clawd-3d/**"
+      - ".github/workflows/clawd-apps.yml"
+  pull_request:
     paths:
       - "clawd-3d/**"
       - ".github/workflows/clawd-apps.yml"
@@ -13,7 +19,55 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: clawd-apps-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  VERSION: 1.${{ github.run_number }}.0
+  CARGO_TERM_COLOR: always
+
 jobs:
+  engine:
+    # The JavaScript engine, and the Rust port that plays the same moves (the Switch app's engine).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: The Rust port has the JavaScript engine's moves
+        run: |
+          node --check clawd-3d/clawd-engine.js
+          node clawd-3d/rust/tools/export-moves.mjs --check
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: aarch64-unknown-none
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/rust
+      - name: Check and test the Rust engine
+        working-directory: clawd-3d/rust
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo build --release -p clawd-ffi --target aarch64-unknown-none   # the Switch's build of it
+      - name: GIFs of his moves, drawn by the Rust engine
+        working-directory: clawd-3d/rust
+        run: |
+          mkdir -p previews
+          for move in jump celebrate back-flip dumbbell-curl laptop ultracode dance nap moonwalk; do
+            cargo run --release -q -p clawd-render -- "$move" --gif --size 400x250 --fps 20 --out "previews/$move.gif"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Rust-previews
+          path: clawd-3d/rust/previews/*.gif
+          if-no-files-found: error
+          retention-days: 7
+
   windows:
     runs-on: windows-latest
     steps:
@@ -26,24 +80,117 @@ jobs:
         run: |
           npm install --no-audit --no-fund
           npm run prepare-web
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/desktop
       - name: Build Clawd for Windows
         working-directory: clawd-3d/apps/desktop
         shell: bash
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
         run: |
           npm ci --no-audit --no-fund
-          npm run dist -- -c.extraMetadata.version=1.${{ github.run_number }}.0
-          test -f dist/latest.yml   # what the installed app reads to find updates
+          echo "{\"version\":\"$VERSION\"}" > version.json
+          npx tauri build --bundles nsis --config version.json
+          mkdir -p dist
+          cp target/release/bundle/nsis/*-setup.exe "dist/Clawd-Setup-$VERSION.exe"
+          cp target/release/Clawd.exe "dist/Clawd-Portable-$VERSION.exe"
+          # What Clawd 1.22 and older (Electron) read to find updates: their updater installs this version.
+          node ../scripts/latest-yml.mjs "dist/Clawd-Setup-$VERSION.exe" "$VERSION" > dist/latest.yml
       - uses: actions/upload-artifact@v4
         with:
           name: Clawd-Windows
-          path: |
-            clawd-3d/apps/desktop/dist/*.exe
-            clawd-3d/apps/desktop/dist/*.blockmap
-            clawd-3d/apps/desktop/dist/latest.yml
+          path: clawd-3d/apps/desktop/dist/*
           if-no-files-found: error
-          retention-days: 1   # only for the release job; downloads are on the Releases page
+          retention-days: 7
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Copy the web files into the app
+        working-directory: clawd-3d/apps
+        run: |
+          npm install --no-audit --no-fund
+          npm run prepare-web
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/desktop
+      - name: Build Clawd for macOS (Apple silicon and Intel in one app)
+        working-directory: clawd-3d/apps/desktop
+        run: |
+          npm ci --no-audit --no-fund
+          echo "{\"version\":\"$VERSION\"}" > version.json
+          npx tauri build --target universal-apple-darwin --bundles app --config version.json
+          mkdir -p dist dmg
+          app=target/universal-apple-darwin/release/bundle/macos/Clawd.app
+          tar -czf dist/Clawd-macOS.app.tar.gz -C "$(dirname "$app")" Clawd.app   # what the app updates from
+          cp -R "$app" dmg/
+          ln -s /Applications dmg/Applications
+          hdiutil create -volname Clawd -srcfolder dmg -ov -format UDZO "dist/Clawd-$VERSION-macOS.dmg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-macOS
+          path: clawd-3d/apps/desktop/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  linux:
+    # The oldest supported Ubuntu, so the AppImage runs on as many systems as possible; for Intel/AMD and for ARM
+    # (a Raspberry Pi 4 or 5, ARM laptops).
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, arch: x86_64, deb: amd64 }
+          - { runner: ubuntu-22.04-arm, arch: aarch64, deb: arm64 }
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install the system libraries Tauri builds against
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libssl-dev patchelf
+      - name: Copy the web files into the app
+        working-directory: clawd-3d/apps
+        run: |
+          npm install --no-audit --no-fund
+          npm run prepare-web
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/desktop
+      - name: Check and test the desktop app
+        if: matrix.arch == 'x86_64'
+        working-directory: clawd-3d/apps/desktop
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets -- -D warnings
+          cargo test
+      - name: Build Clawd for Linux
+        working-directory: clawd-3d/apps/desktop
+        run: |
+          npm ci --no-audit --no-fund
+          echo "{\"version\":\"$VERSION\"}" > version.json
+          npx tauri build --bundles appimage,deb --config version.json
+          mkdir -p dist
+          cp target/release/bundle/appimage/*.AppImage "dist/Clawd-$VERSION-${{ matrix.arch }}.AppImage"
+          cp target/release/bundle/deb/*.deb "dist/Clawd_${VERSION}_${{ matrix.deb }}.deb"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Linux-${{ matrix.arch }}
+          path: clawd-3d/apps/desktop/dist/*
+          if-no-files-found: error
+          retention-days: 7
 
   android:
     runs-on: ubuntu-latest
@@ -74,10 +221,104 @@ jobs:
           name: Clawd-Android
           path: Clawd.apk
           if-no-files-found: error
-          retention-days: 1
+          retention-days: 7
+
+  terminal:
+    # Clawd in a terminal (clawd-3d/apps/terminal), for fun: one program each for Linux, macOS and Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, file: clawd-term-linux-x86_64 }
+          - { os: macos-latest, file: clawd-term-macos-arm64 }
+          - { os: windows-latest, file: clawd-term-windows-x86_64.exe }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash   # on Windows too, so the frame is written to a file byte for byte
+        working-directory: clawd-3d/apps/terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/terminal
+      - name: Check, test and build
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked
+          cargo build --release --locked
+      - name: One frame, no terminal needed
+        run: |
+          ./target/release/clawd-term --once celebrate --at 1.3 > frame.txt
+          test "$(wc -c < frame.txt)" -gt 4000
+          grep -q "▀" frame.txt
+          mkdir -p dist
+          cp target/release/clawd-term$([ "$RUNNER_OS" = Windows ] && echo .exe) "dist/${{ matrix.file }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Terminal-${{ runner.os }}
+          path: clawd-3d/apps/terminal/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
+  switch:
+    # Nintendo Switch homebrew (clawd-3d/apps/switch): the Rust engine and a small libnx program, built with devkitPro.
+    runs-on: ubuntu-latest
+    container: devkitpro/devkita64:latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build Clawd for Nintendo Switch
+        working-directory: clawd-3d/apps/switch
+        run: ./ci-build.sh "$VERSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Switch
+          path: clawd-3d/apps/switch/clawd.nro
+          if-no-files-found: error
+          retention-days: 7
+
+  gba:
+    # A Game Boy Advance ROM (clawd-3d/apps/gba), for fun: build.rs draws his moves with the Rust engine and the ROM
+    # plays them back. agb needs the nightly in its rust-toolchain.toml, with rust-src to rebuild core for the GBA.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clawd-3d/apps/gba
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-07-21
+          components: rust-src, clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/gba
+      - name: Install agb-gbafix
+        working-directory: .   # not the GBA crate, whose .cargo/config.toml builds for the GBA
+        run: cargo install agb-gbafix@0.25.0 --locked
+      - name: Check and build
+        run: |
+          cargo fmt --check
+          cargo clippy --release --locked -- -D warnings
+          cargo build --release --locked
+          agb-gbafix target/thumbv4t-none-eabi/release/clawd-gba -t CLAWD -o clawd.gba
+          ls -l clawd.gba
+          test "$(stat -c %s clawd.gba)" -le 16777216   # a GBA cartridge holds 16 MB at most
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-GBA
+          path: clawd-3d/apps/gba/clawd.gba
+          if-no-files-found: error
+          retention-days: 7
 
   release:
-    needs: [windows, android]
+    # Only pushes to the original repository publish: the apps' update buttons read its Releases page.
+    if: github.event_name != 'pull_request' && github.repository == 'dekelelely/dekel12'
+    needs: [windows, macos, linux, android, switch, terminal, gba]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -89,7 +330,7 @@ jobs:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: v1.${{ github.run_number }}.0
+          TAG: v${{ env.VERSION }}
           TITLE: Clawd 1.${{ github.run_number }}
           COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
         run: |
@@ -97,9 +338,9 @@ jobs:
           {
             printf '%s\n' "${COMMIT_MESSAGE:-Built from $GITHUB_SHA}" | grep -v -E '^(Co-Authored-By|Claude-Session):' || true
             echo
-            echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows."
+            echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows, macOS and Linux."
             echo
-            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't)."
+            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd.nro for a Nintendo Switch with homebrew (copy it to /switch on the SD card), clawd-term, Clawd in a terminal (make it executable and run it), and clawd.gba for a Game Boy Advance (open it in mGBA or put it on a flash cart)."
           } > notes.md
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber   # a re-run of the same build

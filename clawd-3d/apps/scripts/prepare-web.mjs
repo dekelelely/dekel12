@@ -8,6 +8,7 @@ const apps = join(dirname(fileURLToPath(import.meta.url)), "..");
 const files = {
   "index.html": join(apps, "web", "index.html"),
   "clawd-engine.js": join(apps, "..", "clawd-engine.js"),
+  "ultracode-riff.js": join(apps, "..", "riff", "ultracode-riff.js"),
   "three.min.js": join(apps, "node_modules", "three", "build", "three.min.js")
 };
 const targets = [

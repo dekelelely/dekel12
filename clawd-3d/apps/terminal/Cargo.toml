@@ -1,0 +1,17 @@
+[package]
+name = "clawd-term"
+description = "Clawd in the terminal: his moves, played by the Rust engine and drawn in half-blocks."
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "clawd-term"
+path = "src/main.rs"
+
+[dependencies]
+# The engine that plays his moves, and the renderer that draws him: the same ones the desktop app and the Switch use.
+clawd-core = { path = "../../rust/clawd-core" }
+clawd-raster = { path = "../../rust/clawd-raster" }
+crossterm = "0.29"

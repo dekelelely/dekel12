@@ -1,39 +1,12 @@
 {
   "name": "clawd-desktop",
-  "productName": "Clawd",
-  "version": "1.0.0",
   "private": true,
-  "description": "Clawd sits in the corner of your screen while you work.",
-  "author": "dekelelely",
-  "main": "main.js",
+  "description": "Clawd for Windows, macOS and Linux: the Rust (Tauri) app around the shared page.",
   "scripts": {
-    "start": "electron .",
-    "dist": "electron-builder --win --publish never"
-  },
-  "dependencies": {
-    "electron-updater": "6.8.9"
+    "start": "tauri dev",
+    "dist": "tauri build"
   },
   "devDependencies": {
-    "electron": "44.5.1",
-    "electron-builder": "26.15.3"
-  },
-  "build": {
-    "appId": "com.dekelelely.clawd",
-    "productName": "Clawd",
-    "files": ["main.js", "preload.js", "web/**/*", "build/icon.png", "build/tray.png"],
-    "directories": { "output": "dist", "buildResources": "build" },
-    "win": {
-      "target": ["nsis", "portable"],
-      "icon": "build/icon.png"
-    },
-    "nsis": {
-      "oneClick": true,
-      "perMachine": false,
-      "artifactName": "Clawd-Setup-${version}.${ext}"
-    },
-    "portable": {
-      "artifactName": "Clawd-Portable-${version}.${ext}"
-    },
-    "publish": [{ "provider": "github", "owner": "dekelelely", "repo": "dekel12", "releaseType": "release" }]
+    "@tauri-apps/cli": "2.12.4"
   }
 }

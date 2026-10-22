@@ -1,0 +1,3 @@
+# As the Rust engine's (../../rust/rustfmt.toml): about 120 columns, the width of this repository's JavaScript.
+max_width = 120
+use_small_heuristics = "Max"

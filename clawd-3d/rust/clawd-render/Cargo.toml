@@ -1,0 +1,17 @@
+[package]
+name = "clawd-render"
+description = "Pictures and GIFs of Clawd's moves, drawn by the Rust engine."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "clawd-render"
+path = "src/main.rs"
+
+[dependencies]
+clawd-core = { path = "../clawd-core" }
+clawd-raster = { path = "../clawd-raster" }
+png = "0.17"
+gif = "0.13"

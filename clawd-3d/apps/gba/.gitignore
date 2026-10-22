@@ -1,0 +1,4 @@
+# The build, and the ROM it makes (agb-gbafix), and the saves an emulator keeps next to it.
+target/
+*.gba
+*.sav

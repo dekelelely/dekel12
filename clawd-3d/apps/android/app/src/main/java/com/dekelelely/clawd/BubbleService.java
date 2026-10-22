@@ -17,6 +17,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -92,6 +93,11 @@ public class BubbleService extends Service {
             return START_STICKY;
         }
         startInForeground();
+        if (web == null && !Settings.canDrawOverlays(this)) {
+            // Android restarting the bubble after "Display over other apps" was turned off: it can't be shown.
+            stopSelf();
+            return START_NOT_STICKY;
+        }
         String first = moveName(intent == null ? null : intent.getStringExtra(EXTRA_FIRST_MOVE));
         if (web == null) {
             linkedAuto = intent != null && intent.getBooleanExtra(EXTRA_AUTO, false);

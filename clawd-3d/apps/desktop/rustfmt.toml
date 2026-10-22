@@ -1,0 +1,3 @@
+# The JavaScript in this repository runs to about 120 columns; the Rust matches it.
+max_width = 120
+use_small_heuristics = "Max"

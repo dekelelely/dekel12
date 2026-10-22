@@ -1,0 +1,18 @@
+[package]
+name = "clawd-ffi"
+description = "A C interface to Clawd's Rust engine and renderer: what the Switch app (and anything else) builds on."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lib]
+crate-type = ["staticlib", "rlib"]
+
+[features]
+# Without std (the Switch), memory comes from the C library's malloc and a panic ends the program.
+std = []
+
+[dependencies]
+clawd-core = { path = "../clawd-core" }
+clawd-raster = { path = "../clawd-raster" }
