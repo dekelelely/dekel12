@@ -6,6 +6,10 @@ pixels — and this app shows the pixels as half-blocks: two pixels to a cell, `
 foreground and the bottom one as its background, in truecolor, or in the 256-colour palette when `COLORTERM` isn't
 truecolor.
 
+Each release has it ready to run: `clawd-term-linux-x86_64`, `clawd-term-macos-arm64` or
+`clawd-term-windows-x86_64.exe`. On Linux and macOS, `chmod +x` it first; macOS also wants
+`xattr -d com.apple.quarantine clawd-term-macos-arm64` once, since it isn't signed. Or build it:
+
 ```sh
 cd clawd-3d/apps/terminal
 cargo run --release

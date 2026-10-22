@@ -222,10 +222,52 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  terminal:
+    # Clawd in a terminal (clawd-3d/apps/terminal), for fun: one program each for Linux, macOS and Windows.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04, file: clawd-term-linux-x86_64 }
+          - { os: macos-latest, file: clawd-term-macos-arm64 }
+          - { os: windows-latest, file: clawd-term-windows-x86_64.exe }
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash   # on Windows too, so the frame is written to a file byte for byte
+        working-directory: clawd-3d/apps/terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/terminal
+      - name: Check, test and build
+        run: |
+          cargo fmt --check
+          cargo clippy --all-targets --locked -- -D warnings
+          cargo test --locked
+          cargo build --release --locked
+      - name: One frame, no terminal needed
+        run: |
+          ./target/release/clawd-term --once celebrate --at 1.3 > frame.txt
+          test "$(wc -c < frame.txt)" -gt 4000
+          grep -q "▀" frame.txt
+          mkdir -p dist
+          cp target/release/clawd-term$([ "$RUNNER_OS" = Windows ] && echo .exe) "dist/${{ matrix.file }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Terminal-${{ runner.os }}
+          path: clawd-3d/apps/terminal/dist/*
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     # Only pushes to the original repository publish: the apps' update buttons read its Releases page.
     if: github.event_name != 'pull_request' && github.repository == 'dekelelely/dekel12'
-    needs: [windows, macos, linux, android]
+    needs: [windows, macos, linux, android, terminal]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -247,7 +289,7 @@ jobs:
             echo
             echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows, macOS and Linux."
             echo
-            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't)."
+            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd-term, Clawd in a terminal (make it executable and run it)."
           } > notes.md
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber   # a re-run of the same build

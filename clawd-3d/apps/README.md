@@ -11,6 +11,7 @@ Every push that touches `clawd-3d/` builds every app on GitHub (workflow `.githu
 - **Linux**: `Clawd-1.N.0-x86_64.AppImage` (make it executable and run it; it updates itself) or `Clawd_1.N.0_amd64.deb`; on ARM (a Raspberry Pi 4 or 5, an ARM laptop), `Clawd-1.N.0-aarch64.AppImage` or `Clawd_1.N.0_arm64.deb`.
 - **Android**: `Clawd.apk`. This link always downloads the newest one: <https://github.com/dekelelely/dekel12/releases/latest/download/Clawd.apk>
 - **Nintendo Switch** (homebrew): `clawd.nro`. See [switch/README.md](switch/README.md).
+- **A terminal**, for fun: `clawd-term-linux-x86_64`, `clawd-term-macos-arm64` or `clawd-term-windows-x86_64.exe`. See [terminal/README.md](terminal/README.md).
 
 Download from **Releases** only. The **Actions** tab lists every build ever made, so a download from there is easily an old version. The update button at the top right of the app shows which version you have (**Up to date · 1.N**).
 
