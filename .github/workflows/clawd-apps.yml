@@ -140,8 +140,14 @@ jobs:
           retention-days: 7
 
   linux:
-    # The oldest supported Ubuntu, so the AppImage runs on as many systems as possible.
-    runs-on: ubuntu-22.04
+    # The oldest supported Ubuntu, so the AppImage runs on as many systems as possible; for Intel/AMD and for ARM
+    # (a Raspberry Pi 4 or 5, ARM laptops).
+    strategy:
+      matrix:
+        include:
+          - { runner: ubuntu-22.04, arch: x86_64, deb: amd64 }
+          - { runner: ubuntu-22.04-arm, arch: aarch64, deb: arm64 }
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -163,6 +169,7 @@ jobs:
         with:
           workspaces: clawd-3d/apps/desktop
       - name: Check and test the desktop app
+        if: matrix.arch == 'x86_64'
         working-directory: clawd-3d/apps/desktop
         run: |
           cargo fmt --check
@@ -175,11 +182,11 @@ jobs:
           echo "{\"version\":\"$VERSION\"}" > version.json
           npx tauri build --bundles appimage,deb --config version.json
           mkdir -p dist
-          cp target/release/bundle/appimage/*.AppImage "dist/Clawd-$VERSION-x86_64.AppImage"
-          cp target/release/bundle/deb/*.deb "dist/Clawd_${VERSION}_amd64.deb"
+          cp target/release/bundle/appimage/*.AppImage "dist/Clawd-$VERSION-${{ matrix.arch }}.AppImage"
+          cp target/release/bundle/deb/*.deb "dist/Clawd_${VERSION}_${{ matrix.deb }}.deb"
       - uses: actions/upload-artifact@v4
         with:
-          name: Clawd-Linux
+          name: Clawd-Linux-${{ matrix.arch }}
           path: clawd-3d/apps/desktop/dist/*
           if-no-files-found: error
           retention-days: 7

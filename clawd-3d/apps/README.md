@@ -8,7 +8,7 @@ Every push that touches `clawd-3d/` builds every app on GitHub (workflow `.githu
 
 - **Windows**: `Clawd-Setup-1.N.0.exe` installs Clawd and keeps it up to date; `Clawd-Portable-1.N.0.exe` runs without installing but can't update itself.
 - **macOS** (Apple silicon and Intel): `Clawd-1.N.0-macOS.dmg`. Open it and drag **Clawd** to **Applications**.
-- **Linux**: `Clawd-1.N.0-x86_64.AppImage` (make it executable and run it; it updates itself) or `Clawd_1.N.0_amd64.deb`.
+- **Linux**: `Clawd-1.N.0-x86_64.AppImage` (make it executable and run it; it updates itself) or `Clawd_1.N.0_amd64.deb`; on ARM (a Raspberry Pi 4 or 5, an ARM laptop), `Clawd-1.N.0-aarch64.AppImage` or `Clawd_1.N.0_arm64.deb`.
 - **Android**: `Clawd.apk`. This link always downloads the newest one: <https://github.com/dekelelely/dekel12/releases/latest/download/Clawd.apk>
 - **Nintendo Switch** (homebrew): `clawd.nro`. See [switch/README.md](switch/README.md).
 
