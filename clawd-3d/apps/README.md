@@ -1,6 +1,6 @@
 # Clawd apps
 
-Clawd sits in the corner of your screen while you work, doing the same moves as on Claude Code's welcome screen. One page (`web/index.html`) and one scene (`../clawd-engine.js`) power the web page, the desktop app (Windows, macOS and Linux) and the Android app. The Nintendo Switch app plays the same moves with the Rust port of the scene (`../rust`).
+Clawd sits in the corner of your screen while you work, doing the same moves as on Claude Code's welcome screen, plus a few of his own: he waves, dances, naps, does jumping jacks, takes a bow, moonwalks and thinks things over. One page (`web/index.html`) and one scene (`../clawd-engine.js`) power the web page, the desktop app (Windows, macOS and Linux) and the Android app. The Nintendo Switch app plays the same moves with the Rust port of the scene (`../rust`).
 
 ## Getting the apps
 

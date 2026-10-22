@@ -251,6 +251,89 @@
       { pose: "default", offset: 0, x: 0, guitar: 0.4, label: "puts the guitar down" },
       { pose: "default", offset: 0, x: 0, guitar: 0, label: "puts the guitar down" },
       ...run("default", 2), ...BLINK
+    ],
+
+    // ---- Moves that aren't in Claude Code ----
+    // Says hi: notices you, raises his right arm and waves it, with a wink halfway.
+    wave: [
+      ...run("look-right", 2),
+      { pose: mood("open", "one-up"), offset: 0, x: 0, lean: -0.04, label: "says hi" },
+      ...Array.from({ length: 12 }, (_, i) => ({
+        pose: mood(i >= 5 && i < 8 ? "wink" : "open", "one-up"), offset: 0, x: 0, lean: -0.04, wave: 1, label: "waves"
+      })),
+      { pose: mood("open", "one-up"), offset: 0, x: 0, label: "waves" },
+      ...run("default", 2), ...BLINK
+    ],
+    // A little dance: side steps on the beat with his arms going up in turn, a spin, a hop and a ta-da.
+    dance: [
+      ...[0, 0.5, 0, -0.5, 0, 0.5, 0, -0.5].flatMap((x, beat) => {
+        const arms = beat % 2 ? "one-up" : "up";
+        const lean = x > 0 ? -0.12 : x < 0 ? 0.12 : 0;
+        return [
+          { pose: mood("closed", arms, beat % 2 ? "left" : "right"), offset: 0, x, lean, lift: 0.25, label: "dances" },
+          { pose: mood("open", arms), offset: 0, x, lean, label: "dances" },
+          { pose: mood("open", "down"), offset: 1, x, lean: lean / 2, label: "dances" }
+        ];
+      }),
+      ...[90, 180, 270, 360].map((turnTo) => ({ pose: "arms-up", offset: 0, x: 0, turnTo, lift: 0.6, label: "spins" })),
+      { pose: "default", offset: 1, x: 0, turnTo: 0, poof: "wave", label: "lands" },
+      ...run("arms-up", 3).map((f) => ({ ...f, label: "ta-da" })),
+      ...run("default", 2), ...BLINK
+    ],
+    // Takes a nap: a big stretch, then he dozes, breathing slowly, with Zs drifting up, until he wakes with a start.
+    nap: [
+      { pose: mood("closed", "up"), offset: 0, x: 0, squat: 0.1, label: "stretches" },
+      ...run(mood("closed", "up"), 4, { offset: 0 }).map((f) => ({ ...f, lift: 0.15, label: "stretches" })),
+      { pose: mood("closed"), offset: 0, x: 0, squat: 0.3, label: "dozes off" },
+      ...Array.from({ length: 42 }, (_, i) => ({
+        pose: mood("closed"), offset: 0, x: 0, squat: i % 14 < 7 ? 0.42 : 0.5, lean: i % 28 < 14 ? 0.03 : -0.03,
+        notes: "z", label: "naps"
+      })),
+      { pose: "default", offset: 0, x: 0, lift: 0.45, label: "wakes with a start" },
+      { pose: "arms-up", offset: 0, x: 0, lift: 0.3, label: "wakes with a start" },
+      ...run("look-left", 3), ...run("look-right", 3), ...run("default", 2), ...BLINK
+    ],
+    // Jumping jacks: three reps, eyes shut at the top of each.
+    "jumping-jacks": [
+      ...Array.from({ length: 3 }, () => [
+        { pose: "default", offset: 1, x: 0, poof: "dot", label: "jumping jacks" },
+        { pose: mood("open", "up"), offset: 0, x: 0, lift: 0.4, label: "jumping jacks" },
+        { pose: mood("closed", "up"), offset: 0, x: 0, lift: 0.55, label: "jumping jacks" },
+        { pose: mood("open", "up"), offset: 0, x: 0, lift: 0.25, label: "jumping jacks" }
+      ]).flat(),
+      { pose: "default", offset: 1, x: 0, poof: "wave", label: "lands" },
+      ...run("default", 2), ...BLINK
+    ],
+    // Takes a bow, eyes shut, then a ta-da with a little confetti.
+    bow: [
+      { pose: "default", offset: 0, x: 0, flip: 12, label: "bows" },
+      { pose: mood("closed"), offset: 0, x: 0, flip: 28, label: "bows" },
+      ...run(mood("closed"), 5, { offset: 0 }).map((f) => ({ ...f, flip: 34, label: "bows" })),
+      { pose: "default", offset: 0, x: 0, flip: 10, label: "comes up" },
+      { pose: "arms-up", offset: 0, x: 0, confetti: 16, label: "ta-da" },
+      ...run("arms-up", 3), ...run("default", 2), ...BLINK
+    ],
+    // The moonwalk: facing one way, he glides the other, feet stepping all the while; then back the other way.
+    moonwalk: [
+      { pose: "look-right", offset: 0, x: 0, turnTo: 40, label: "turns" },
+      ...[-0.4, -0.8, -1.2, -1.6, -2, -2.4, -2.8].flatMap((x, i) => run(mood("right", "down", i % 2 ? "left" : "right"), 2,
+        { x }).map((f) => ({ ...f, turnTo: 70, lean: 0.05, label: "moonwalks" }))),
+      { pose: "look-left", offset: 0, x: -2.8, turnTo: -40, label: "turns" },
+      ...[-2.4, -2, -1.6, -1.2, -0.8, -0.4, 0].flatMap((x, i) => run(mood("left", "down", i % 2 ? "left" : "right"), 2,
+        { x }).map((f) => ({ ...f, turnTo: -70, lean: -0.05, label: "moonwalks" }))),
+      { pose: mood("open", "one-up"), offset: 0, x: 0, turnTo: 0, lift: 0.3, label: "hee-hee" },
+      ...run("default", 2), ...BLINK
+    ],
+    // Thinks it over (looking up, a hand raised, swaying a little), then has an idea and hops.
+    think: [
+      ...Array.from({ length: 14 }, (_, i) => ({
+        pose: mood("right", "one-up"), offset: 0, x: 0, squat: 0.1, lean: i < 7 ? 0.05 : -0.02, label: "thinks"
+      })),
+      { pose: mood("closed"), offset: 1, x: 0, label: "has an idea" },
+      { pose: "arms-up", offset: 0, x: 0, lift: 0.6, confetti: 10, label: "has an idea" },
+      { pose: "arms-up", offset: 0, x: 0, lift: 0.3, label: "has an idea" },
+      { pose: "default", offset: 1, x: 0, poof: "dot", label: "lands" },
+      ...run("default", 2), ...BLINK
     ]
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
@@ -658,9 +741,17 @@
       ["..##.", "..#.#", "..#..", "###..", "###.."],
       [".####", ".#..#", ".#..#", "##.##", "##.##"]
     ];
+    const Z_SHAPE = ["#####", "...#.", "..#..", ".#...", "#####"];
     const notes = [];
-    let noteSlot = 0;
+    let noteSlot = 0, zSlot = 0;
+    // where: "above" (a yellow note over his head), "side" (a grey one beside him) or "z" (napping: Zs that drift up
+    // to his right, each a little higher).
     function addNote(where) {
+      if (where === "z") {
+        const n = zSlot++ % 3;
+        notes.push({ pos: new THREE.Vector3(root.position.x + 6.5 + 1.6 * n, 13 + 1.2 * n, 1), color: "#c9d6ff", shape: Z_SHAPE, life: 1 });
+        return;
+      }
       const above = where === "above";
       notes.push({
         pos: new THREE.Vector3(
@@ -822,7 +913,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0, wave: 0 };
     const goal = { ...state };
     const KEYS = Object.keys(state);
     const IS_ANGLE = KEYS.map((prop) => prop === "ry" || prop === "flip" || prop === "roll");
@@ -886,6 +977,7 @@
       goal.dumbbell = f.dumbbell || 0;
       goal.curlL = f.curlL || 0;
       goal.curlR = f.curlR || 0;
+      goal.wave = f.wave || 0;
       zapping = !!f.zap;
       // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
       if (ultra && seqName === "idle") {
@@ -913,7 +1005,7 @@
       targetsFor(f);
       if (f.poof) puff(f.poof);
       if (f.ripple) { startRipple(); typeTarget = 0; }
-      if (f.notes && idx % 3 === 0) addNote(f.notes);
+      if (f.notes && idx % (f.notes === "z" ? 6 : 3) === 0) addNote(f.notes);
       if (f.flash) { flash = 1; emitSparks(28, true); }
       if (f.confetti) emitConfetti(f.confetti);
       if (f.typing) typeTarget = Math.min(screenText.length, typeTarget + 4);
@@ -1244,6 +1336,7 @@
         arm.position.z = state.type * (DEPTH / 2 + 0.1 - 0.9 * reach);
         arm.rotation.y = -side * Math.PI / 2 * state.type;
         arm.rotation.z = side * (i ? state.armR : state.armL);
+        if (i) arm.rotation.z += state.wave * 0.45 * Math.sin(clock * 15);   // waving his raised right arm
         // Holding the guitar: the right hand (viewer's left) strums over the pickups, the left frets up the neck.
         const hold = clamp(state.guitar * 1.5 - 0.3, 0, 1);
         if (hold > 0) {
@@ -1375,7 +1468,7 @@
 
       // Whether this frame looks any different from the last: he or the camera is moving, something animates by the
       // clock (typing, strumming, headbanging, the guitar's wall and sparks), or particles are flying.
-      return moving || turning || state.type > 0 || state.strum > 0 || state.bang > 0 || state.windmill > 0 ||
+      return moving || turning || state.type > 0 || state.strum > 0 || state.bang > 0 || state.windmill > 0 || state.wave > 0 ||
         zapping || flash > 0 || wall.visible || sparks.live > 0 || confetti.live > 0 || dust.live > 0;
     }
 

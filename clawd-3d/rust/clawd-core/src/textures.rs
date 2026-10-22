@@ -149,6 +149,8 @@ pub fn glyph_bits(ch: u8) -> [u8; 8] {
 /// The two shapes of pixel music note (5×5, "#" lit).
 pub const NOTE_SHAPES: [[&str; 5]; 2] =
     [["..##.", "..#.#", "..#..", "###..", "###.."], [".####", ".#..#", ".#..#", "##.##", "##.##"]];
+/// A napping Z.
+pub const Z_SHAPE: [&str; 5] = ["#####", "...#.", "..#..", ".#...", "#####"];
 
 #[cfg(test)]
 mod tests {

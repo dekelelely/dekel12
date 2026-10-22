@@ -32,7 +32,7 @@ function frame(f) {
   put("offset", f.offset || 0, 0);
   put("x", f.x || 0, 0);
   put("angle", +(f.angle || 0).toFixed(4), 0);
-  for (const key of ["lift", "flip", "roll", "squat", "lean", "kick", "strum", "bang", "guitar", "laptop", "dumbbell", "curlL", "curlR"]) {
+  for (const key of ["lift", "flip", "roll", "squat", "lean", "kick", "strum", "bang", "guitar", "laptop", "dumbbell", "curlL", "curlR", "wave"]) {
     put(key, f[key] ? +f[key].toFixed(6) : 0, 0);
   }
   if (f.fret !== undefined) out.fret = f.fret;
@@ -57,7 +57,7 @@ const data = {
 };
 // One frame per line: readable diffs when a move changes.
 const text = JSON.stringify(data, null, 1)
-  .replace(/\{\n\s+("eyes"|"arms"|"feet"|"offset"|"x"|"angle"|"lift"|"flip"|"roll"|"squat"|"lean"|"kick"|"strum"|"bang"|"guitar"|"laptop"|"dumbbell"|"curlL"|"curlR"|"fret"|"windmill"|"zap"|"flash"|"typing"|"ripple"|"confetti"|"notes"|"poof"|"shadow")[^{}]*?\n\s*\}/g,
+  .replace(/\{\n\s+("eyes"|"arms"|"feet"|"offset"|"x"|"angle"|"lift"|"flip"|"roll"|"squat"|"lean"|"kick"|"strum"|"bang"|"guitar"|"laptop"|"dumbbell"|"curlL"|"curlR"|"wave"|"fret"|"windmill"|"zap"|"flash"|"typing"|"ripple"|"confetti"|"notes"|"poof"|"shadow")[^{}]*?\n\s*\}/g,
     (m) => m.replace(/\n\s*/g, " ").replace("{ ", "{").replace(" }", "}"))
   .replace(/\{\n\s*\}/g, "{}") + "\n";
 

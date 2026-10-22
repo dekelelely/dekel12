@@ -57,7 +57,7 @@ jobs:
         working-directory: clawd-3d/rust
         run: |
           mkdir -p previews
-          for move in jump celebrate back-flip dumbbell-curl laptop ultracode; do
+          for move in jump celebrate back-flip dumbbell-curl laptop ultracode dance nap moonwalk; do
             cargo run --release -q -p clawd-render -- "$move" --gif --size 400x250 --fps 20 --out "previews/$move.gif"
           done
       - uses: actions/upload-artifact@v4

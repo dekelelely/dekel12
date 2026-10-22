@@ -74,7 +74,8 @@ const ROLL: usize = 23;
 const DUMBBELL: usize = 24;
 const CURL_L: usize = 25;
 const CURL_R: usize = 26;
-const N: usize = 27;
+const WAVE: usize = 27;
+const N: usize = 28;
 const IS_ANGLE: [bool; N] = {
     let mut a = [false; N];
     a[RY] = true;
@@ -157,11 +158,23 @@ impl Pool {
     }
 }
 
-/// A pixel music note drifting up: over his head (yellow) or beside him (grey).
+/// What a drifting pixel note is.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoteKind {
+    /// A yellow music note over his head.
+    Above,
+    /// A grey music note beside him.
+    Side,
+    /// A pale blue Z (napping).
+    Z,
+}
+
+/// A pixel note drifting up.
 #[derive(Clone, Copy, Debug)]
 pub struct Note {
     pub pos: Vec3,
-    pub above: bool,
+    pub kind: NoteKind,
+    /// Which music-note shape (textures::NOTE_SHAPES); Zs use textures::Z_SHAPE.
     pub shape: usize,
     pub life: f64,
 }
@@ -291,6 +304,7 @@ pub struct Clawd {
     dust: Pool,
     notes: Vec<Note>,
     note_slot: usize,
+    z_slot: usize,
     ripple: Option<Ripple>,
     // looks
     materials: Materials,
@@ -364,6 +378,7 @@ impl Clawd {
             dust: Pool::new(28, 0),
             notes: Vec::new(),
             note_slot: 0,
+            z_slot: 0,
             ripple: None,
             floor_color: materials.floor.color,
             dot_color: materials.dots.color,
@@ -513,6 +528,7 @@ impl Clawd {
         g[DUMBBELL] = f.dumbbell;
         g[CURL_L] = f.curl_l;
         g[CURL_R] = f.curl_r;
+        g[WAVE] = f.wave;
         self.zapping = f.zap;
         // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
         if self.ultra && self.seq == Seq::Idle {
@@ -559,8 +575,14 @@ impl Clawd {
             self.start_ripple();
             self.type_target = 0;
         }
-        if f.notes != Notes::None && self.idx.is_multiple_of(3) {
-            self.add_note(f.notes == Notes::Above);
+        match f.notes {
+            Notes::None => {}
+            Notes::Z if self.idx.is_multiple_of(6) => self.add_note(NoteKind::Z),
+            Notes::Z => {}
+            n if self.idx.is_multiple_of(3) => {
+                self.add_note(if n == Notes::Above { NoteKind::Above } else { NoteKind::Side })
+            }
+            _ => {}
         }
         if f.flash {
             self.flash = 1.0;
@@ -816,8 +838,16 @@ impl Clawd {
         });
     }
 
-    fn add_note(&mut self, above: bool) {
+    fn add_note(&mut self, kind: NoteKind) {
         let x = self.root.origin().x;
+        if kind == NoteKind::Z {
+            // Zs drift up to his right, each a little higher.
+            let n = (self.z_slot % 3) as f64;
+            self.z_slot += 1;
+            self.notes.push(Note { pos: v3(x + 6.5 + 1.6 * n, 13.0 + 1.2 * n, 1.0), kind, shape: 0, life: 1.0 });
+            return;
+        }
+        let above = kind == NoteKind::Above;
         let pos = if above {
             let slot = self.note_slot;
             self.note_slot += 1;
@@ -828,7 +858,7 @@ impl Clawd {
             v3(px, py, 2.0)
         };
         let shape = if self.rng.next_f64() < 0.5 { 0 } else { 1 };
-        self.notes.push(Note { pos, above, shape, life: 1.0 });
+        self.notes.push(Note { pos, kind, shape, life: 1.0 });
     }
 
     fn start_ripple(&mut self) {
@@ -895,8 +925,8 @@ impl Clawd {
             self.note_clock += dt;
             if self.note_clock > 1.1 {
                 self.note_clock = 0.0;
-                let above = self.rng.next_f64() < 0.5;
-                self.add_note(above);
+                let kind = if self.rng.next_f64() < 0.5 { NoteKind::Above } else { NoteKind::Side };
+                self.add_note(kind);
             }
         }
         self.update_particles(dt);
@@ -920,6 +950,7 @@ impl Clawd {
             || s[STRUM] > 0.0
             || s[BANG] > 0.0
             || s[WINDMILL] > 0.0
+            || s[WAVE] > 0.0
             || self.zapping
             || self.flash > 0.0
             || self.wall_visible
@@ -980,6 +1011,9 @@ impl Clawd {
             let mut pz = s[TYPE] * (DEPTH / 2.0 + 0.1 - 0.9 * reach);
             let mut ry = -side * PI / 2.0 * s[TYPE];
             let mut rz = side * if i == 1 { s[ARM_R] } else { s[ARM_L] };
+            if i == 1 {
+                rz += s[WAVE] * 0.45 * sin(clock * 15.0); // waving his raised right arm
+            }
             // Holding the guitar: the right hand (viewer's left) strums over the pickups, the left frets the neck.
             let hold = clamp(s[GUITAR] * 1.5 - 0.3, 0.0, 1.0);
             if hold > 0.0 {

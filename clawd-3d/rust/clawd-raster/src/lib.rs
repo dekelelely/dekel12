@@ -10,8 +10,8 @@ use alloc::vec;
 use alloc::vec::Vec;
 use clawd_core::math::{v3, Mat4, Vec3};
 use clawd_core::model::{self, Lights, Shading};
-use clawd_core::textures::{glyph_at, glyph_bits, hash, Texture, NOTE_SHAPES};
-use clawd_core::{Clawd, DrawBox, DrawQuad, Ripple, Scene, Surface};
+use clawd_core::textures::{glyph_at, glyph_bits, hash, Texture, NOTE_SHAPES, Z_SHAPE};
+use clawd_core::{Clawd, DrawBox, DrawQuad, NoteKind, Ripple, Scene, Surface};
 use core::f32::consts::PI;
 use libm::{ceilf, floorf, powf, sqrtf};
 
@@ -734,9 +734,13 @@ impl Renderer {
         for note in clawd.notes() {
             let (p, _) = vp.project(note.pos);
             let (px, py) = ((p.x as f32 + 1.0) / 2.0 * w as f32, (1.0 - p.y as f32) / 2.0 * h as f32);
-            let color = if note.above { [0xff, 0xd2, 0x3f] } else { [0x8b, 0x8a, 0x9c] };
+            let (color, shape) = match note.kind {
+                NoteKind::Above => ([0xff, 0xd2, 0x3f], &NOTE_SHAPES[note.shape]),
+                NoteKind::Side => ([0x8b, 0x8a, 0x9c], &NOTE_SHAPES[note.shape]),
+                NoteKind::Z => ([0xc9, 0xd6, 0xff], &Z_SHAPE),
+            };
             let alpha = (note.life as f32 * 2.0).min(1.0);
-            for (r, row) in NOTE_SHAPES[note.shape].iter().enumerate() {
+            for (r, row) in shape.iter().enumerate() {
                 for (k, ch) in row.bytes().enumerate() {
                     if ch == b'#' {
                         let x = px + (k as f32 - 2.5) * size as f32 + 0.5;

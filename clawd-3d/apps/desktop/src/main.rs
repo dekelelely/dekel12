@@ -26,11 +26,8 @@ use tauri_plugin_autostart::ManagerExt as _;
 use tauri_plugin_dialog::{DialogExt, MessageDialogButtons, MessageDialogKind};
 use updates::{Install, Status};
 
-#[rustfmt::skip]
-const MOVES: [&str; 21] = [
-    "jump", "look", "celebrate", "skip", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze",
-    "turn", "coin-hop", "back-flip", "front-flip", "side-flip", "dumbbell-curl", "laptop", "ultracode",
-];
+// Every move in clawd-engine.js, by name (build.rs reads them from rust/clawd-core/moves.json).
+include!(concat!(env!("OUT_DIR"), "/moves.rs"));
 const ASPECT: f64 = 1.54; // floating window width / height: room for his jumps and travel
 const MARGIN: f64 = 12.0;
 const AUTOSTART: &str = "--autostart"; // how Clawd starts at login: floating straight away, no app window

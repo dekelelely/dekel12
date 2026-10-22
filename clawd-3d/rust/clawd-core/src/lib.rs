@@ -11,4 +11,6 @@ pub mod model;
 pub mod moves;
 pub mod textures;
 
-pub use clawd::{Camera, Clawd, DrawBox, DrawQuad, Event, Mode, Note, Options, Rect, Ripple, Rng, Scene, Surface};
+pub use clawd::{
+    Camera, Clawd, DrawBox, DrawQuad, Event, Mode, Note, NoteKind, Options, Rect, Ripple, Rng, Scene, Surface,
+};

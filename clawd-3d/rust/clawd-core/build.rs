@@ -54,6 +54,7 @@ fn frame(f: &Value) -> String {
         ("dumbbell", "dumbbell"),
         ("curlL", "curl_l"),
         ("curlR", "curl_r"),
+        ("wave", "wave"),
     ] {
         let v = num(f, json);
         if v != 0.0 {
@@ -73,7 +74,7 @@ fn frame(f: &Value) -> String {
     if num(f, "confetti") != 0.0 {
         write!(s, " confetti: {},", num(f, "confetti") as u8).unwrap();
     }
-    let notes = variant(word(f, "notes"), &[("above", "Notes::Above"), ("side", "Notes::Side")], "");
+    let notes = variant(word(f, "notes"), &[("above", "Notes::Above"), ("side", "Notes::Side"), ("z", "Notes::Z")], "");
     let poof = variant(word(f, "poof"), &[("dot", "Poof::Dot"), ("wave", "Poof::Wave")], "");
     let shadow = variant(word(f, "shadow"), &[("wide", "Shadow::Wide"), ("narrow", "Shadow::Narrow")], "");
     for (key, v) in [("notes", notes), ("poof", poof), ("shadow", shadow)] {
@@ -104,6 +105,10 @@ fn main() {
             .unwrap();
     }
     writeln!(out, "];").unwrap();
+    // The same names NUL-terminated, for C (the moves, then "idle").
+    let c_names: Vec<String> =
+        moves.iter().map(|m| m["name"].as_str().unwrap()).chain(["idle"]).map(|n| format!("b\"{n}\\0\"")).collect();
+    writeln!(out, "pub static C_NAMES: [&[u8]; {}] = [{}];", c_names.len(), c_names.join(", ")).unwrap();
     writeln!(out, "pub static IDLE: &[Frame] = {};", frames(&data["idle"])).unwrap();
     for (key, name) in [("entrances", "ENTRANCES"), ("onClick", "ON_CLICK")] {
         let list = data[key].as_array().unwrap();

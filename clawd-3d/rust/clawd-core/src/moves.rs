@@ -24,12 +24,13 @@ pub enum Feet {
     Right,
 }
 
-/// Pixel music notes for this frame (the guitar routine): over his head, or beside him.
+/// Pixel notes for this frame: music over his head or beside him (the guitar routine), or Zs (napping).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Notes {
     None,
     Above,
     Side,
+    Z,
 }
 
 /// A puff of dust at his feet: "·" small, "~" wide.
@@ -70,6 +71,8 @@ pub struct Frame {
     pub dumbbell: f64,
     pub curl_l: f64,
     pub curl_r: f64,
+    /// Waving his raised right arm.
+    pub wave: f64,
     /// Where the fretting hand is on the neck; NaN keeps the last one.
     pub fret: f64,
     pub windmill: bool,
@@ -104,6 +107,7 @@ const D: Frame = Frame {
     dumbbell: 0.0,
     curl_l: 0.0,
     curl_r: 0.0,
+    wave: 0.0,
     fret: f64::NAN,
     windmill: false,
     zap: false,
@@ -149,9 +153,9 @@ mod tests {
 
     #[test]
     fn the_exported_moves_are_all_here() {
-        assert_eq!(MOVES.len(), 21);
+        assert_eq!(MOVES.len(), 28);
         assert_eq!(MOVES[0].name, "jump");
-        assert!(find("ultracode").is_some() && find("dance").is_none());
+        assert!(find("ultracode").is_some() && find("nap").is_some() && find("tango").is_none());
         let laptop = &MOVES[find("laptop").unwrap()];
         assert!(laptop.frames[TYPING_FROM].typing && laptop.frames[TYPING_TO].typing);
         assert!(!laptop.frames[TYPING_TO + 1].typing);

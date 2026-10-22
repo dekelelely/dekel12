@@ -6,7 +6,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use clawd_core::moves::MOVES;
+use clawd_core::moves::{C_NAMES, MOVES};
 use clawd_core::{Clawd, Mode, Options};
 use clawd_raster::{Background, Renderer, Settings};
 use core::ffi::{c_char, c_int, CStr};
@@ -129,37 +129,8 @@ pub extern "C" fn clawd_entrance(p: *mut ClawdView) {
     }
 }
 
-/// Move names as NUL-terminated statics, for C.
-const fn names() -> [&'static [u8]; 22] {
-    [
-        b"jump\0",
-        b"look\0",
-        b"celebrate\0",
-        b"skip\0",
-        b"spin\0",
-        b"peekaboo\0",
-        b"drop\0",
-        b"waddle\0",
-        b"peek\0",
-        b"wink\0",
-        b"boop\0",
-        b"tap\0",
-        b"sneeze\0",
-        b"turn\0",
-        b"coin-hop\0",
-        b"back-flip\0",
-        b"front-flip\0",
-        b"side-flip\0",
-        b"dumbbell-curl\0",
-        b"laptop\0",
-        b"ultracode\0",
-        b"idle\0",
-    ]
-}
-const NAMES: [&[u8]; 22] = names();
-
 fn c_name(name: &str) -> *const c_char {
-    NAMES.iter().find(|n| &n[..n.len() - 1] == name.as_bytes()).map_or(c"?".as_ptr(), |n| n.as_ptr() as *const c_char)
+    C_NAMES.iter().find(|n| &n[..n.len() - 1] == name.as_bytes()).map_or(c"?".as_ptr(), |n| n.as_ptr() as *const c_char)
 }
 
 #[no_mangle]
