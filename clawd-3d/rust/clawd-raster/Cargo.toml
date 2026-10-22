@@ -1,0 +1,11 @@
+[package]
+name = "clawd-raster"
+description = "Draws Clawd on the CPU, the way three.js draws him on the web page."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+clawd-core = { path = "../clawd-core" }
+libm = "0.2"

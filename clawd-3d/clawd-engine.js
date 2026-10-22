@@ -311,6 +311,14 @@
     return `eyes ${p.eyes} · arms ${p.arms} · feet ${p.feet}`;
   }
 
+  // What he types. The laptop move types the first session; while he works for Claude Code (work()), each pass of
+  // the typing loop types the next one.
+  const SCREENS = [
+    ["$ claude", "> fix the flaky test", "", "Reading tests/api.spec.ts", "Editing src/retry.ts", "  + await backoff(attempt)", "Running npm test", "  42 passed", "Done."],
+    ["> add a dark mode", "", "Reading src/theme.ts", "Editing src/App.tsx", "  + const theme = useTheme()", "Running npm run build", "  built in 1.2s", "Done."],
+    ["> why is the build slow?", "", "Reading webpack.config.js", "  - devtool: 'source-map'", "  + devtool: false", "Running npm run build", "  12.4s -> 3.1s", "Done."],
+    ["> write tests for the parser", "", "Reading src/parser.rs", "Writing tests/parser.rs", "  + fn parses_empty()", "Running cargo test", "  18 passed", "Done."]
+  ].map((lines) => lines.join("\n"));
   // Camera framing per mode: "stage" shows the whole floor strip; "pet" frames Clawd alone for a small corner window.
   const FRAMING = {
     // Headroom above him for the flips; the floor stays where it was.
@@ -437,14 +445,6 @@
     laptop.visible = false;
     root.add(laptop);
 
-    // What he types. The laptop move types the first session; while he works for Claude Code (work()), each pass of
-    // the typing loop types the next one.
-    const SCREENS = [
-      ["$ claude", "> fix the flaky test", "", "Reading tests/api.spec.ts", "Editing src/retry.ts", "  + await backoff(attempt)", "Running npm test", "  42 passed", "Done."],
-      ["> add a dark mode", "", "Reading src/theme.ts", "Editing src/App.tsx", "  + const theme = useTheme()", "Running npm run build", "  built in 1.2s", "Done."],
-      ["> why is the build slow?", "", "Reading webpack.config.js", "  - devtool: 'source-map'", "  + devtool: false", "Running npm run build", "  12.4s -> 3.1s", "Done."],
-      ["> write tests for the parser", "", "Reading src/parser.rs", "Writing tests/parser.rs", "  + fn parses_empty()", "Running cargo test", "  18 passed", "Done."]
-    ].map((lines) => lines.join("\n"));
     let screenText = SCREENS[0], screenNo = 0;
     let typed = -1, typeTarget = 0;
     function nextScreen() {
@@ -1424,5 +1424,8 @@
     };
   }
 
-  window.ClawdEngine = { MOVES, ALL, ENTRANCES, ON_CLICK, describe, create };
+  // IDLE, FRAMING, SCREENS and the laptop indices are read by the Rust port's export (rust/tools/export-moves.mjs).
+  window.ClawdEngine = {
+    MOVES, ALL, ENTRANCES, ON_CLICK, IDLE, FRAME_MS, FRAMING, SCREENS, LAPTOP_OPEN, TYPING_FROM, TYPING_TO, describe, create
+  };
 })();

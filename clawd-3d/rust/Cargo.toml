@@ -1,0 +1,22 @@
+# Clawd's engine in Rust: the same moves as clawd-engine.js (exported to clawd-core/moves.json), played and drawn
+# without a browser. clawd-core plays the moves and poses the model; clawd-raster draws it into pixels; clawd-render
+# writes pictures and GIFs; clawd-ffi is the C interface the Switch (and anything else) builds on.
+[workspace]
+resolver = "2"
+members = ["clawd-core", "clawd-raster", "clawd-render", "clawd-ffi"]
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+license = "MIT"
+publish = false
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = 3
+panic = "abort"
+
+[profile.dev]
+opt-level = 1   # the renderer is too slow to watch unoptimised
+panic = "abort"
