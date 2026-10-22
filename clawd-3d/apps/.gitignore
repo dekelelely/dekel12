@@ -8,3 +8,7 @@ android/.gradle/
 android/build/
 android/app/build/
 android/local.properties
+switch/build/
+switch/*.nro
+switch/*.nacp
+switch/*.elf
