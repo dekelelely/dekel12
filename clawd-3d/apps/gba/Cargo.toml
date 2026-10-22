@@ -1,0 +1,37 @@
+[package]
+name = "clawd-gba"
+description = "Clawd on a Game Boy Advance, for fun: his moves, drawn by the Rust engine when the ROM is built."
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[[bin]]
+name = "clawd-gba"
+path = "src/main.rs"
+test = false
+bench = false
+
+[dependencies]
+agb = "0.25.0"
+
+[build-dependencies]
+# The GBA can't run the 3D engine, so build.rs plays and draws every move with it and the ROM plays the pictures back.
+clawd-core = { path = "../../rust/clawd-core" }
+clawd-raster = { path = "../../rust/clawd-raster" }
+
+[profile.dev]
+opt-level = 3
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+debug = true
+
+# build.rs draws hundreds of frames: the engine is far too slow unoptimised.
+[profile.dev.build-override]
+opt-level = 3
+
+[profile.release.build-override]
+opt-level = 3

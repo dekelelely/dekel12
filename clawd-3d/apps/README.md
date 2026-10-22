@@ -12,6 +12,7 @@ Every push that touches `clawd-3d/` builds every app on GitHub (workflow `.githu
 - **Android**: `Clawd.apk`. This link always downloads the newest one: <https://github.com/dekelelely/dekel12/releases/latest/download/Clawd.apk>
 - **Nintendo Switch** (homebrew): `clawd.nro`. See [switch/README.md](switch/README.md).
 - **A terminal**, for fun: `clawd-term-linux-x86_64`, `clawd-term-macos-arm64` or `clawd-term-windows-x86_64.exe`. See [terminal/README.md](terminal/README.md).
+- **A Game Boy Advance**, for fun: `clawd.gba`, for an emulator such as mGBA or a flash cart. See [gba/README.md](gba/README.md).
 
 Download from **Releases** only. The **Actions** tab lists every build ever made, so a download from there is easily an old version. The update button at the top right of the app shows which version you have (**Up to date · 1.N**).
 
@@ -95,4 +96,4 @@ gradle assembleDebug       # Gradle 8.7 or newer; APK in app/build/outputs/apk/d
 
 Edit the page in `web/` and the scene in `../clawd-engine.js`; the copies inside `desktop/web` and `android/.../assets/www` are generated. The desktop app is Rust (`desktop/src`): `main.rs` has the windows, tray and menu, `claude.rs` the Claude Code hook, `updates.rs` the updates, and `bridge.js` connects the page to it.
 
-When you change a move in `../clawd-engine.js`, run `node clawd-3d/rust/tools/export-moves.mjs` so the Rust port (and the Switch app) plays it too; CI checks that.
+When you change a move in `../clawd-engine.js`, run `node clawd-3d/rust/tools/export-moves.mjs` so the Rust port (and the Switch, terminal and Game Boy Advance apps) plays it too; CI checks that.

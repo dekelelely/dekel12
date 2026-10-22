@@ -1,10 +1,10 @@
 name: Clawd apps
 
 # Builds Clawd for Windows, macOS and Linux (the Rust desktop app in clawd-3d/apps/desktop), Android, the Nintendo
-# Switch and the terminal from clawd-3d/, and publishes them as GitHub Release v1.<run number>.0, where the apps'
-# update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used: the release is
-# made with the workflow's own token. Pull requests and forks build everything too, but don't publish: their builds
-# are the run's artifacts.
+# Switch, the terminal and the Game Boy Advance from clawd-3d/, and publishes them as GitHub Release v1.<run number>.0,
+# where the apps' update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used:
+# the release is made with the workflow's own token. Pull requests and forks build everything too, but don't publish:
+# their builds are the run's artifacts.
 on:
   push:
     paths:
@@ -281,10 +281,44 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
+  gba:
+    # A Game Boy Advance ROM (clawd-3d/apps/gba), for fun: build.rs draws his moves with the Rust engine and the ROM
+    # plays them back. agb needs the nightly in its rust-toolchain.toml, with rust-src to rebuild core for the GBA.
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: clawd-3d/apps/gba
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: nightly-2026-07-21
+          components: rust-src, clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/apps/gba
+      - name: Install agb-gbafix
+        working-directory: .   # not the GBA crate, whose .cargo/config.toml builds for the GBA
+        run: cargo install agb-gbafix@0.25.0 --locked
+      - name: Check and build
+        run: |
+          cargo fmt --check
+          cargo clippy --release --locked -- -D warnings
+          cargo build --release --locked
+          agb-gbafix target/thumbv4t-none-eabi/release/clawd-gba -t CLAWD -o clawd.gba
+          ls -l clawd.gba
+          test "$(stat -c %s clawd.gba)" -le 16777216   # a GBA cartridge holds 16 MB at most
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-GBA
+          path: clawd-3d/apps/gba/clawd.gba
+          if-no-files-found: error
+          retention-days: 7
+
   release:
     # Only pushes to the original repository publish: the apps' update buttons read its Releases page.
     if: github.event_name != 'pull_request' && github.repository == 'dekelelely/dekel12'
-    needs: [windows, macos, linux, android, switch, terminal]
+    needs: [windows, macos, linux, android, switch, terminal, gba]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -306,7 +340,7 @@ jobs:
             echo
             echo "Already have Clawd? Use its update button: \"Check for updates\" in the app on Android, or in the tray menu on Windows, macOS and Linux."
             echo
-            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd.nro for a Nintendo Switch with homebrew (copy it to /switch on the SD card), and clawd-term, Clawd in a terminal (make it executable and run it)."
+            echo "First install: Clawd.apk on Android; Clawd-Setup on Windows (it updates itself; the portable .exe doesn't); the .dmg on macOS; the AppImage on Linux (it updates itself; the .deb doesn't). For fun: clawd.nro for a Nintendo Switch with homebrew (copy it to /switch on the SD card), clawd-term, Clawd in a terminal (make it executable and run it), and clawd.gba for a Game Boy Advance (open it in mGBA or put it on a flash cart)."
           } > notes.md
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
             gh release upload "$TAG" out/* --repo "$GITHUB_REPOSITORY" --clobber   # a re-run of the same build

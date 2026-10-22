@@ -1,0 +1,5 @@
+# agb needs nightly (core and alloc are rebuilt for the GBA). Pinned to one from agb 0.25's release: later nightlies
+# changed the allocator API that agb_hashmap 0.25 builds on.
+[toolchain]
+channel = "nightly-2026-07-21"
+components = ["rust-src", "clippy", "rustfmt"]
