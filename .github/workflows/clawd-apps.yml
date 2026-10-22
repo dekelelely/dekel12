@@ -27,6 +27,46 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  engine:
+    # The JavaScript engine, and the Rust port that plays the same moves (the Switch app's engine).
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: The Rust port has the JavaScript engine's moves
+        run: |
+          node --check clawd-3d/clawd-engine.js
+          node clawd-3d/rust/tools/export-moves.mjs --check
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+          targets: aarch64-unknown-none
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: clawd-3d/rust
+      - name: Check and test the Rust engine
+        working-directory: clawd-3d/rust
+        run: |
+          cargo fmt --check
+          cargo clippy --workspace --all-targets -- -D warnings
+          cargo test --workspace
+          cargo build --release -p clawd-ffi --target aarch64-unknown-none   # the Switch's build of it
+      - name: GIFs of his moves, drawn by the Rust engine
+        working-directory: clawd-3d/rust
+        run: |
+          mkdir -p previews
+          for move in jump celebrate back-flip dumbbell-curl laptop ultracode; do
+            cargo run --release -q -p clawd-render -- "$move" --gif --size 400x250 --fps 20 --out "previews/$move.gif"
+          done
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clawd-Rust-previews
+          path: clawd-3d/rust/previews/*.gif
+          if-no-files-found: error
+          retention-days: 7
+
   windows:
     runs-on: windows-latest
     steps:

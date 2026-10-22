@@ -936,6 +936,11 @@ mod commands {
 }
 
 fn main() {
+    // Wayland doesn't let a window put itself in a corner or stay on top; through XWayland floating Clawd can.
+    #[cfg(target_os = "linux")]
+    if std::env::var_os("WAYLAND_DISPLAY").is_some() && std::env::var_os("GDK_BACKEND").is_none() {
+        std::env::set_var("GDK_BACKEND", "x11");
+    }
     let app = tauri::Builder::default()
         // Opening Clawd again (Start menu, Launchpad, a shortcut) brings up the app window, as on Android.
         .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {

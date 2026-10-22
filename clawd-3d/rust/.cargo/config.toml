@@ -1,0 +1,4 @@
+# The Switch (aarch64-unknown-none, linked into a devkitPro program): position-independent code for its .nro files,
+# tuned for its Cortex-A57.
+[target.aarch64-unknown-none]
+rustflags = ["-C", "relocation-model=pic", "-C", "target-cpu=cortex-a57"]
