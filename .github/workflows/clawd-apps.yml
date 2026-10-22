@@ -2,8 +2,9 @@ name: Clawd apps
 
 # Builds Clawd for Windows, macOS and Linux (the Rust desktop app in clawd-3d/apps/desktop), Android, the Nintendo
 # Switch and the terminal from clawd-3d/, and publishes them as GitHub Release v1.<run number>.0, where the apps'
-# update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used: the release is made with the workflow's own
-# token. Pull requests and forks build everything too, but don't publish: their builds are the run's artifacts.
+# update buttons find them. Each build is version 1.<run number>. No secrets or paid services are used: the release is
+# made with the workflow's own token. Pull requests and forks build everything too, but don't publish: their builds
+# are the run's artifacts.
 on:
   push:
     paths:
