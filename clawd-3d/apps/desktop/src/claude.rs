@@ -1,6 +1,6 @@
 //! Claude Code → Clawd. Claude Code runs hook commands at points in a session; Clawd's hook posts the hook's JSON to a
-//! small server on this computer (127.0.0.1 only), and Clawd reacts: he types on his laptop while Claude works,
-//! celebrates when it's done and jumps when it needs you. "React to Claude Code" in the menu adds the hook to Claude
+//! small server on this computer (127.0.0.1 only), and Clawd reacts: he waves when a session starts, types on his
+//! laptop while Claude works, celebrates when it's done and jumps when it needs you. "React to Claude Code" in the menu adds the hook to Claude
 //! Code's user settings (~/.claude/settings.json) or takes it out again.
 use serde_json::{json, Map, Value};
 use std::fs;
@@ -12,7 +12,8 @@ pub const PORT: u16 = 47823;
 /// error when Clawd isn't running). curl comes with Windows 10 and later, macOS and Linux.
 pub const HOOK_COMMAND: &str = "curl -s -m 2 --data-binary @- http://127.0.0.1:47823/claude || true";
 /// The hook events Clawd listens to and what each means for him (the page's claudeEvent).
-pub const EVENTS: [(&str, &str); 5] = [
+pub const EVENTS: [(&str, &str); 6] = [
+    ("SessionStart", "hello"),
     ("UserPromptSubmit", "working"),
     ("PreToolUse", "working"),
     ("Stop", "done"),
@@ -24,7 +25,7 @@ pub const EVENTS: [(&str, &str); 5] = [
 pub fn kind_of(path: &str, body: &[u8]) -> Option<&'static str> {
     let named = path.trim_end_matches('/').strip_prefix("/claude/").unwrap_or("");
     if !named.is_empty() {
-        return ["working", "done", "attention", "idle"].into_iter().find(|k| *k == named);
+        return ["hello", "working", "done", "attention", "idle"].into_iter().find(|k| *k == named);
     }
     let event: Value = serde_json::from_slice(body).ok()?;
     let name = event.get("hook_event_name")?.as_str()?;
@@ -90,8 +91,10 @@ pub fn add_hooks(settings: &mut Value) -> Result<(), String> {
         let list = list.as_array_mut().ok_or_else(|| format!("\"hooks.{event}\" in the settings isn't a list"))?;
         if !list.iter().any(is_ours) {
             let mut entry = json!({ "hooks": [{ "type": "command", "command": HOOK_COMMAND }] });
-            if event == "PreToolUse" {
-                entry["matcher"] = json!("*"); // every tool
+            match event {
+                "PreToolUse" => entry["matcher"] = json!("*"),         // every tool
+                "SessionStart" => entry["matcher"] = json!("startup"), // a new session, not a resumed or compacted one
+                _ => {}
             }
             list.push(entry);
         }
@@ -155,6 +158,7 @@ mod tests {
             Some("attention")
         );
         assert_eq!(kind_of("/claude", br#"{"hook_event_name":"SessionEnd"}"#), Some("idle"));
+        assert_eq!(kind_of("/claude", br#"{"hook_event_name":"SessionStart","source":"startup"}"#), Some("hello"));
         assert_eq!(kind_of("/claude", br#"{"hook_event_name":"SubagentStop"}"#), None);
         assert_eq!(kind_of("/claude", b"not json"), None);
         assert_eq!(kind_of("/claude/done", b""), Some("done"));

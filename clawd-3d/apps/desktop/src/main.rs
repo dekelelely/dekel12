@@ -449,7 +449,9 @@ fn init_start_at_login(app: &AppHandle) {
 // ---- Claude Code ----
 
 fn claude_event(app: &AppHandle, kind: &'static str) {
-    shared(app).working_since = (kind == "working").then(Instant::now);
+    if kind != "hello" {
+        shared(app).working_since = (kind == "working").then(Instant::now);
+    }
     if let Some(w) = move_target(app) {
         call(&w, "claude", &[json!(kind)]);
     }

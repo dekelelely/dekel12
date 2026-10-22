@@ -316,11 +316,12 @@
     desk.onClaude(claudeEvent);
   }
 
-  // Claude Code, through its hooks (see the README): he types on his laptop while Claude works, celebrates when it is
-  // done, and jumps to get your attention when it needs you. The app sends these to floating Clawd when he is out,
+  // Claude Code, through its hooks (see the README): he waves when a session starts, types on his laptop while Claude
+  // works, celebrates when it is done, and jumps to get your attention when it needs you. The app sends these to floating Clawd when he is out,
   // otherwise to the app window; the other one follows along like any move.
   function claudeEvent(kind) {
-    if (kind === "working") clawd.work(true);
+    if (kind === "hello") { if (!clawd.working) clawd.play("wave"); }   // another session's start doesn't stop the typing
+    else if (kind === "working") clawd.work(true);
     else if (kind === "done" || kind === "attention") {
       clawd.work(false);
       clawd.setAuto(false);

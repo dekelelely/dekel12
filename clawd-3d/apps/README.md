@@ -51,9 +51,9 @@ On Linux, floating needs a desktop that draws see-through windows (most do). Way
 
 ### Claude Code
 
-Clawd can follow what Claude Code is doing: he types on his laptop while Claude works, celebrates when it's done, and jumps to get your attention when it needs you (a permission prompt, or waiting for your next message). Turn on **React to Claude Code** in the menu: Clawd asks first, then adds one hook to Claude Code's settings (`~/.claude/settings.json`, keeping a copy of the file as `settings.json.clawd-backup`). Turning it off takes the hook out again.
+Clawd can follow what Claude Code is doing: he waves when you start a session, types on his laptop while Claude works, celebrates when it's done, and jumps to get your attention when it needs you (a permission prompt, or waiting for your next message). Turn on **React to Claude Code** in the menu: Clawd asks first, then adds one hook to Claude Code's settings (`~/.claude/settings.json`, keeping a copy of the file as `settings.json.clawd-backup`). Turning it off takes the hook out again.
 
-The hook runs `curl -s -m 2 --data-binary @- http://127.0.0.1:47823/claude || true` for these events: `UserPromptSubmit`, `PreToolUse` (working), `Stop` (done), `Notification` (needs you) and `SessionEnd`. It only talks to Clawd on your own computer, never waits more than two seconds, and does nothing when Clawd isn't running. To add it by hand, put the same command under those events in your settings.
+The hook runs `curl -s -m 2 --data-binary @- http://127.0.0.1:47823/claude || true` for these events: `SessionStart` (hello, for new sessions only), `UserPromptSubmit`, `PreToolUse` (working), `Stop` (done), `Notification` (needs you) and `SessionEnd`. It only talks to Clawd on your own computer, never waits more than two seconds, and does nothing when Clawd isn't running. To add it by hand, put the same command under those events in your settings.
 
 ## Android
 
