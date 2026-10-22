@@ -1,0 +1,71 @@
+name: Clawd terminal
+
+# Builds clawd-3d/apps/terminal on Linux, macOS and Windows and prints a frame with it — no terminal needed — then
+# keeps the binaries, so the little app is known to build and run on all three.
+on:
+  push:
+    paths:
+      - "clawd-3d/apps/terminal/**"
+      - "clawd-3d/rust/clawd-core/**"
+      - "clawd-3d/rust/clawd-raster/**"
+      - ".github/workflows/clawd-terminal.yml"
+  pull_request:
+    paths:
+      - "clawd-3d/apps/terminal/**"
+      - "clawd-3d/rust/clawd-core/**"
+      - "clawd-3d/rust/clawd-raster/**"
+      - ".github/workflows/clawd-terminal.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: clawd-terminal-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  terminal:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        # bash on all three, so a frame can be written to a file byte for byte
+        shell: bash
+        working-directory: clawd-3d/apps/terminal
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            clawd-3d/rust -> target
+            clawd-3d/apps/terminal -> target
+      - name: Test and build
+        run: |
+          cargo test --locked
+          cargo build --release --locked
+      - name: One frame, no terminal needed
+        run: cargo run --release --locked -- --once celebrate --at 1.3 > frame.txt
+      - name: The frame is a picture, not an error
+        run: |
+          bytes=$(wc -c < frame.txt)
+          echo "$bytes bytes"
+          test "$bytes" -gt 4000
+          grep -q "▀" frame.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: clawd-term-${{ matrix.os }}
+          path: |
+            clawd-3d/apps/terminal/target/release/clawd-term
+            clawd-3d/apps/terminal/target/release/clawd-term.exe
+            clawd-3d/apps/terminal/frame.txt
+          if-no-files-found: error
+          retention-days: 14
