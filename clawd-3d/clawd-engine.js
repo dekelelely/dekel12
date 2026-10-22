@@ -254,6 +254,10 @@
     ]
   };
   const IDLE = [...run("default", 12), ...run("look-right", 5), ...run("look-left", 5)];
+  // The laptop move's parts, for working (see work()): where he opens it, and the typing frames he repeats.
+  const LAPTOP_OPEN = MOVES.laptop.findIndex((f) => f.label === "opens laptop");
+  const TYPING_FROM = MOVES.laptop.findIndex((f) => f.typing);
+  const TYPING_TO = MOVES.laptop.length - 1 - [...MOVES.laptop].reverse().findIndex((f) => f.typing);
   const ENTRANCES = ["skip", "jump", "look", "spin", "peekaboo", "drop", "waddle", "peek", "wink", "boop", "tap", "sneeze", "turn", "coin-hop"];
   const ALL = Object.keys(MOVES);
   // Moves that start where he stands, not sliding in from the side: clicks, and everything floating Clawd plays on
@@ -318,8 +322,9 @@
   // create({ stage, canvas, fx, mode, on... }) builds the scene in `canvas` (sized to `stage`) and returns a controller,
   // or null when WebGL isn't available.
   //   mode: "stage" (floor strip, drag to orbit) or "pet" (no floor, just a shadow; drag reports onDrag in screen pixels)
-  //   onMove(name), onFrame({ name, index, length, frame }), onAuto(on), onHover(overClawd),
+  //   onMove(name), onFrame({ name, index, length, frame }), onAuto(on), onWork(on), onHover(overClawd),
   //   onDrag(dx, dy), onDragEnd(), onLongPress(), onDoubleClick(), onTripleClick()
+  //   followPointer: false to keep his eyes from following the mouse on the stage
   function create(opts) {
     const THREE = window.THREE;
     const { stage, canvas, fx } = opts;
@@ -334,6 +339,7 @@
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     renderer.localClippingEnabled = true;
+    let dirty = true;   // something besides the moves changed the picture (size, colours, mode): draw the next frame
 
     const lin = (hex) => new THREE.Color(hex).convertSRGBToLinear();
     const scene = new THREE.Scene();
@@ -431,8 +437,22 @@
     laptop.visible = false;
     root.add(laptop);
 
-    const SCREEN_TEXT = ["$ claude", "> fix the flaky test", "", "Reading tests/api.spec.ts", "Editing src/retry.ts", "  + await backoff(attempt)", "Running npm test", "  42 passed", "Done."].join("\n");
+    // What he types. The laptop move types the first session; while he works for Claude Code (work()), each pass of
+    // the typing loop types the next one.
+    const SCREENS = [
+      ["$ claude", "> fix the flaky test", "", "Reading tests/api.spec.ts", "Editing src/retry.ts", "  + await backoff(attempt)", "Running npm test", "  42 passed", "Done."],
+      ["> add a dark mode", "", "Reading src/theme.ts", "Editing src/App.tsx", "  + const theme = useTheme()", "Running npm run build", "  built in 1.2s", "Done."],
+      ["> why is the build slow?", "", "Reading webpack.config.js", "  - devtool: 'source-map'", "  + devtool: false", "Running npm run build", "  12.4s -> 3.1s", "Done."],
+      ["> write tests for the parser", "", "Reading src/parser.rs", "Writing tests/parser.rs", "  + fn parses_empty()", "Running cargo test", "  18 passed", "Done."]
+    ].map((lines) => lines.join("\n"));
+    let screenText = SCREENS[0], screenNo = 0;
     let typed = -1, typeTarget = 0;
+    function nextScreen() {
+      screenNo = (screenNo + 1) % SCREENS.length;
+      screenText = SCREENS[screenNo];
+      typeTarget = 0;
+      typed = -1;
+    }
     function drawScreen(n) {
       if (n === typed) return;
       typed = n;
@@ -441,7 +461,7 @@
       c.fillRect(0, 0, screenCanvas.width, screenCanvas.height);
       c.font = "bold 15px Menlo, Consolas, monospace";
       c.textBaseline = "top";
-      const lines = SCREEN_TEXT.slice(0, n).split("\n").slice(-9);
+      const lines = screenText.slice(0, n).split("\n").slice(-9);
       lines.forEach((line, i) => {
         c.fillStyle = line.startsWith("  +") ? "#7fe0a0" : line.startsWith(">") ? "#e8a07f" : "#5fd3e4";
         c.fillText(line, 12, 10 + i * 18);
@@ -509,61 +529,85 @@
       return d;
     });
 
+    // Particles (sparks, confetti, dust) are pools of little boxes, each pool drawn as one instanced mesh: one draw call
+    // however many are flying. A particle has a position, velocity, rotation, spin, scale, life and colour.
+    const placer = new THREE.Object3D();
+    function particlePool(count, geo, mat, colors) {
+      const mesh = new THREE.InstancedMesh(geo, mat, count);
+      mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+      if (colors) mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(count * 3), 3);
+      mesh.count = 0;
+      mesh.visible = false;
+      mesh.frustumCulled = false;   // the instances fly far from the mesh's own origin
+      scene.add(mesh);
+      const parts = Array.from({ length: count }, (_, i) => ({
+        live: false, pos: new THREE.Vector3(), v: new THREE.Vector3(), rot: new THREE.Euler(), spin: new THREE.Vector3(),
+        scale: 1, life: 0, phase: 0, color: colors ? colors[i % colors.length] : null
+      }));
+      return { mesh, parts, live: 0 };
+    }
+    function spawn(pool, count, init) {
+      let made = 0;
+      for (const p of pool.parts) {
+        if (p.live) continue;
+        p.live = true;
+        p.scale = 1;
+        init(p);
+        if (++made === count) break;
+      }
+      pool.live += made;
+    }
+    // Writes the live particles into the first instances and draws only those.
+    function placeParticles(pool) {
+      let n = 0;
+      for (const p of pool.parts) {
+        if (!p.live) continue;
+        placer.position.copy(p.pos);
+        placer.rotation.copy(p.rot);
+        placer.scale.setScalar(p.scale);
+        placer.updateMatrix();
+        pool.mesh.setMatrixAt(n, placer.matrix);
+        if (p.color) pool.mesh.setColorAt(n, p.color);
+        n++;
+      }
+      if (n || pool.mesh.count) {
+        pool.mesh.instanceMatrix.needsUpdate = true;
+        if (pool.mesh.instanceColor) pool.mesh.instanceColor.needsUpdate = true;
+      }
+      pool.mesh.count = n;
+      pool.mesh.visible = n > 0;   // no draw call at all for an empty pool
+      pool.live = n;
+    }
+
     // Yellow lightning bits that crackle off the strings.
-    const zapMats = [lin("#ffd23f"), lin("#ffe680")].map((color) => new THREE.MeshBasicMaterial({ color }));
-    const zapGeo = new THREE.BoxGeometry(0.22, 0.75, 0.22);
-    const sparks = Array.from({ length: 48 }, (_, i) => {
-      const m = new THREE.Mesh(zapGeo, zapMats[i % 2]);
-      m.visible = false;
-      m.userData = { v: new THREE.Vector3(), life: 0 };
-      scene.add(m);
-      return m;
-    });
+    const sparks = particlePool(48, new THREE.BoxGeometry(0.22, 0.75, 0.22), new THREE.MeshBasicMaterial(),
+      [lin("#ffd23f"), lin("#ffe680")]);
     const sparkFrom = new THREE.Vector3();
     // burst: all around (a power chord); otherwise off to his left (the viewer's right), like the app.
     function emitSparks(count, burst) {
       guitar.getWorldPosition(sparkFrom);
-      let made = 0;
-      for (const m of sparks) {
-        if (m.visible) continue;
+      spawn(sparks, count, (p) => {
         const a = burst ? Math.random() * Math.PI * 2 : -0.4 + Math.random() * 1.6;
         const sp = burst ? 10 + Math.random() * 8 : 6 + Math.random() * 6;
-        m.position.copy(sparkFrom);
-        m.userData.v.set(Math.cos(a) * sp, Math.sin(a) * sp + (burst ? 0 : 2), (Math.random() - 0.3) * 3);
-        m.userData.life = 0.35 + Math.random() * 0.3;
-        m.rotation.set(0, 0, Math.random() * Math.PI);
-        m.visible = true;
-        if (++made === count) break;
-      }
+        p.pos.copy(sparkFrom);
+        p.v.set(Math.cos(a) * sp, Math.sin(a) * sp + (burst ? 0 : 2), (Math.random() - 0.3) * 3);
+        p.life = 0.35 + Math.random() * 0.3;
+        p.rot.set(0, 0, Math.random() * Math.PI);
+      });
     }
 
     // Confetti for celebrate: little coloured squares thrown up from over his head that flutter and spin down.
-    const confettiMats = ["#ffd23f", "#4cc9db", "#ff6fa8", "#a49cf0", "#7fe0a0", "#d77757"].map(
-      (hex) => new THREE.MeshBasicMaterial({ color: lin(hex), side: THREE.DoubleSide })
-    );
-    const confettiGeo = new THREE.BoxGeometry(0.6, 0.6, 0.06);
-    const confetti = Array.from({ length: 90 }, (_, i) => {
-      const m = new THREE.Mesh(confettiGeo, confettiMats[i % confettiMats.length]);
-      m.visible = false;
-      m.userData = { v: new THREE.Vector3(), spin: new THREE.Vector3(), life: 0, phase: 0 };
-      scene.add(m);
-      return m;
-    });
+    const confetti = particlePool(90, new THREE.BoxGeometry(0.6, 0.6, 0.06), new THREE.MeshBasicMaterial({ side: THREE.DoubleSide }),
+      ["#ffd23f", "#4cc9db", "#ff6fa8", "#a49cf0", "#7fe0a0", "#d77757"].map(lin));
     function emitConfetti(count) {
-      let made = 0;
-      for (const m of confetti) {
-        if (m.visible) continue;
-        const d = m.userData;
-        m.position.set(root.position.x + (Math.random() - 0.5) * 6, root.position.y + 12, (Math.random() - 0.5) * 3);
-        d.v.set((Math.random() - 0.5) * 16, 5 + Math.random() * 6, (Math.random() - 0.5) * 8);   // peaks within the frame
-        d.spin.set(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 5);
-        d.life = 2 + Math.random() * 0.8;
-        d.phase = Math.random() * Math.PI * 2;
-        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
-        m.scale.setScalar(1);
-        m.visible = true;
-        if (++made === count) break;
-      }
+      spawn(confetti, count, (p) => {
+        p.pos.set(root.position.x + (Math.random() - 0.5) * 6, root.position.y + 12, (Math.random() - 0.5) * 3);
+        p.v.set((Math.random() - 0.5) * 16, 5 + Math.random() * 6, (Math.random() - 0.5) * 8);   // peaks within the frame
+        p.spin.set(Math.random() * 10 - 5, Math.random() * 10 - 5, Math.random() * 10 - 5);
+        p.life = 2 + Math.random() * 0.8;
+        p.phase = Math.random() * Math.PI * 2;
+        p.rot.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+      });
     }
 
     // A wall of pixel cells behind him: lavender blocks pulse outward from Clawd over deep purple, and flash on a chord.
@@ -717,14 +761,16 @@
     floor.receiveShadow = true;
     scene.add(floor);
     const dotMat = new THREE.MeshStandardMaterial({ color: lin("#8d949e"), roughness: 0.9 });
-    const dotGeo = new THREE.BoxGeometry(0.45, 0.06, 0.45);
-    const dots = new THREE.Group();
-    for (let x = -44; x <= 44; x += 1.6) {
-      const d = new THREE.Mesh(dotGeo, dotMat);
-      d.position.set(x, 0.03, 7.6);
-      d.receiveShadow = true;
-      dots.add(d);
-    }
+    const DOT_XS = [];
+    for (let x = -44; x <= 44; x += 1.6) DOT_XS.push(x);
+    const dots = new THREE.InstancedMesh(new THREE.BoxGeometry(0.45, 0.06, 0.45), dotMat, DOT_XS.length);   // one draw call
+    DOT_XS.forEach((x, i) => {
+      placer.position.set(x, 0.03, 7.6);
+      placer.updateMatrix();
+      dots.setMatrixAt(i, placer.matrix);
+    });
+    dots.receiveShadow = true;
+    dots.frustumCulled = false;
     scene.add(dots);
     const shadowOnly = new THREE.Mesh(new THREE.PlaneGeometry(60, 30), new THREE.ShadowMaterial({ opacity: 0.3 }));
     shadowOnly.rotation.x = -Math.PI / 2;
@@ -750,27 +796,17 @@
 
     // Puffs at the feet: "·" is a small one, "~" a wider one.
     const dustMat = new THREE.MeshStandardMaterial({ color: lin("#a9b0ba"), roughness: 1 });
-    const dustGeo = new THREE.BoxGeometry(0.6, 0.6, 0.6);
-    const dust = Array.from({ length: 28 }, () => {
-      const m = new THREE.Mesh(dustGeo, dustMat);
-      m.visible = false;
-      m.userData = { v: new THREE.Vector3(), life: 0 };
-      scene.add(m);
-      return m;
-    });
+    const dust = particlePool(28, new THREE.BoxGeometry(0.6, 0.6, 0.6), dustMat);
     function puff(kind) {
-      const count = kind === "wave" ? 10 : 4;
       const spread = kind === "wave" ? 7 : 4;
       let made = 0;
-      for (const m of dust) {
-        if (m.visible) continue;
-        const side = made % 2 ? 1 : -1;
-        m.position.set(root.position.x + side * (BODY_W / 2 - 0.5), 0.35, (Math.random() - 0.5) * DEPTH);
-        m.userData.v.set(side * (2 + Math.random() * spread), 1 + Math.random() * 2, (Math.random() - 0.5) * 3);
-        m.userData.life = 0.6 + Math.random() * 0.3;
-        m.visible = true;
-        if (++made === count) break;
-      }
+      spawn(dust, kind === "wave" ? 10 : 4, (p) => {
+        const side = made++ % 2 ? 1 : -1;
+        p.pos.set(root.position.x + side * (BODY_W / 2 - 0.5), 0.35, (Math.random() - 0.5) * DEPTH);
+        p.v.set(side * (2 + Math.random() * spread), 1 + Math.random() * 2, (Math.random() - 0.5) * 3);
+        p.life = 0.6 + Math.random() * 0.3;
+        p.rot.set(0, 0, 0);
+      });
     }
 
     function setColors(c) {
@@ -778,6 +814,7 @@
       if (c.dots) dotMat.color.copy(lin(c.dots));
       if (c.dust) dustMat.color.copy(lin(c.dust));
       if (c.code) codeColor = c.code;
+      dirty = true;
     }
 
     // ---- Turning a frame into 3D targets ----
@@ -787,6 +824,30 @@
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
     const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0 };
     const goal = { ...state };
+    const KEYS = Object.keys(state);
+    const IS_ANGLE = KEYS.map((prop) => prop === "ry" || prop === "flip" || prop === "roll");
+    const SETTLED = 0.004;   // closer than this to its goal, a value has arrived (well under a pixel at any size)
+
+    // Where he looks when the frame leaves his eyes open and straight ahead: a point on the page in CSS pixels (it may
+    // lie outside the page, like the mouse elsewhere on the desktop), or null to look straight ahead.
+    let gazeAt = null, eyesFree = true;
+    const eyeBase = { x: 0, y: 0 };
+    const eyePoint = new THREE.Vector3();
+    function applyGaze() {
+      goal.eyeX = eyeBase.x;
+      goal.eyeY = eyeBase.y;
+      if (!gazeAt || !eyesFree) return;
+      const w = stage.clientWidth || 1, h = stage.clientHeight || 1;
+      eyePoint.set(root.position.x, root.position.y + LEG_H + BODY_H * 0.74, DEPTH / 2).project(camera);
+      const ex = (eyePoint.x + 1) / 2 * w, ey = (1 - eyePoint.y) / 2 * h;
+      const reach = Math.max(80, 0.6 * Math.min(w, h));   // this far away, he looks as far as his eyes go
+      goal.eyeX = clamp((gazeAt.x - ex) / reach, -1, 1);
+      goal.eyeY = 0.7 * clamp((ey - gazeAt.y) / reach, -1, 1);
+    }
+    function setGaze(x, y) {
+      gazeAt = typeof x === "number" && typeof y === "number" && isFinite(x) && isFinite(y) ? { x, y } : null;
+      applyGaze();
+    }
 
     function targetsFor(f) {
       const p = typeof f.pose === "string" ? POSES[f.pose] : f.pose.facing ? POSES.default : f.pose;
@@ -807,8 +868,10 @@
       goal.armR = p.arms === "up" || p.arms === "one-up" ? 0.95 : 0;
       goal.liftL = p.feet === "right" ? 1 : 0;
       goal.liftR = p.feet === "left" ? 1 : 0;
-      goal.eyeX = p.eyes === "left" ? -1 : p.eyes === "right" ? 1 : 0;
-      goal.eyeY = p.eyes === "left" || p.eyes === "right" ? 0.8 : 0;
+      eyeBase.x = p.eyes === "left" ? -1 : p.eyes === "right" ? 1 : 0;
+      eyeBase.y = p.eyes === "left" || p.eyes === "right" ? 0.8 : 0;
+      eyesFree = p.eyes === "open";
+      applyGaze();
       goal.lidL = p.eyes === "closed" ? 1 : 0;
       goal.lidR = p.eyes === "closed" || p.eyes === "wink" ? 1 : 0;
       goal.laptop = f.laptop || 0;
@@ -853,27 +916,29 @@
       if (f.notes && idx % 3 === 0) addNote(f.notes);
       if (f.flash) { flash = 1; emitSparks(28, true); }
       if (f.confetti) emitConfetti(f.confetti);
-      if (f.typing) typeTarget = Math.min(SCREEN_TEXT.length, typeTarget + 4);
+      if (f.typing) typeTarget = Math.min(screenText.length, typeTarget + 4);
       if (f.laptop) drawScreen(typeTarget);
       on("onFrame", { name: seqName, index: idx, length: seq.length, frame: f });
     }
-    function play(name, { snap = false } = {}) {
+    // from: the frame to start at (working skips the laptop move's opening look).
+    function play(name, { snap = false, from = 0 } = {}) {
       if (name !== "idle" && !MOVES[name]) return;
       seqName = name;
       seq = name === "idle" ? IDLE : MOVES[name];
-      idx = 0;
+      idx = Math.min(Math.max(0, from), seq.length - 1);
       acc = 0;
       on("onMove", name);
       enterFrame();
-      if (snap) for (const prop of Object.keys(state)) state[prop] = goal[prop];
+      if (snap) for (const prop of KEYS) state[prop] = goal[prop];
     }
     const pick = (list) => list[Math.floor(Math.random() * list.length)];
     const pickOther = (list) => pick(list.filter((name) => name !== seqName));
     const autoMoves = () => (mode === "pet" ? ON_CLICK : ALL);
     function scheduleAmbient() { nextAmbient = clock + AMBIENT_GAP; }
     function finished() {
+      if (working) play("laptop", { from: LAPTOP_OPEN });
       // Auto-play: a random move straight after each one ends, never the same one twice in a row.
-      if (auto && !following) play(pickOther(autoMoves()));
+      else if (auto && !following) play(pickOther(autoMoves()));
       else {
         if (seqName !== "idle") scheduleAmbient();   // a move just ended: the next random one is due in 5 s
         play("idle");
@@ -882,7 +947,7 @@
     function setAuto(value) {
       auto = !!value;
       on("onAuto", auto);
-      if (auto && !following && seqName === "idle") play(pickOther(autoMoves()));
+      if (auto && !following && !working && seqName === "idle") play(pickOther(autoMoves()));
     }
     function setFollowing(value) {
       following = !!value;
@@ -897,6 +962,25 @@
     function setAmbient(value) {
       ambient = !!value;
       scheduleAmbient();
+    }
+    // Working, for Claude Code: he opens the laptop and types, one session after another, until work(false), when he
+    // closes it. A move started meanwhile (a tap) plays out, and then he goes back to the laptop.
+    let working = false;
+    function work(value) {
+      if (!!value === working) return;
+      working = !!value;
+      on("onWork", working);
+      if (working) {
+        if (seqName === "idle") play("laptop", { from: LAPTOP_OPEN });
+      } else if (seqName === "laptop" && idx >= TYPING_FROM && idx <= TYPING_TO) {
+        idx = TYPING_TO + 1;   // close the laptop now
+        acc = 0;
+        enterFrame();
+      }
+    }
+    // Holds the current frame ms longer, e.g. so a move lines up with sound that reaches the speakers late.
+    function hold(ms) {
+      if (ms > 0) acc -= ms;
     }
 
     // ---- Camera, pointer and picking ----
@@ -922,6 +1006,15 @@
       mode = m === "pet" ? "pet" : "stage";
       floor.visible = dots.visible = mode === "stage";
       shadowOnly.visible = mode === "pet";
+      // The floating window is small: a quarter of the shadow map's texels still give more than one per pixel.
+      const shadowSize = mode === "pet" ? 1024 : 2048;
+      if (sun.shadow.mapSize.x !== shadowSize) {
+        sun.shadow.mapSize.set(shadowSize, shadowSize);
+        if (sun.shadow.map) {
+          sun.shadow.map.dispose();
+          sun.shadow.map = null;
+        }
+      }
       frameFor(mode);
     }
 
@@ -983,6 +1076,11 @@
       } else {
         setHover(hitsClawd() || tapping());
       }
+      // On the stage his eyes follow the mouse (in the floating window, the app passes him the desktop's pointer).
+      if (mode === "stage" && e.pointerType === "mouse" && opts.followPointer !== false) {
+        const r = canvas.getBoundingClientRect();
+        setGaze(e.clientX - r.left, e.clientY - r.top);
+      }
     });
     function endDrag(e, cancelled) {
       clearTimeout(longTimer);
@@ -1021,7 +1119,10 @@
     }
     canvas.addEventListener("pointerup", (e) => endDrag(e, false));
     canvas.addEventListener("pointercancel", (e) => endDrag(e, true));
-    canvas.addEventListener("pointerleave", () => { if (!drag) setHover(false); });
+    canvas.addEventListener("pointerleave", () => {
+      if (!drag) setHover(false);
+      if (mode === "stage") setGaze(null);
+    });
 
     // Where Clawd's body is on screen, in CSS pixels (for the Android bubble's touch pad).
     const bounds = new THREE.Box3(), corner = new THREE.Vector3();
@@ -1040,6 +1141,31 @@
       return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
     }
 
+    // Each box of his body on screen (torso, eyes, arms, legs), in CSS pixels: tighter than screenRect() around his
+    // outline, for hosts that work out themselves whether the pointer is over him (the desktop app's click-through).
+    const corner2 = new THREE.Vector3();
+    function screenRects() {
+      const w = stage.clientWidth, h = stage.clientHeight;
+      root.updateMatrixWorld(true);
+      const rects = [];
+      for (const m of pickable) {
+        const g = m.geometry;
+        if (!g.boundingBox) g.computeBoundingBox();
+        const b = g.boundingBox;
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+        for (let i = 0; i < 8; i++) {
+          corner2.set(i & 1 ? b.max.x : b.min.x, i & 2 ? b.max.y : b.min.y, i & 4 ? b.max.z : b.min.z)
+            .applyMatrix4(m.matrixWorld)
+            .project(camera);
+          const x = (corner2.x + 1) / 2 * w, y = (1 - corner2.y) / 2 * h;
+          x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+        }
+        x0 = clamp(x0, 0, w); x1 = clamp(x1, 0, w); y0 = clamp(y0, 0, h); y1 = clamp(y1, 0, h);
+        if (x1 - x0 >= 1 && y1 - y0 >= 1) rects.push({ x: Math.floor(x0), y: Math.floor(y0), w: Math.ceil(x1 - x0), h: Math.ceil(y1 - y0) });
+      }
+      return rects;
+    }
+
     function resize() {
       const w = stage.clientWidth, h = stage.clientHeight;
       if (!w || !h) return;
@@ -1051,6 +1177,7 @@
       const tanHalf = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
       view.r = Math.max(fr.halfH / tanHalf, fr.halfW / (tanHalf * camera.aspect));
       camera.updateProjectionMatrix();
+      dirty = true;   // resizing clears the canvas
     }
     if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
     else window.addEventListener("resize", resize);
@@ -1066,17 +1193,27 @@
       while (acc >= FRAME_MS) {
         acc -= FRAME_MS;
         idx++;
+        if (working && seqName === "laptop" && idx > TYPING_TO) {   // keep typing: the next session
+          idx = TYPING_FROM;
+          nextScreen();
+        }
         if (idx >= seq.length) finished();
         else enterFrame();
       }
       // Pet mode: once he has idled AMBIENT_GAP seconds since his last move and the last tap, start a random one
       // (mid look-around is fine).
-      if (ambient && !auto && !following && seqName === "idle" && clock >= nextAmbient && clock >= lastTapAt + AMBIENT_GAP) play(pick(ON_CLICK));
+      if (ambient && !auto && !following && !working && seqName === "idle" && clock >= nextAmbient && clock >= lastTapAt + AMBIENT_GAP) play(pick(ON_CLICK));
 
       const k = 1 - Math.exp(-dt / 0.045);
-      for (const prop of Object.keys(state)) {
-        if (prop === "ry" || prop === "flip" || prop === "roll") state[prop] += wrap(goal[prop] - state[prop]) * k;
-        else state[prop] += (goal[prop] - state[prop]) * k;
+      let moving = false;
+      for (let i = 0; i < KEYS.length; i++) {
+        const prop = KEYS[i];
+        const d = IS_ANGLE[i] ? wrap(goal[prop] - state[prop]) : goal[prop] - state[prop];
+        if (Math.abs(d) < SETTLED) state[prop] += d;   // arrived: land exactly, so he can come to rest
+        else {
+          state[prop] += d * k;
+          moving = true;
+        }
       }
 
       // Flips turn him around his middle, not his feet: shift him back by however far the turn moves his middle.
@@ -1159,15 +1296,17 @@
         noteClock += dt;
         if (noteClock > 1.1) { noteClock = 0; addNote(Math.random() < 0.5 ? "above" : "side"); }
       }
-      for (const m of sparks) {
-        if (!m.visible) continue;
-        const d = m.userData;
-        d.life -= dt * 1.4;
-        if (d.life <= 0) { m.visible = false; continue; }
-        d.v.multiplyScalar(1 - 3 * dt);
-        m.position.addScaledVector(d.v, dt);
-        m.rotation.z += dt * 9;
-        m.scale.setScalar(Math.min(1, d.life * 3));
+      if (sparks.live) {
+        for (const p of sparks.parts) {
+          if (!p.live) continue;
+          p.life -= dt * 1.4;
+          if (p.life <= 0) { p.live = false; continue; }
+          p.v.multiplyScalar(1 - 3 * dt);
+          p.pos.addScaledVector(p.v, dt);
+          p.rot.z += dt * 9;
+          p.scale = Math.min(1, p.life * 3);
+        }
+        placeParticles(sparks);
       }
       const shown = clamp(state.laptop * 2.5, 0, 1);
       laptop.visible = shown > 0.01;
@@ -1181,42 +1320,51 @@
         eye.position.y = eye.userData.home.y + state.eyeY - 0.45 * lid;
       });
 
-      for (const m of confetti) {
-        if (!m.visible) continue;
-        const d = m.userData;
-        d.life -= dt;
-        if (d.life <= 0) { m.visible = false; continue; }
-        d.v.y = Math.max(d.v.y - 16 * dt, -3.2);          // falls fast at first, then flutters down
-        d.v.x *= 1 - 1.2 * dt;
-        d.v.z *= 1 - 1.2 * dt;
-        m.position.addScaledVector(d.v, dt);
-        m.position.x += Math.sin(clock * 5 + d.phase) * 1.6 * dt;
-        if (m.position.y <= 0.05) {                          // settles on the floor
-          m.position.y = 0.05;
-          d.v.set(0, 0, 0);
-          d.spin.set(0, 0, 0);
-          m.rotation.x = -Math.PI / 2;
+      if (confetti.live) {
+        for (const p of confetti.parts) {
+          if (!p.live) continue;
+          p.life -= dt;
+          if (p.life <= 0) { p.live = false; continue; }
+          p.v.y = Math.max(p.v.y - 16 * dt, -3.2);          // falls fast at first, then flutters down
+          p.v.x *= 1 - 1.2 * dt;
+          p.v.z *= 1 - 1.2 * dt;
+          p.pos.addScaledVector(p.v, dt);
+          p.pos.x += Math.sin(clock * 5 + p.phase) * 1.6 * dt;
+          if (p.pos.y <= 0.05) {                              // settles on the floor
+            p.pos.y = 0.05;
+            p.v.set(0, 0, 0);
+            p.spin.set(0, 0, 0);
+            p.rot.x = -Math.PI / 2;
+          }
+          p.rot.x += p.spin.x * dt;
+          p.rot.y += p.spin.y * dt;
+          p.rot.z += p.spin.z * dt;
+          p.scale = Math.min(1, p.life * 2);
         }
-        m.rotation.x += d.spin.x * dt;
-        m.rotation.y += d.spin.y * dt;
-        m.rotation.z += d.spin.z * dt;
-        m.scale.setScalar(Math.min(1, d.life * 2));
+        placeParticles(confetti);
       }
-      for (const m of dust) {
-        if (!m.visible) continue;
-        const d = m.userData;
-        d.life -= dt * 1.7;
-        if (d.life <= 0) { m.visible = false; continue; }
-        d.v.y -= 5 * dt;
-        d.v.multiplyScalar(1 - 2.4 * dt);
-        m.position.addScaledVector(d.v, dt);
-        m.position.y = Math.max(0.3, m.position.y);
-        m.scale.setScalar(d.life);
+      if (dust.live) {
+        for (const p of dust.parts) {
+          if (!p.live) continue;
+          p.life -= dt * 1.7;
+          if (p.life <= 0) { p.live = false; continue; }
+          p.v.y -= 5 * dt;
+          p.v.multiplyScalar(1 - 2.4 * dt);
+          p.pos.addScaledVector(p.v, dt);
+          p.pos.y = Math.max(0.3, p.pos.y);
+          p.scale = p.life;
+        }
+        placeParticles(dust);
       }
 
       const ease = Math.min(1, dt * 8);
       view.theta += (view.tTheta - view.theta) * ease;
       view.phi += (view.tPhi - view.phi) * ease;
+      const turning = Math.abs(view.tTheta - view.theta) > 1e-4 || Math.abs(view.tPhi - view.phi) > 1e-4;
+      if (!turning) {
+        view.theta = view.tTheta;
+        view.phi = view.tPhi;
+      }
       const sp = Math.sin(view.phi);
       camera.position.set(
         target.x + view.r * sp * Math.sin(view.theta),
@@ -1224,13 +1372,27 @@
         target.z + view.r * sp * Math.cos(view.theta)
       );
       camera.lookAt(target);
+
+      // Whether this frame looks any different from the last: he or the camera is moving, something animates by the
+      // clock (typing, strumming, headbanging, the guitar's wall and sparks), or particles are flying.
+      return moving || turning || state.type > 0 || state.strum > 0 || state.bang > 0 || state.windmill > 0 ||
+        zapping || flash > 0 || wall.visible || sparks.live > 0 || confetti.live > 0 || dust.live > 0;
     }
 
+    // Draws only when the picture changed. Between moves he often stands perfectly still, and then nothing is drawn
+    // at all: no GPU work, and the browser has no new frame to put on screen. Floating and idle (just looking
+    // around), 30 frames a second are plenty; his moves get every frame.
+    let lastDrawn = 0, behind = false;   // behind: the picture changed since it was last drawn
     function frame(now) {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      update(dt);
-      renderer.render(scene, camera);
+      if (update(dt)) behind = true;
+      const calm = mode === "pet" && seqName === "idle" && !ultra && !working;
+      if (dirty || (behind && (!calm || now - lastDrawn > 30))) {
+        dirty = behind = false;
+        lastDrawn = now;
+        renderer.render(scene, camera);
+      }
       requestAnimationFrame(frame);
     }
     requestAnimationFrame((now) => { last = now; frame(now); });
@@ -1249,7 +1411,15 @@
       setColors,
       playRandom: () => play(pick(ON_CLICK)),
       tap: () => playClickMove(),
+      work,
+      get working() { return working; },
+      hold,
+      setGaze,
       screenRect,
+      screenRects,
+      // Whether a tap just landed: for a little while the spot keeps taking clicks, so a double or triple tap lands
+      // even if the move the first tap started carried him away.
+      get tapping() { return tapping(); },
       entrance: (opts2) => play(pick(ENTRANCES), opts2)
     };
   }

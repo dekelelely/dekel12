@@ -1,6 +1,7 @@
 // A generated rock riff timed to Clawd's ultracode routine (60 ms frames), built from oscillators, distortion and noise
-// with the Web Audio API: no samples, nothing downloaded. A preview for now; not wired into the apps.
-// ClawdRiff.schedule(ctx, destination, startTime) plays it on any AudioContext or OfflineAudioContext.
+// with the Web Audio API: no samples, nothing downloaded. The apps play it with the ultracode move when Sound is on.
+// ClawdRiff.schedule(ctx, destination, startTime) plays it on any AudioContext or OfflineAudioContext and returns
+// { end, stop() }: the time it ends, and a quick fade-out for when his routine is cut short.
 (() => {
   const F = 0.06;                                    // one frame of the routine
   const DURATION = 8.6;
@@ -31,8 +32,9 @@
       if (live && t > ctx.currentTime + 0.5) queue.push({ t, run: () => fn(t, ...args) });
       else fn(t, ...args);
     };
+    let timer = 0;
     if (live) {
-      const timer = setInterval(() => {
+      timer = setInterval(() => {
         queue.sort((a, b) => a.t - b.t);
         while (queue.length && queue[0].t <= ctx.currentTime + 0.5) queue.shift().run();
         if (!queue.length) clearInterval(timer);
@@ -241,7 +243,13 @@
     crash(at(115));
     kick(at(115));
 
-    return t0 + DURATION;
+    function stop() {
+      queue.length = 0;
+      clearInterval(timer);
+      out.gain.setTargetAtTime(0, ctx.currentTime, 0.03);
+      setTimeout(() => out.disconnect(), 300);
+    }
+    return { end: t0 + DURATION, stop };
   }
 
   window.ClawdRiff = { duration: DURATION, schedule };

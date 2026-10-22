@@ -70,7 +70,7 @@
   }
   .bar button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
   .bar button[aria-pressed="true"], .bar button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
-  /* Update button (Windows and Android apps), top right in the fullscreen view. */
+  /* Update button (desktop and Android apps), top right in the fullscreen view. */
   .update {
     display: none;
     position: fixed;
@@ -105,6 +105,7 @@
 <div class="bar">
   <div class="chips" id="chips" role="group" aria-label="Moves"></div>
   <button type="button" id="auto" aria-pressed="false">Auto-play</button>
+  <button type="button" id="sound" aria-pressed="false" hidden>Sound</button>
   <button type="button" id="through" aria-pressed="false" hidden>Taps through</button>
   <button type="button" id="secondary" hidden></button>
   <button type="button" id="primary" class="main"></button>
@@ -113,20 +114,21 @@
 
 <script src="three.min.js"></script>
 <script src="clawd-engine.js"></script>
+<script src="ultracode-riff.js"></script>
 <script>
 (() => {
-  // How the page was opened: "#mode=pet|full&platform=electron|android|web" (a hash, since Android asset URLs drop queries).
+  // How the page was opened: "#mode=pet|full&platform=desktop|android|web" (a hash, since Android asset URLs drop queries).
   const params = new URLSearchParams(location.hash.replace(/^#/, "") || location.search.replace(/^\?/, ""));
-  const desk = window.clawdDesktop;   // Windows app (Electron preload)
+  const desk = window.clawdDesktop;   // desktop app: Windows, macOS, Linux (apps/desktop/src/bridge.js)
   const droid = window.ClawdNative;   // Android app (JavaScript interface)
-  const platform = desk ? "electron" : droid ? "android" : params.get("platform") || "web";
+  const platform = desk ? "desktop" : droid ? "android" : params.get("platform") || "web";
   let mode = params.get("mode") === "pet" ? "pet" : "full";
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const E = window.ClawdEngine;
   const chips = document.getElementById("chips");
   const autoBtn = document.getElementById("auto");
-  // Ultra effort (the guitar between moves) is only switched from the Windows tray menu, which remembers it.
+  // Ultra effort (the guitar between moves) is only switched from the desktop app's menu, which remembers it.
   // Elsewhere the "ultracode" move plays the guitar once, and any setting saved by an older version is dropped.
   let savedUltra = false;
   try {
@@ -137,12 +139,12 @@
   const secondary = document.getElementById("secondary");
   const through = document.getElementById("through");
   let picked = "";   // the move last picked here; floating Clawd opens with it
-  let floating = false;   // Windows: whether Clawd is floating on the desktop (the app tells this page)
+  let floating = false;   // desktop: whether Clawd is floating on the desktop (the app tells this page)
   const hint = document.getElementById("hint");
 
-  // The app and floating Clawd (Windows and Android) stay matched: each sends the other the moves it starts and its
-  // Auto-play switch, and plays what it receives. While he floats, floating Clawd chooses the random moves and the
-  // app follows, making no random picks of its own.
+  // The app and floating Clawd (desktop and Android) stay matched: each sends the other the moves it starts, its
+  // Auto-play switch and whether he is working, and plays what it receives. While he floats, floating Clawd chooses
+  // the random moves and the app follows, making no random picks of its own.
   const link = desk ? (m) => desk.sync(m) : droid && droid.sync ? (m) => droid.sync(JSON.stringify(m)) : null;
   let applying = null;   // the message from the other view being played here, so it isn't sent straight back
   function sendToOther(m) {
@@ -152,7 +154,10 @@
     applying = m;
     try {
       if (typeof m.auto === "boolean" && m.auto !== clawd.auto) clawd.setAuto(m.auto);
-      if (typeof m.move === "string" && E.MOVES[m.move]) clawd.play(m.move);
+      if (typeof m.work === "boolean") clawd.work(m.work);
+      // Working already keeps him at the laptop: the laptop move the other view started when it began working is not
+      // played again from the start.
+      if (typeof m.move === "string" && E.MOVES[m.move] && !(m.move === "laptop" && clawd.working)) clawd.play(m.move);
     } finally {
       applying = null;
     }
@@ -176,6 +181,11 @@
     onMove(name) {
       buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
       if (name !== "idle" && !(applying && applying.move === name)) sendToOther({ move: name });
+      if (name === "ultracode") startRiff();
+      else if (name !== "idle") stopRiff();
+    },
+    onWork(on) {
+      if (!(applying && "work" in applying)) sendToOther({ work: on });
     },
     onAuto(on) {
       autoBtn.setAttribute("aria-pressed", String(on));
@@ -187,12 +197,17 @@
       try { localStorage.setItem("clawd-ultra", on ? "1" : "0"); } catch (err) { /* storage unavailable */ }
       desk.reportUltra(on);
     },
-    // Windows: the transparent window lets clicks through everywhere except over Clawd himself.
-    onHover(over) { if (desk && mode === "pet") desk.setClickThrough(!over); },
-    onDrag(dx, dy) { if (desk && mode === "pet") desk.moveBy(dx, dy); },
-    onDragEnd() { if (desk) desk.dragEnd(); },
-    // Floating Clawd, on Windows as on Android (where the bubble's native touch pad does the same): long-press opens
-    // the app, double-tap opens the app and puts him away, triple-tap closes both.
+    onDrag(dx, dy) {
+      if (!desk || mode !== "pet") return;
+      dragging = true;
+      desk.moveBy(dx, dy);
+    },
+    onDragEnd() {
+      dragging = false;
+      if (desk) desk.dragEnd();
+    },
+    // Floating Clawd, on the desktop as on Android (where the bubble's native touch pad does the same): long-press
+    // opens the app, double-tap opens the app and puts him away, triple-tap closes both.
     onLongPress() {
       if (mode !== "pet") return;
       if (desk) desk.openApp();
@@ -222,8 +237,8 @@
 
   function refreshControls() {
     secondary.hidden = true;
-    clawd.setFollowing(mode === "full" && (platform === "electron" ? floating : platform === "android" && droid.bubbleRunning()));
-    if (platform === "electron") {
+    clawd.setFollowing(mode === "full" && (platform === "desktop" ? floating : platform === "android" && droid.bubbleRunning()));
+    if (platform === "desktop") {
       primary.textContent = floating ? "Hide floating Clawd" : "Float on screen";
       hint.textContent = "Drag to turn · click Clawd for a move · “Float on screen” puts him on your desktop";
     } else if (platform === "android") {
@@ -242,11 +257,10 @@
     document.body.classList.toggle("full", mode === "full");
     clawd.setMode(mode === "pet" ? "pet" : "stage");
     clawd.setAmbient(mode === "pet");
-    if (desk) desk.setClickThrough(mode === "pet");
     refreshControls();
   }
 
-  // A mouse wheel scrolls the row of moves sideways (Windows; touch and touchpads already can).
+  // A mouse wheel scrolls the row of moves sideways (touch and touchpads already can).
   chips.addEventListener("wheel", (e) => {
     if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
     chips.scrollLeft += e.deltaY;
@@ -264,7 +278,7 @@
   });
   autoBtn.addEventListener("click", () => clawd.setAuto(!clawd.auto));
   primary.addEventListener("click", () => {
-    if (platform === "electron") {
+    if (platform === "desktop") {
       if (floating) desk.stopFloating();
       else desk.startFloating(picked, clawd.auto);
     } else if (platform === "android") {
@@ -297,6 +311,71 @@
       floating = on;
       refreshControls();
     });
+    // His eyes follow the mouse anywhere on the desktop (the app passes it in this page's pixels; null: look ahead).
+    desk.onGaze((x, y) => clawd.setGaze(x, y));
+    desk.onClaude(claudeEvent);
+  }
+
+  // Claude Code, through its hooks (see the README): he types on his laptop while Claude works, celebrates when it is
+  // done, and jumps to get your attention when it needs you. The app sends these to floating Clawd when he is out,
+  // otherwise to the app window; the other one follows along like any move.
+  function claudeEvent(kind) {
+    if (kind === "working") clawd.work(true);
+    else if (kind === "done" || kind === "attention") {
+      clawd.work(false);
+      clawd.setAuto(false);
+      clawd.play(kind === "done" ? "celebrate" : "jump");
+    } else if (kind === "idle") clawd.work(false);
+  }
+
+  // Desktop: floating Clawd's window lets clicks through except over him. The app checks the mouse against where his
+  // body is (each box of it) and keeps taking clicks while a drag or a double or triple click is under way.
+  let dragging = false;
+  if (desk && mode === "pet" && desk.setHitArea) {
+    let sent = "";
+    setInterval(() => {
+      const rects = clawd.screenRects();
+      const holding = dragging || clawd.tapping;
+      const key = JSON.stringify(rects) + holding;
+      if (key === sent) return;
+      sent = key;
+      desk.setHitArea(rects, holding);
+    }, 100);
+  }
+
+  // Sound, in the full view only (never from floating Clawd): the ultracode riff plays with his guitar routine.
+  const soundBtn = document.getElementById("sound");
+  let soundOn = false, audio = null, riff = null;
+  try { soundOn = localStorage.getItem("clawd-sound") === "1"; } catch (err) { /* storage unavailable */ }
+  function audioReady() {
+    if (!audio) {
+      try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (err) { return false; }
+    }
+    if (audio.state === "suspended") audio.resume().catch(() => {});
+    return audio.state === "running";
+  }
+  function stopRiff() {
+    if (riff) riff.stop();
+    riff = null;
+  }
+  function startRiff() {
+    stopRiff();
+    if (!soundOn || mode !== "full" || !window.ClawdRiff || !audioReady()) return;
+    const lead = 0.1;   // time to set up the first notes
+    riff = window.ClawdRiff.schedule(audio, audio.destination, audio.currentTime + lead);
+    // He waits on his first frame until the riff's first note reaches the speakers.
+    clawd.hold((lead + (audio.outputLatency || audio.baseLatency || 0)) * 1000);
+  }
+  if (window.ClawdRiff) {
+    soundBtn.hidden = false;
+    soundBtn.setAttribute("aria-pressed", String(soundOn));
+    soundBtn.addEventListener("click", () => {
+      soundOn = !soundOn;
+      try { localStorage.setItem("clawd-sound", soundOn ? "1" : "0"); } catch (err) { /* storage unavailable */ }
+      soundBtn.setAttribute("aria-pressed", String(soundOn));
+      if (soundOn) audioReady();   // a click may start audio; later moves may not
+      else stopRiff();
+    });
   }
 
   // Android bubble: the window that draws Clawd lets touches through to the apps below, and a small native touch pad
@@ -312,7 +391,7 @@
     }, 150);
   }
 
-  // Updates (Windows and Android apps): the app checks when it opens and reports here; the button checks again,
+  // Updates (desktop and Android apps): the app checks when it opens and reports here; the button checks again,
   // or installs the new version once there is one.
   const updateBtn = document.getElementById("update");
   const updater = desk
