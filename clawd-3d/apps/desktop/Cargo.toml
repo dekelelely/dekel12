@@ -1,0 +1,29 @@
+[package]
+name = "clawd"
+version = "1.0.0"
+description = "Clawd sits in the corner of your screen while you work."
+authors = ["dekelelely"]
+edition = "2021"
+rust-version = "1.90"
+publish = false
+
+[build-dependencies]
+tauri-build = { version = "2.7", features = [] }
+
+[dependencies]
+tauri = { version = "2.12", features = ["tray-icon", "image-png", "macos-private-api"] }
+tauri-plugin-single-instance = "2.5"
+tauri-plugin-autostart = "2.7"
+tauri-plugin-dialog = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+tiny_http = "0.12"
+ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "json"] }
+
+[profile.release]
+# A small, fast app: one codegen unit, link-time optimisation, no unwinding tables, symbols stripped.
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true
