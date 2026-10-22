@@ -1211,6 +1211,9 @@
     }
     canvas.addEventListener("pointerup", (e) => endDrag(e, false));
     canvas.addEventListener("pointercancel", (e) => endDrag(e, true));
+    // A drag whose pointerup never came (the window lost the pointer) ends too, so the floating window doesn't keep
+    // taking every click.
+    canvas.addEventListener("lostpointercapture", (e) => endDrag(e, true));
     canvas.addEventListener("pointerleave", () => {
       if (!drag) setHover(false);
       if (mode === "stage") setGaze(null);

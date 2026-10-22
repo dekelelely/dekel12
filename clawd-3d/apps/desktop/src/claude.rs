@@ -21,7 +21,7 @@ pub const EVENTS: [(&str, &str); 6] = [
     ("SessionEnd", "idle"),
 ];
 
-/// What a request means for Clawd: a hook's JSON (`hook_event_name`), or a path like /claude/done for scripts.
+/// What a POST means for Clawd: a hook's JSON (`hook_event_name`), or a path like /claude/done for scripts.
 pub fn kind_of(path: &str, body: &[u8]) -> Option<&'static str> {
     let named = path.trim_end_matches('/').strip_prefix("/claude/").unwrap_or("");
     if !named.is_empty() {
@@ -40,11 +40,13 @@ pub fn serve(react: impl Fn(&'static str) + Send + 'static) {
             Err(err) => return eprintln!("Clawd: Claude Code hooks are off, port {PORT} is taken: {err}"),
         };
         for mut request in server.incoming_requests() {
-            // Web pages can reach 127.0.0.1 too; the hook (curl) sends no Origin, a browser always does.
+            // Web pages can reach 127.0.0.1 too: an <img> sends a GET with no Origin, and a browser's POST always has
+            // one. The hook (curl --data-binary) POSTs with none.
             let from_browser = request.headers().iter().any(|h| h.field.equiv("Origin"));
+            let post = *request.method() == tiny_http::Method::Post;
             let mut body = Vec::new();
             let _ = request.as_reader().take(1 << 20).read_to_end(&mut body);
-            let kind = if from_browser || !request.url().starts_with("/claude") {
+            let kind = if from_browser || !post || !request.url().starts_with("/claude") {
                 None
             } else {
                 kind_of(request.url(), &body)
@@ -52,7 +54,13 @@ pub fn serve(react: impl Fn(&'static str) + Send + 'static) {
             if let Some(kind) = kind {
                 react(kind);
             }
-            let status = if from_browser { 403 } else { 204 };
+            let status = if from_browser {
+                403
+            } else if !post {
+                405
+            } else {
+                204
+            };
             let _ = request.respond(tiny_http::Response::empty(status));
         }
     });

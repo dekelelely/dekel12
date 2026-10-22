@@ -154,6 +154,9 @@
   // the random moves and the app follows, making no random picks of its own.
   const link = desk ? (m) => desk.sync(m) : droid && droid.sync ? (m) => droid.sync(JSON.stringify(m)) : null;
   let applying = null;   // the message from the other view being played here, so it isn't sent straight back
+  // The move a view opens with stays its own: an app window opened while he floats (or types for Claude Code) doesn't
+  // interrupt him with its entrance.
+  let started = false;
   function sendToOther(m) {
     if (link) link(m);
   }
@@ -187,7 +190,7 @@
     mode: mode === "pet" ? "pet" : "stage",
     onMove(name) {
       buttons.forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.move === name)));
-      if (name !== "idle" && !(applying && applying.move === name)) sendToOther({ move: name });
+      if (name !== "idle" && started && !(applying && applying.move === name)) sendToOther({ move: name });
       if (name === "ultracode") startRiff();
       else if (name !== "idle") stopRiff();
     },
@@ -313,7 +316,16 @@
   if (desk) {
     desk.onPlay((name) => { clawd.setAuto(false); clawd.play(name); });
     desk.onAuto((on) => clawd.setAuto(on));
-    desk.onUltra((on) => { clawd.setAuto(false); clawd.setUltra(on); });
+    // The menu's ultra effort reaches both views, so neither sends the other the guitar routine it starts.
+    desk.onUltra((on) => {
+      applying = { move: "ultracode" };
+      try {
+        clawd.setAuto(false);
+        clawd.setUltra(on);
+      } finally {
+        applying = null;
+      }
+    });
     desk.onFloating((on) => {
       floating = on;
       refreshControls();
@@ -331,8 +343,7 @@
     else if (kind === "working") clawd.work(true);
     else if (kind === "done" || kind === "attention") {
       clawd.work(false);
-      clawd.setAuto(false);
-      clawd.play(kind === "done" ? "celebrate" : "jump");
+      clawd.play(kind === "done" ? "celebrate" : "jump");   // Auto-play, if on, carries on after it
     } else if (kind === "idle") clawd.work(false);
   }
 
@@ -446,6 +457,7 @@
   else if (first && E.MOVES[first]) clawd.play(first, { snap: true });
   else if (reduceMotion) clawd.play("idle", { snap: true });
   else clawd.entrance({ snap: true });
+  started = true;
   // Floating Clawd starts with the app's Auto-play switch; an app opened while he floats takes his.
   if (mode === "pet" && params.get("auto") === "1") clawd.setAuto(true);
   if (mode === "full" && droid && droid.linkedAuto && droid.bubbleRunning()) fromOther({ auto: droid.linkedAuto() });

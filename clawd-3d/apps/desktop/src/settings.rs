@@ -22,11 +22,13 @@ pub struct AppBounds {
 pub struct Settings {
     /// Floating size: Small, Medium or Large.
     pub size: String,
-    /// Floating Clawd's window, in logical pixels (null until he is first moved).
+    /// Floating Clawd's window (null until he is first moved): in the screens' own units when `units` is "screen"
+    /// (physical pixels, points on macOS; see main.rs), otherwise logical pixels, as the Electron app saved them.
     pub x: Option<f64>,
     pub y: Option<f64>,
     pub width: Option<f64>,
     pub height: Option<f64>,
+    pub units: Option<String>,
     pub app: Option<AppBounds>,
     /// Start at login (floating, without the app window). Named after the Windows app's menu item.
     #[serde(rename = "startWithWindows")]
@@ -44,6 +46,7 @@ impl Default for Settings {
             y: None,
             width: None,
             height: None,
+            units: None,
             app: None,
             start_at_login: None,
             other: Default::default(),

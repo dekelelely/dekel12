@@ -21,6 +21,9 @@ serde_json = { version = "1", features = ["preserve_order"] }
 tiny_http = "0.12"
 ureq = { version = "3", default-features = false, features = ["native-tls-no-default", "json"] }
 
+[target.'cfg(target_os = "linux")'.dependencies]
+gtk = "0.18" # floating Clawd's input shape (the same GTK as Tauri's)
+
 [profile.release]
 # A small, fast app: one codegen unit, link-time optimisation, no unwinding tables, symbols stripped.
 codegen-units = 1

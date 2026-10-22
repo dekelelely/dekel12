@@ -74,6 +74,7 @@ struct Shared {
     last_check: Option<Instant>,
     claude_hooks: bool,
     working_since: Option<Instant>,
+    displaced: bool, // floating Clawd was moved off his saved spot because its screen went away
 }
 
 struct Clawd(Mutex<Shared>);
@@ -127,18 +128,58 @@ fn valid_move(name: &str) -> bool {
 }
 
 // ---- Screens ----
+//
+// Floating Clawd's spot is kept in the one space all screens share: physical pixels on Windows and Linux, points
+// (logical pixels) on macOS. With screens at different scaling, a logical position on Windows doesn't say which
+// screen it is on, and macOS gives physical positions at each screen's own scale.
 
-/// A monitor's work area (without the taskbar or the menu bar and dock) in logical pixels: x, y, width, height.
+#[cfg(target_os = "macos")]
+const IN_POINTS: bool = true;
+#[cfg(not(target_os = "macos"))]
+const IN_POINTS: bool = false;
+/// The settings' marker for a floating spot saved in that space (the Electron app saved logical pixels).
+const SCREEN_UNITS: &str = "screen";
+
+/// A monitor's work area (without the taskbar or the menu bar and dock) in that space: x, y, width, height.
 fn work_area(m: &Monitor) -> (f64, f64, f64, f64) {
-    let s = m.scale_factor();
+    let s = if IN_POINTS { m.scale_factor() } else { 1.0 };
     let wa = m.work_area();
     (wa.position.x as f64 / s, wa.position.y as f64 / s, wa.size.width as f64 / s, wa.size.height as f64 / s)
 }
 
-/// Whether a window at these logical bounds would be at least partly on a screen.
+/// How many units of that space one logical pixel takes on this monitor.
+fn units_per_pixel(m: Option<&Monitor>) -> f64 {
+    if IN_POINTS {
+        1.0
+    } else {
+        m.map_or(1.0, Monitor::scale_factor)
+    }
+}
+
+/// The monitor a point (in that space) is on.
+fn monitor_at(app: &AppHandle, x: f64, y: f64) -> Option<Monitor> {
+    app.available_monitors().ok()?.into_iter().find(|m| {
+        let s = if IN_POINTS { m.scale_factor() } else { 1.0 };
+        let (p, z) = (m.position(), m.size());
+        let (mx, my) = (p.x as f64 / s, p.y as f64 / s);
+        x >= mx && y >= my && x < mx + z.width as f64 / s && y < my + z.height as f64 / s
+    })
+}
+
+/// Whether a window at these bounds (in that space) would be at least partly on a screen.
 fn on_screen(app: &AppHandle, x: f64, y: f64, w: f64, h: f64) -> bool {
     app.available_monitors().unwrap_or_default().iter().any(|m| {
         let (mx, my, mw, mh) = work_area(m);
+        x + w > mx && x < mx + mw && y + h > my && y < my + mh
+    })
+}
+
+/// The same for the app window, whose bounds are logical pixels.
+fn on_screen_logical(app: &AppHandle, x: f64, y: f64, w: f64, h: f64) -> bool {
+    app.available_monitors().unwrap_or_default().iter().any(|m| {
+        let (s, wa) = (m.scale_factor(), m.work_area());
+        let (mx, my) = (wa.position.x as f64 / s, wa.position.y as f64 / s);
+        let (mw, mh) = (wa.size.width as f64 / s, wa.size.height as f64 / s);
         x + w > mx && x < mx + mw && y + h > my && y < my + mh
     })
 }
@@ -153,7 +194,7 @@ fn show_app(app: &AppHandle) {
         let _ = w.set_focus();
         return;
     }
-    let saved = shared(app).settings.app.clone().filter(|b| on_screen(app, b.x, b.y, b.width, b.height));
+    let saved = shared(app).settings.app.clone().filter(|b| on_screen_logical(app, b.x, b.y, b.width, b.height));
     let mut builder = WebviewWindowBuilder::new(app, "app", WebviewUrl::App("index.html".into()))
         .title("Clawd")
         .min_inner_size(420.0, 360.0)
@@ -223,27 +264,31 @@ fn pet_size(s: &Settings) -> (f64, f64) {
     (w, (w / ASPECT).round())
 }
 
-/// Bottom-right of a screen's work area, so Clawd stands on the taskbar (or the dock).
-fn corner_bounds(app: &AppHandle, monitor: Option<Monitor>) -> (f64, f64, f64, f64) {
+/// Bottom-right of a screen's work area (in the screens' space), so Clawd stands on the taskbar (or the dock).
+fn corner(app: &AppHandle, monitor: Option<Monitor>) -> Option<(f64, f64)> {
+    let m = monitor.or_else(|| app.primary_monitor().ok().flatten())?;
     let (w, h) = pet_size(&shared(app).settings);
-    let m = monitor.or_else(|| app.primary_monitor().ok().flatten());
-    let (x, y, mw, mh) = m.as_ref().map(work_area).unwrap_or((0.0, 0.0, 1280.0, 720.0));
-    (x + mw - w - MARGIN, y + mh - h, w, h)
+    let k = units_per_pixel(Some(&m));
+    let (x, y, mw, mh) = work_area(&m);
+    Some((x + mw - (w + MARGIN) * k, y + mh - h * k))
 }
 
-fn saved_bounds(app: &AppHandle) -> (f64, f64, f64, f64) {
+/// Where floating Clawd was last put (in the screens' space), if that is on a screen. His bottom-right corner stays
+/// where it was if his size changed since.
+fn saved_spot(app: &AppHandle) -> Option<(f64, f64)> {
     let s = shared(app).settings.clone();
     let (w, h) = pet_size(&s);
-    let (Some(x), Some(y)) = (s.x, s.y) else { return corner_bounds(app, None) };
-    // Keep the saved bottom-right corner if the window size changed since (another size or version).
-    let x = x + s.width.map_or(0.0, |sw| sw - w);
-    let y = y + s.height.map_or(0.0, |sh| sh - h);
-    // Back to the corner if the saved spot is no longer on any screen.
-    if on_screen(app, x, y, w, h) {
-        (x, y, w, h)
+    // Saved by the Electron app: logical pixels, which match the main screen's scaling.
+    let k0 = if s.units.as_deref() == Some(SCREEN_UNITS) {
+        1.0
     } else {
-        corner_bounds(app, None)
-    }
+        units_per_pixel(app.primary_monitor().ok().flatten().as_ref())
+    };
+    let (x, y) = (s.x? * k0, s.y? * k0);
+    let k = units_per_pixel(monitor_at(app, x, y).as_ref());
+    let x = x + s.width.map_or(0.0, |sw| sw * k0 - w * k);
+    let y = y + s.height.map_or(0.0, |sh| sh * k0 - h * k);
+    on_screen(app, x, y, w * k, h * k).then_some((x, y))
 }
 
 /// first: a move to open with (the one last picked in the app), or "" for a random one. auto: start on Auto-play.
@@ -251,7 +296,13 @@ fn start_floating(app: &AppHandle, first: &str, auto: bool) {
     if pet_win(app).is_some() {
         return;
     }
-    let (x, y, w, h) = saved_bounds(app);
+    let (w, h) = pet_size(&shared(app).settings);
+    let saved = saved_spot(app);
+    // Off every screen now (a monitor unplugged): the corner for now, and his own spot once it is back.
+    let had_spot = shared(app).settings.x.is_some();
+    shared(app).displaced = saved.is_none() && had_spot;
+    let spot = saved.or_else(|| corner(app, None)).unwrap_or((100.0, 100.0));
+    let k = units_per_pixel(monitor_at(app, spot.0, spot.1).as_ref());
     let mut hash = "mode=pet&platform=desktop".to_string();
     if valid_move(first) {
         hash += &format!("&first={first}");
@@ -261,7 +312,7 @@ fn start_floating(app: &AppHandle, first: &str, auto: bool) {
     }
     let built = WebviewWindowBuilder::new(app, "pet", WebviewUrl::App("index.html".into()))
         .title("Clawd")
-        .position(x, y)
+        .position(spot.0 / k, spot.1 / k) // logical, so only near the spot on some setups: place_pet puts it there
         .inner_size(w, h)
         .transparent(true)
         .decorations(false)
@@ -281,20 +332,66 @@ fn start_floating(app: &AppHandle, first: &str, auto: bool) {
         Ok(pet) => pet,
         Err(err) => return eprintln!("Clawd: couldn't float: {err}"),
     };
-    let _ = pet.set_ignore_cursor_events(true);
+    place_pet(&pet, spot.0, spot.1, w, h);
     {
         let mut s = shared(app);
         s.ignoring = true;
         s.hit.clear();
         s.holding = false;
     }
+    let_clicks_through(&pet);
     let handle = app.clone();
     pet.on_window_event(move |event| {
         if let WindowEvent::Destroyed = event {
+            {
+                let mut s = shared(&handle);
+                s.hit.clear();
+                s.holding = false;
+            }
             floating_changed(&handle, false);
         }
     });
     floating_changed(app, true);
+}
+
+/// A new floating window lets every click through until the page says where he is.
+fn let_clicks_through(pet: &WebviewWindow) {
+    #[cfg(target_os = "linux")]
+    set_input_shape(pet, &[], false);
+    #[cfg(not(target_os = "linux"))]
+    let _ = pet.set_ignore_cursor_events(true);
+}
+
+/// Linux: floating Clawd's window takes clicks only over his body (its input shape) and lets them through everywhere
+/// else, with no need to watch the pointer. Under XWayland that matters: there Clawd can't see the pointer once it is
+/// over a Wayland window, so he couldn't tell it came back to him. Holding: the whole window takes them.
+#[cfg(target_os = "linux")]
+fn set_input_shape(pet: &WebviewWindow, hit: &[Rect], holding: bool) {
+    use gtk::cairo::{RectangleInt, Region};
+    use gtk::prelude::WidgetExt;
+    let rects: Vec<RectangleInt> = hit
+        .iter()
+        .map(|r| {
+            let (x, y) = ((r.x - 2.0).floor(), (r.y - 2.0).floor());
+            RectangleInt::new(
+                x as i32,
+                y as i32,
+                (r.x + r.w + 2.0 - x).ceil() as i32,
+                (r.y + r.h + 2.0 - y).ceil() as i32,
+            )
+        })
+        .collect();
+    let pet2 = pet.clone();
+    // GTK belongs to the main thread.
+    let _ = pet.run_on_main_thread(move || {
+        if let Ok(win) = pet2.gtk_window() {
+            if holding {
+                win.input_shape_combine_region(None);
+            } else {
+                win.input_shape_combine_region(Some(&Region::create_rectangles(&rects)));
+            }
+        }
+    });
 }
 
 fn stop_floating(app: &AppHandle) {
@@ -310,28 +407,34 @@ fn floating_changed(app: &AppHandle, on: bool) {
     refresh_tray(app);
 }
 
-/// floating Clawd's window, in logical pixels.
+/// Floating Clawd's window in the screens' space: x, y, width, height.
 fn pet_bounds(pet: &WebviewWindow) -> Option<(f64, f64, f64, f64)> {
-    let scale = pet.scale_factor().ok()?;
-    let pos = pet.outer_position().ok()?.to_logical::<f64>(scale);
-    let size = pet.inner_size().ok()?.to_logical::<f64>(scale);
-    Some((pos.x, pos.y, size.width, size.height))
+    let s = if IN_POINTS { pet.scale_factor().ok()? } else { 1.0 };
+    let (pos, size) = (pet.outer_position().ok()?, pet.inner_size().ok()?);
+    Some((pos.x as f64 / s, pos.y as f64 / s, size.width as f64 / s, size.height as f64 / s))
 }
 
-/// Moves and sizes floating Clawd's window and remembers where (the window manager may take a moment to report it).
-fn set_pet_bounds(app: &AppHandle, pet: &WebviewWindow, x: f64, y: f64, w: f64, h: f64) {
+/// Puts floating Clawd's window at x, y (in the screens' space), w × h logical pixels.
+fn place_pet(pet: &WebviewWindow, x: f64, y: f64, w: f64, h: f64) {
+    let _ = if IN_POINTS {
+        pet.set_position(LogicalPosition::new(x, y))
+    } else {
+        pet.set_position(PhysicalPosition::new(x.round() as i32, y.round() as i32))
+    };
+    // After the move: on its new screen, the logical size is what it should be.
     let _ = pet.set_size(LogicalSize::new(w, h));
-    let _ = pet.set_position(LogicalPosition::new(x, y));
-    remember_bounds(app, x, y, w, h);
 }
 
-fn remember_bounds(app: &AppHandle, x: f64, y: f64, w: f64, h: f64) {
+/// Keeps a spot he was put in (dragged, sized, moved to the corner) for next time; w and h in the screens' space.
+fn remember_spot(app: &AppHandle, x: f64, y: f64, w: f64, h: f64) {
     {
         let mut s = shared(app);
         s.settings.x = Some(x);
         s.settings.y = Some(y);
         s.settings.width = Some(w);
         s.settings.height = Some(h);
+        s.settings.units = Some(SCREEN_UNITS.into());
+        s.displaced = false;
     }
     save_settings(app);
 }
@@ -339,7 +442,7 @@ fn remember_bounds(app: &AppHandle, x: f64, y: f64, w: f64, h: f64) {
 /// After a drag: where he was put down.
 fn remember_position(app: &AppHandle) {
     if let Some((x, y, w, h)) = pet_win(app).as_ref().and_then(pet_bounds) {
-        remember_bounds(app, x, y, w, h);
+        remember_spot(app, x, y, w, h);
     }
 }
 
@@ -349,7 +452,10 @@ fn set_size(app: &AppHandle, name: &str) {
         // Keep his feet where they were: anchor the bottom-right corner.
         if let Some((x, y, old_w, old_h)) = pet_bounds(&pet) {
             let (w, h) = pet_size(&shared(app).settings);
-            set_pet_bounds(app, &pet, x + old_w - w, y + old_h - h, w, h);
+            let k = units_per_pixel(pet.current_monitor().ok().flatten().as_ref());
+            let (x, y) = (x + old_w - w * k, y + old_h - h * k);
+            place_pet(&pet, x, y, w, h);
+            remember_spot(app, x, y, w * k, h * k);
         }
     }
     save_settings(app);
@@ -358,13 +464,56 @@ fn set_size(app: &AppHandle, name: &str) {
 
 fn to_corner(app: &AppHandle) {
     let Some(pet) = pet_win(app) else { return };
-    let (x, y, w, h) = corner_bounds(app, pet.current_monitor().ok().flatten());
-    set_pet_bounds(app, &pet, x, y, w, h);
+    let monitor = pet.current_monitor().ok().flatten();
+    let k = units_per_pixel(monitor.as_ref());
+    let Some((x, y)) = corner(app, monitor) else { return };
+    let (w, h) = pet_size(&shared(app).settings);
+    place_pet(&pet, x, y, w, h);
+    remember_spot(app, x, y, w * k, h * k);
+}
+
+/// Every few seconds: if his screen went away (unplugged, resolution changed), he goes to a corner for now, and back
+/// to his own spot once it is on a screen again. While no screen is reported at all (displays asleep), he stays put.
+fn keep_on_screen(app: &AppHandle) {
+    let Some(pet) = pet_win(app) else { return };
+    if app.available_monitors().map_or(true, |m| m.is_empty()) {
+        return;
+    }
+    let (w, h) = pet_size(&shared(app).settings);
+    let displaced = shared(app).displaced;
+    if displaced {
+        if let Some((x, y)) = saved_spot(app) {
+            place_pet(&pet, x, y, w, h);
+            shared(app).displaced = false;
+            return;
+        }
+    }
+    let Some((x, y, bw, bh)) = pet_bounds(&pet) else { return };
+    if !on_screen(app, x, y, bw, bh) {
+        if let Some((x, y)) = corner(app, None) {
+            place_pet(&pet, x, y, w, h);
+            shared(app).displaced = true;
+        }
+    }
+}
+
+/// The pointer over floating Clawd's page, in its CSS pixels.
+fn pointer_on(app: &AppHandle, pet: &WebviewWindow) -> Option<(f64, f64)> {
+    let cursor = app.cursor_position().ok()?;
+    let (px, py, _, _) = pet_bounds(pet)?;
+    let (cx, cy, k) = if IN_POINTS {
+        // macOS gives the pointer at the main screen's scale, whichever screen it is on.
+        let main = app.primary_monitor().ok().flatten().map_or(1.0, |m| m.scale_factor());
+        (cursor.x / main, cursor.y / main, 1.0)
+    } else {
+        (cursor.x, cursor.y, pet.scale_factor().ok()?)
+    };
+    Some(((cx - px) / k, (cy - py) / k))
 }
 
 /// Floating Clawd's window lets clicks through except over him: about 30 times a second while the mouse is near him
-/// (10 when it is far away), it is checked against his body as the page last reported it. His eyes follow the mouse
-/// too, until it rests for a few seconds.
+/// (10 when it is far away), it is checked against his body as the page last reported it (on Linux, the window's
+/// input shape does this; see set_input_shape). His eyes follow the mouse too, until it rests for a few seconds.
 fn watch_pointer(app: AppHandle) {
     std::thread::spawn(move || {
         let mut last_gaze: Option<(f64, f64)> = None;
@@ -381,23 +530,21 @@ fn watch_pointer(app: AppHandle) {
                 std::thread::sleep(Duration::from_millis(200));
                 continue;
             };
-            let (Ok(cursor), Ok(pos), Ok(scale)) = (app.cursor_position(), pet.outer_position(), pet.scale_factor())
-            else {
-                continue;
-            };
-            let (x, y) = ((cursor.x - pos.x as f64) / scale, (cursor.y - pos.y as f64) / scale);
+            let (Some((x, y)), Ok(scale)) = (pointer_on(&app, &pet), pet.scale_factor()) else { continue };
             let (w, h) =
                 pet.inner_size().map(|s| (s.width as f64 / scale, s.height as f64 / scale)).unwrap_or((0.0, 0.0));
             near = x > -150.0 && y > -150.0 && x < w + 150.0 && y < h + 150.0;
-            let change = {
-                let mut s = shared(&app);
-                let over = s.holding || s.hit.iter().any(|r| r.contains(x, y, 2.0));
-                let change = over == s.ignoring;
-                s.ignoring = !over;
-                change.then_some(!over)
-            };
-            if let Some(ignore) = change {
-                let _ = pet.set_ignore_cursor_events(ignore);
+            if !cfg!(target_os = "linux") {
+                let change = {
+                    let mut s = shared(&app);
+                    let over = s.holding || s.hit.iter().any(|r| r.contains(x, y, 2.0));
+                    let change = over == s.ignoring;
+                    s.ignoring = !over;
+                    change.then_some(!over)
+                };
+                if let Some(ignore) = change {
+                    let _ = pet.set_ignore_cursor_events(ignore);
+                }
             }
             // His eyes: the pointer in his page's pixels, 15 times a second while it moves; ahead once it rests.
             if !near || tick.is_multiple_of(2) {
@@ -412,14 +559,9 @@ fn watch_pointer(app: AppHandle) {
                     call(&pet, "gaze", &[Value::Null, Value::Null]);
                 }
             }
-            // Every few seconds: if his screen went away (unplugged, resolution changed), back to a corner.
             if tick % 150 < if near { 1 } else { 3 } {
-                if let Some((x, y, w, h)) = pet_bounds(&pet) {
-                    if !on_screen(&app, x, y, w, h) {
-                        let app2 = app.clone();
-                        let _ = app.run_on_main_thread(move || to_corner(&app2));
-                    }
-                }
+                let app2 = app.clone();
+                let _ = app.run_on_main_thread(move || keep_on_screen(&app2));
             }
         }
     });
@@ -551,10 +693,14 @@ fn init_updates(app: &AppHandle) {
     }
 }
 
-/// A quiet check, when the app window comes up or the hour is up, unless the last one was under a minute ago.
+/// A quiet check, when the app window comes up or the hour is up, unless the last one was under a minute ago. Builds
+/// that can't update themselves don't check (their menu item and button open the Releases page instead).
 fn refresh_updates(app: &AppHandle) {
-    let recent = shared(app).last_check.is_some_and(|t| t.elapsed() < Duration::from_secs(60));
-    if !recent {
+    let (recent, portable) = {
+        let s = shared(app);
+        (s.last_check.is_some_and(|t| t.elapsed() < Duration::from_secs(60)), s.update.state == "portable")
+    };
+    if !recent && !portable {
         check_updates(app, false);
     }
 }
@@ -841,28 +987,33 @@ mod commands {
             let mut s = shared(&app);
             s.hit = rects.into_iter().take(64).collect();
             s.holding = holding;
+            #[cfg(target_os = "linux")]
+            set_input_shape(&window, &s.hit, holding);
         }
     }
 
+    // The commands that open or close windows or show a menu are async: on Windows a window made in a synchronous
+    // command (which runs inside WebView2's callback) deadlocks.
+
     #[tauri::command]
-    pub fn show_menu(app: AppHandle, window: WebviewWindow) {
+    pub async fn show_menu(app: AppHandle, window: WebviewWindow) {
         if let Ok(menu) = build_menu(&app) {
             let _ = window.popup_menu(&menu);
         }
     }
 
     #[tauri::command]
-    pub fn start_floating(app: AppHandle, first: String, auto: bool) {
+    pub async fn start_floating(app: AppHandle, first: String, auto: bool) {
         super::start_floating(&app, &first, auto);
     }
 
     #[tauri::command]
-    pub fn stop_floating(app: AppHandle) {
+    pub async fn stop_floating(app: AppHandle) {
         super::stop_floating(&app);
     }
 
     #[tauri::command]
-    pub fn open_app(app: AppHandle) {
+    pub async fn open_app(app: AppHandle) {
         show_app(&app);
     }
 
@@ -919,9 +1070,9 @@ mod commands {
     /// A page has loaded: what it needs to know.
     #[tauri::command]
     pub fn page_ready(app: AppHandle, window: WebviewWindow) {
-        let (update, auto_on) = {
+        let (update, auto_on, working) = {
             let s = shared(&app);
-            (s.update.clone(), s.auto_on)
+            (s.update.clone(), s.auto_on, s.working_since.is_some())
         };
         call(&window, "floating", &[json!(pet_win(&app).is_some())]);
         if !update.state.is_empty() {
@@ -930,6 +1081,10 @@ mod commands {
         // An app window opened while he floats takes his Auto-play switch.
         if !is_pet(&window) && pet_win(&app).is_some() {
             call(&window, "sync", &[json!({ "auto": auto_on })]);
+        }
+        // And one that opens while he works for Claude Code works too.
+        if working {
+            call(&window, "sync", &[json!({ "work": true })]);
         }
     }
 }
@@ -985,6 +1140,7 @@ fn main() {
                 last_check: None,
                 claude_hooks: claude_hooks_installed(),
                 working_since: None,
+                displaced: false,
             })));
             save_settings(&handle); // carries the Electron version's settings over for good
             init_start_at_login(&handle);
@@ -1018,6 +1174,7 @@ fn main() {
             });
 
             if std::env::args().any(|a| a == AUTOSTART) {
+                show_in_dock(&handle, false);
                 start_floating(&handle, "", false);
             } else {
                 show_app(&handle);
@@ -1029,11 +1186,16 @@ fn main() {
         .build(tauri::generate_context!())
         .expect("Clawd couldn't start");
 
-    app.run(|app, event| {
+    app.run(|app, event| match event {
         // Once neither window is open, Clawd quits (as on Android); a downloaded update installs on the way out.
-        if let RunEvent::Exit = event {
+        RunEvent::Exit => {
             save_settings(app);
             install_update(app, false);
         }
+        // macOS: opening Clawd while he runs (the Dock, Launchpad, Finder) brings up the app window, as a second
+        // launch does elsewhere.
+        #[cfg(target_os = "macos")]
+        RunEvent::Reopen { .. } => show_app(app),
+        _ => {}
     });
 }
