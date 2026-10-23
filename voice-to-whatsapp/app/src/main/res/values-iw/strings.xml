@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Hebrew. Android's resource qualifier for Hebrew is the legacy code "iw", not "he". -->
+<resources>
+    <string name="app_name">הכתבה לוואטסאפ</string>
+
+    <!-- Widget -->
+    <string name="widget_label">הכתבה לוואטסאפ</string>
+    <string name="widget_description">הקישו כדי להכתיב פתק ולשלוח אותו לצ׳אט הוואטסאפ שלכם עם עצמכם.</string>
+    <string name="widget_content_description">הכתבת פתק לוואטסאפ</string>
+
+    <!-- Setup / Settings -->
+    <string name="setup_title_first_run">ברוכים הבאים</string>
+    <string name="setup_title_settings">הגדרות</string>
+    <string name="setup_intro">הזינו את מספר הוואטסאפ שלכם בפורמט בינלאומי: קודם קידומת המדינה, בלי 0 בהתחלה. הפתקים יישלחו לצ׳אט שלכם עם עצמכם.</string>
+    <string name="phone_label">מספר הוואטסאפ שלכם</string>
+    <string name="phone_preview">יישמר כך: %1$s</string>
+    <string name="warning_starts_with_zero">המספר מתחיל ב-0. השתמשו במקום זה בקידומת המדינה (למשל 972 לישראל), בלי 0 או 00 בהתחלה.</string>
+    <string name="warning_too_short">המספר נראה קצר מדי. מספר בינלאומי כולל בדרך כלל לפחות 8 ספרות.</string>
+    <string name="error_phone_empty">הזינו קודם את המספר.</string>
+    <string name="confirm_number_title">לשמור את המספר הזה?</string>
+    <string name="save_anyway">לשמור בכל זאת</string>
+    <string name="edit">לתקן</string>
+    <string name="save">שמירה</string>
+    <string name="saved">המספר נשמר</string>
+    <string name="usage_title">הוספת הווידג׳ט של המיקרופון</string>
+    <string name="usage_body">לחצו לחיצה ארוכה על מקום ריק במסך הבית, בחרו ״ווידג׳טים״ ואז ״%1$s״, וגררו אותו למסך הבית. אפשר להגדיל אותו כמה שרוצים, אפילו לעמוד שלם.</string>
+    <string name="add_widget">הוספת הווידג׳ט למסך הבית</string>
+    <string name="add_widget_unsupported">מסך הבית שלכם לא מאפשר לאפליקציות להוסיף ווידג׳טים. הוסיפו אותו ידנית לפי ההוראות למעלה.</string>
+    <string name="try_now">להכתיב עכשיו</string>
+
+    <!-- Review -->
+    <string name="review_title">בדיקה ושליחה</string>
+    <string name="send_to">אל: %1$s</string>
+    <string name="change">שינוי</string>
+    <string name="language_label">שפת ההכתבה</string>
+    <string name="text_hint">הטקסט שהוכתב</string>
+    <string name="dictate_again">להכתיב שוב</string>
+    <string name="send">שליחה לוואטסאפ</string>
+    <string name="error_empty_text">אין עדיין מה לשלוח.</string>
+    <string name="error_whatsapp_missing">וואטסאפ לא מותקן בטלפון הזה.</string>
+
+    <!-- Speech recognition -->
+    <string name="prompt_hebrew">דברו עכשיו (עברית)</string>
+    <string name="prompt_english">דברו עכשיו (אנגלית)</string>
+    <string name="error_no_speech">לא נקלט דיבור.</string>
+    <string name="error_recognizer_unavailable">זיהוי דיבור לא זמין בטלפון הזה. התקינו או הפעילו את אפליקציית Google (או אפליקציית הקלדה קולית אחרת) ונסו שוב.</string>
+    <string name="error_network">אין גישה לשירות זיהוי הדיבור. בדקו את החיבור ונסו שוב.</string>
+    <string name="error_audio">לא ניתן להקליט מהמיקרופון.</string>
+    <string name="error_speech_generic">זיהוי הדיבור נכשל.</string>
+    <string name="try_again">לנסות שוב</string>
+    <string name="close">סגירה</string>
+</resources>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Home-screen widget definition.
+
+    Sizing, from smallest to largest:
+    - minResizeWidth / minResizeHeight (56dp): the smallest the user can shrink it to, about one
+      launcher cell, so it can sit as a single mic button.
+    - minWidth / minHeight (250dp x 110dp): the default size on Android 8-11 launchers, which don't
+      know targetCellWidth/Height. Old launchers count cells as (size + 30dp) / 70dp, so this
+      gives the same 4x2 default.
+    - targetCellWidth / targetCellHeight (4 x 2): the default size on Android 12+ launchers,
+      measured in grid cells instead of dp.
+    - maxResizeWidth / maxResizeHeight (2000dp, Android 12+): an upper bound well beyond any phone
+      screen, so the widget can be stretched over a whole home page. Launchers still clamp it to
+      their grid. Android 8-11 have no maximum at all.
+    - resizeMode="horizontal|vertical": both directions independently, so any aspect ratio works.
+      The layout is match_parent and the icon uses fitCenter, so it stays centred at every size.
+
+    Android 8-11 ignore the attributes they don't know (targetCell*, maxResize*, previewLayout,
+    description), so one file serves all versions.
+
+    updatePeriodMillis="0": the widget is static (one click target, nothing to refresh), so it never
+    wakes the phone for periodic updates.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:description="@string/widget_description"
+    android:initialLayout="@layout/widget_mic"
+    android:maxResizeHeight="2000dp"
+    android:maxResizeWidth="2000dp"
+    android:minHeight="110dp"
+    android:minResizeHeight="56dp"
+    android:minResizeWidth="56dp"
+    android:minWidth="250dp"
+    android:previewImage="@drawable/widget_preview"
+    android:previewLayout="@layout/widget_mic"
+    android:resizeMode="horizontal|vertical"
+    android:targetCellHeight="2"
+    android:targetCellWidth="4"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

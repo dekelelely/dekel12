@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Fill for the widget, icon and primary buttons. Dark enough for white text/icons (about 5:1). -->
+    <color name="brand">#15803D</color>
+    <!-- Green for text and outlines on the window background; lighter in dark mode (values-night). -->
+    <color name="accent">#15803D</color>
+    <color name="warning">#B45309</color>
+    <color name="widget_ripple">#40FFFFFF</color>
+</resources>

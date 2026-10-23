@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The whole widget is one button. Both views are match_parent, so the tap target is every pixel the
+    launcher gives the widget, at any size. fitCenter scales the mic up or down to the smaller side
+    and keeps it centred; the drawable carries its own margin (see widget_mic.xml in drawable/).
+-->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_background"
+    android:contentDescription="@string/widget_content_description">
+
+    <ImageView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        android:importantForAccessibility="no"
+        android:padding="4dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/widget_mic" />
+</FrameLayout>

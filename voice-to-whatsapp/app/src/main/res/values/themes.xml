@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Platform Material theme: no AndroidX/AppCompat dependency needed. Dark variant in values-night. -->
+    <style name="Base.Theme.App" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/brand</item>
+        <item name="android:colorPrimaryDark">@color/brand</item>
+        <item name="android:colorAccent">@color/accent</item>
+        <!-- On Android 8-14 the status bar takes the screen's colour, with dark icons. Android 15+
+             always draws edge-to-edge (transparent bars) and only uses the light-icons flag. -->
+        <item name="android:statusBarColor">?android:attr/colorBackground</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+
+    <style name="Theme.App" parent="Base.Theme.App" />
+
+    <!-- For VoiceActivity: no window, no dim, so the recognizer appears straight over the home screen. -->
+    <style name="Theme.App.Transparent" parent="Theme.App">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:backgroundDimEnabled">false</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+</resources>

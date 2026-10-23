@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- First-run setup and, once a number is saved, the Settings screen (SetupActivity). -->
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="24dp">
+
+        <TextView
+            android:id="@+id/title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:accessibilityHeading="true"
+            android:textAppearance="@style/Text.Title" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/setup_intro"
+            android:textAppearance="@style/Text.Body" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="24dp"
+            android:labelFor="@id/phone"
+            android:text="@string/phone_label"
+            android:textAppearance="@style/Text.Label" />
+
+        <!-- Phone numbers read left to right even in a Hebrew UI, hence textDirection="ltr".
+             The autofill hint lets the keyboard offer the phone's own number. -->
+        <EditText
+            android:id="@+id/phone"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:autofillHints="phoneNumber"
+            android:hint="@string/phone_hint"
+            android:imeOptions="actionDone"
+            android:importantForAutofill="yes"
+            android:inputType="phone"
+            android:minHeight="48dp"
+            android:textDirection="ltr" />
+
+        <TextView
+            android:id="@+id/phone_preview"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/Text.Body" />
+
+        <TextView
+            android:id="@+id/phone_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:accessibilityLiveRegion="polite"
+            android:textAppearance="@style/Text.Body"
+            android:textColor="@color/warning"
+            android:visibility="gone" />
+
+        <Button
+            android:id="@+id/save"
+            style="@style/Button.Primary"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/save" />
+
+        <!-- Shown only once a number is saved. -->
+        <LinearLayout
+            android:id="@+id/usage_section"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:accessibilityHeading="true"
+                android:text="@string/usage_title"
+                android:textAppearance="@style/Text.Label" />
+
+            <TextView
+                android:id="@+id/usage_body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:textAppearance="@style/Text.Body" />
+
+            <Button
+                android:id="@+id/add_widget"
+                style="@style/Button.Secondary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/add_widget" />
+
+            <Button
+                android:id="@+id/try_now"
+                style="@style/Button.Secondary"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/try_now" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

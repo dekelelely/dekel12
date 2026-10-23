@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!--
+        No permissions at all. The app never records audio itself (the system speech recognizer
+        app does that under its own permission), and it makes no network calls: the only thing
+        that leaves the phone is the wa.me link, which is handed to WhatsApp.
+    -->
+
+    <!--
+        Android 11+ hides other apps unless you declare which ones you need to see.
+        Without these entries the recognizer looks "unavailable" and WhatsApp looks "not installed"
+        even when they are present.
+    -->
+    <queries>
+        <!-- Activities that handle RecognizerIntent.ACTION_RECOGNIZE_SPEECH (e.g. the Google app). -->
+        <intent>
+            <action android:name="android.speech.action.RECOGNIZE_SPEECH" />
+        </intent>
+        <!-- WhatsApp and WhatsApp Business. -->
+        <package android:name="com.whatsapp" />
+        <package android:name="com.whatsapp.w4b" />
+    </queries>
+
+    <!--
+        allowBackup="false": keep the saved number out of Google's cloud backup, in line with
+        "no third-party services". The cost is re-entering the number after a reinstall.
+    -->
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.App">
+
+        <!-- Launcher entry: first-run setup when no number is saved, the Settings screen afterwards. -->
+        <activity
+            android:name=".SetupActivity"
+            android:exported="true"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            Started by the widget. Transparent and UI-less: it launches the speech recognizer at once,
+            so the user sees the recognizer on top of the home screen.
+            - taskAffinity="" keeps the widget flow in its own task, so tapping the widget doesn't
+              reset a Settings screen the user left open, and vice versa.
+            - autoRemoveFromRecents: the review screen stays in Recents while it's open (e.g. if a call
+              interrupts), but the task disappears from Recents once it's done.
+            - configChanges: rotating while one of its error dialogs is showing would otherwise
+              recreate it and lose the dialog, leaving an invisible activity over the home screen.
+        -->
+        <activity
+            android:name=".VoiceActivity"
+            android:autoRemoveFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@style/Theme.App.Transparent" />
+
+        <activity
+            android:name=".ReviewActivity"
+            android:exported="false"
+            android:windowSoftInputMode="stateHidden|adjustResize" />
+
+        <!-- exported="false" is fine: the system's AppWidgetService can still deliver updates. -->
+        <receiver
+            android:name=".MicWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/mic_widget_info" />
+        </receiver>
+    </application>
+
+</manifest>

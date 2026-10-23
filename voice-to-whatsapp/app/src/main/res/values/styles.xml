@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Text.Title" parent="@android:style/TextAppearance.Material.Headline" />
+
+    <style name="Text.Body" parent="@android:style/TextAppearance.Material.Body1" />
+
+    <style name="Text.Label" parent="@android:style/TextAppearance.Material.Body2" />
+
+    <style name="Button.Primary" parent="@android:style/Widget.Material.Button">
+        <item name="android:backgroundTint">@color/brand</item>
+        <item name="android:textColor">@android:color/white</item>
+        <item name="android:minHeight">56dp</item>
+    </style>
+
+    <style name="Button.Secondary" parent="@android:style/Widget.Material.Button.Borderless.Colored">
+        <item name="android:minHeight">56dp</item>
+    </style>
+
+    <!-- A RadioButton drawn as one half of a two-button segmented toggle. -->
+    <style name="Segment" parent="@android:style/Widget.Material.CompoundButton.RadioButton">
+        <item name="android:button">@null</item>
+        <item name="android:background">@drawable/segment_background</item>
+        <item name="android:textColor">@color/segment_text</item>
+        <item name="android:gravity">center</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:textSize">16sp</item>
+    </style>
+</resources>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The widget's mic. Same glyph as ic_mic, but drawn in the middle of a larger 40x40 canvas, so the
+    empty margin is part of the drawable. With fitCenter that margin scales with the widget: the mic
+    keeps the same proportions on a 1x1 widget and on one that fills the whole home page.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="40"
+    android:viewportHeight="40">
+    <group
+        android:translateX="8"
+        android:translateY="8">
+        <path
+            android:fillColor="#FFFFFF"
+            android:pathData="M12,14c1.66,0 2.99,-1.34 2.99,-3L15,5c0,-1.66 -1.34,-3 -3,-3S9,3.34 9,5v6c0,1.66 1.34,3 3,3zM17.3,11c0,3 -2.54,5.1 -5.3,5.1S6.7,14 6.7,11L5,11c0,3.41 2.72,6.23 6,6.72L11,21h2v-3.28c3.28,-0.48 6,-3.3 6,-6.72h-1.7z" />
+    </group>
+</vector>
