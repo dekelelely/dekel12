@@ -44,7 +44,7 @@ class ClientTests(unittest.TestCase):
         self.assertEqual(len(page.products), 4)
         p = page.products[0]
         self.assertEqual(p["title"], "Element Baselayer T-Shirt")
-        self.assertEqual(p["url"], f"https://www.gymshark.com/products/{PRODUCT}")
+        self.assertEqual(p["url"], f"https://row.gymshark.com/products/{PRODUCT}")
         self.assertTrue(p["sizes"] and {"size", "in_stock", "quantity"} <= p["sizes"][0].keys())
         self.assertEqual(page.categories[0]["handle"], "t-shirts-tops")
 
@@ -64,6 +64,16 @@ class ClientTests(unittest.TestCase):
         c = Client(cache_ttl=0, delay=0, fetcher=lambda u: "<html></html>")
         with self.assertRaises(GymsharkError):
             c.collection("x")
+
+    def test_region_selects_store(self):
+        seen = []
+        c = Client(region="us", cache_ttl=0, delay=0, fetcher=lambda u: seen.append(u) or fake_fetch(u))
+        p = c.product(PRODUCT)
+        self.assertTrue(seen[0].startswith("https://www.gymshark.com/"))
+        self.assertTrue(p["url"].startswith("https://www.gymshark.com/"))
+        self.assertEqual(client().region, "row")
+        with self.assertRaises(GymsharkError):
+            Client(region="mars")
 
     def test_bad_gender(self):
         with self.assertRaises(GymsharkError):

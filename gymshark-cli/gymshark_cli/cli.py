@@ -11,7 +11,7 @@ import sys
 import time
 
 from . import __version__
-from .client import GENDERS, Client, GymsharkError
+from .client import DEFAULT_REGION, GENDERS, REGIONS, Client, GymsharkError
 
 EXIT_OK, EXIT_OUT_OF_STOCK, EXIT_ERROR = 0, 1, 2
 MIN_WATCH_SECONDS = 300
@@ -156,6 +156,12 @@ def progress(args, msg: str) -> None:
 
 # ---- commands --------------------------------------------------------------
 
+STORE_NAMES = {"row": "Rest of World store", "us": "US store"}
+
+
+def store(client) -> str:
+    return STORE_NAMES.get(getattr(client, "region", ""), client.base_url)
+
 
 def gather(client: Client, args, slug: str, gender: str | None) -> tuple[list[dict], object, int]:
     """Fetch pages, filter, sort. Returns (shown, first_page, total_matches)."""
@@ -186,7 +192,7 @@ def cmd_collection(client, args) -> int:
     def human():
         g = f" ({page.gender})" if page.gender else ""
         shown = f"{matched} match on {scanned}" + (f", showing {len(products)}" if len(products) < matched else "")
-        print(f"{page.title}{g}: {page.total} products over {page.pages} pages; {shown}")
+        print(f"{page.title}{g} [{store(client)}]: {page.total} products over {page.pages} pages; {shown}")
         print()
         print_table(products)
         if not args.all and page.pages > args.page + args.pages - 1:
@@ -203,6 +209,8 @@ def cmd_deals(client, args) -> int:
     if not args.sort:
         args.sort = "discount"
     args.sale = True
+    if not args.include_sold_out:
+        args.in_stock = True  # a deal you can't buy isn't a deal
     return cmd_collection(client, args)
 
 
@@ -213,7 +221,7 @@ def cmd_find(client, args) -> int:
 
     def human():
         more = f", showing {len(products)}" if len(products) < matched else ""
-        print(f"{matched} match(es){more} for {' '.join(args.terms)!r} in {args.within}" + (f"/{args.gender}" if args.gender else ""))
+        print(f"{matched} match(es){more} for {' '.join(args.terms)!r} in {args.within}" + (f"/{args.gender}" if args.gender else "") + f" [{store(client)}]")
         print()
         print_table(products)
 
@@ -240,7 +248,7 @@ def cmd_product(client, args) -> int:
 
     def human():
         print(f"{p['title']} — {p['colour']}")
-        print(p["url"])
+        print(f"{p['url']}  [{store(client)}]")
         print()
         print(f"Price:    {price_label(p)}")
         bits = [b for b in [p["fit"], p["range"] and f"{p['range']} range", p["season"]] if b]
@@ -313,9 +321,9 @@ def cmd_stock(client, args) -> int:
         ok, label = stock_status(p, args.size)
         stamp = time.strftime("%H:%M:%S")
         if args.json:
-            emit(args, {"handle": p["handle"], "size": args.size, "in_stock": ok, "price": p["price"], "sizes": p["sizes"]}, None)
+            emit(args, {"region": client.region, "handle": p["handle"], "size": args.size, "in_stock": ok, "price": p["price"], "sizes": p["sizes"]}, None)
         else:
-            print(f"[{stamp}] {p['title']} — {p['colour']}: {label} at {price_label(p)}")
+            print(f"[{stamp}] {p['title']} — {p['colour']}: {label} at {price_label(p)} ({store(client)})")
             if not args.size and not args.quiet:
                 print_sizes(p)
         if ok or args.watch is None:
@@ -357,6 +365,12 @@ def build_parser() -> argparse.ArgumentParser:
     )
     ap.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     ap.add_argument("--no-cache", action="store_true", help="don't read or write the on-disk cache")
+    ap.add_argument(
+        "--region",
+        choices=list(REGIONS),
+        help=f"which Gymshark store: row = Rest of World, us = United States "
+        f"(default: $GYMSHARK_REGION or {DEFAULT_REGION}). Prices and stock differ between stores.",
+    )
     sub = ap.add_subparsers(dest="cmd", required=True, metavar="COMMAND")
 
     sp = sub.add_parser("collection", aliases=["ls"], parents=[common], help="list a collection (e.g. shorts mens)")
@@ -365,8 +379,9 @@ def build_parser() -> argparse.ArgumentParser:
     add_listing_opts(sp)
     sp.set_defaults(fn=cmd_collection)
 
-    sp = sub.add_parser("deals", parents=[common], help="discounted items (Last Chance), biggest discount first")
+    sp = sub.add_parser("deals", parents=[common], help="discounted in-stock items (Last Chance), biggest discount first")
     sp.add_argument("gender", nargs="?", choices=GENDERS)
+    sp.add_argument("--include-sold-out", action="store_true", help="also show sold-out deals")
     add_listing_opts(sp)
     sp.set_defaults(fn=cmd_deals)
 
@@ -405,8 +420,8 @@ def main(argv=None) -> int:
         # "find leggings womens" reads naturally; treat a trailing gender word as --gender
         if not args.gender and args.terms and args.terms[-1].lower() in GENDERS and len(args.terms) > 1:
             args.gender = args.terms.pop().lower()
-    client = Client(cache_ttl=0 if args.no_cache else 600)
     try:
+        client = Client(region=args.region, cache_ttl=0 if args.no_cache else 600)
         return args.fn(client, args)
     except GymsharkError as e:
         print(f"gymshark: {e}", file=sys.stderr)

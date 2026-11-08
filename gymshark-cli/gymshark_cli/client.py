@@ -28,7 +28,13 @@ import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_BASE_URL = "https://www.gymshark.com"
+# Each regional store has its own prices and its own stock.
+REGIONS = {
+    "row": "https://row.gymshark.com",  # Rest of World, priced in USD
+    "us": "https://www.gymshark.com",  # United States, USD
+}
+DEFAULT_REGION = "row"
+DEFAULT_BASE_URL = REGIONS[DEFAULT_REGION]
 USER_AGENT = "gymshark-cli/0.1 (personal read-only tool)"
 NEXT_DATA_RE = re.compile(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', re.S)
 GENDERS = ("mens", "womens")
@@ -80,6 +86,7 @@ def product_handle(value: str) -> str:
 class Client:
     def __init__(
         self,
+        region: str | None = None,
         base_url: str | None = None,
         cache_dir: str | os.PathLike | None = None,
         cache_ttl: float = 600,
@@ -87,7 +94,11 @@ class Client:
         timeout: float = 30,
         fetcher=None,
     ):
-        self.base_url = (base_url or os.environ.get("GYMSHARK_BASE_URL") or DEFAULT_BASE_URL).rstrip("/")
+        region = (region or os.environ.get("GYMSHARK_REGION") or DEFAULT_REGION).lower()
+        if region not in REGIONS:
+            raise GymsharkError(f"unknown region '{region}' (choose from: {', '.join(REGIONS)})")
+        self.region = region
+        self.base_url = (base_url or os.environ.get("GYMSHARK_BASE_URL") or REGIONS[region]).rstrip("/")
         self.host = urllib.parse.urlparse(self.base_url).netloc
         if cache_dir is None:
             root = os.environ.get("XDG_CACHE_HOME") or os.path.join(Path.home(), ".cache")
@@ -182,7 +193,7 @@ class Client:
             page=q.get("page", page),
             pages=q.get("nbPages", 1),
             total=q.get("nbHits", 0),
-            products=[normalise(h) for h in q.get("hits", [])],
+            products=[normalise(h, self.base_url) for h in q.get("hits", [])],
             categories=[
                 {"name": c.get("name", "").strip(), "handle": c.get("handle")}
                 for c in props.get("productTypeFilters") or []
@@ -210,12 +221,12 @@ class Client:
         pd = data.get("props", {}).get("pageProps", {}).get("productData")
         if not pd or not pd.get("product"):
             raise NotFound(f"no product data for '{handle}'")
-        product = normalise(pd["product"])
+        product = normalise(pd["product"], self.base_url)
         product["description"] = html_to_text(pd["product"].get("description") or "")
         product["season"] = pd["product"].get("season")
         product["will_restock"] = pd["product"].get("willRestock")
-        product["colourways"] = [normalise(v) for v in pd.get("variants") or []]
-        product["get_the_look"] = [normalise(v) for v in pd.get("getTheLookProducts") or []]
+        product["colourways"] = [normalise(v, self.base_url) for v in pd.get("variants") or []]
+        product["get_the_look"] = [normalise(v, self.base_url) for v in pd.get("getTheLookProducts") or []]
         stats = (pd.get("reviews") or {}).get("statistics") or {}
         product["reviews"] = {
             "average": stats.get("averageRating"),
@@ -234,7 +245,7 @@ class Client:
         return product
 
 
-def normalise(h: dict) -> dict:
+def normalise(h: dict, base_url: str = DEFAULT_BASE_URL) -> dict:
     """Flatten a Gymshark product/hit record into the fields the CLI uses."""
     sizes = [
         {
@@ -257,7 +268,7 @@ def normalise(h: dict) -> dict:
         "title": h.get("title"),
         "colour": h.get("colour"),
         "handle": handle,
-        "url": f"{DEFAULT_BASE_URL}/products/{handle}" if handle else None,
+        "url": f"{base_url}/products/{handle}" if handle else None,
         "price": price,
         "compare_at_price": compare,
         "discount": discount,

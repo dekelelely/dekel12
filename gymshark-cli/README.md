@@ -26,11 +26,20 @@ python3 -m gymshark_cli --help    # from inside gymshark-cli/
 | `gymshark categories [mens\|womens]` | Lists the collection handles you can browse. |
 | `gymshark ls <collection> [mens\|womens]` | Lists a collection, 60 items per page. Use `--page N`, `--pages N`, or `--all` to see more. |
 | `gymshark find <words…> [mens\|womens]` | Keyword search. Every word must match the title, colour, type, fit, range, or features. |
-| `gymshark deals [mens\|womens]` | Shows discounted items from Last Chance, biggest discount first. |
+| `gymshark deals [mens\|womens]` | Shows discounted, in-stock items from Last Chance, biggest discount first. Add `--include-sold-out` to see the rest. |
 | `gymshark product <handle-or-url> [-d]` | Shows price, stock per size, review breakdown, other colours, and "get the look". |
 | `gymshark stock <handle-or-url> [--size M] [--watch 900]` | Checks stock. Exits 0 if in stock and 1 if not, so you can use it in scripts. |
 
 Filters for `ls`, `find`, and `deals`: `--size`, `--colour`, `--min-price`, `--max-price`, `--min-rating`, `--sale`, `--in-stock`, `--sort {price,-price,discount,rating,reviews}`, `--limit`.
+
+### Choosing a store
+
+Results come from the **Rest of World** store unless you pick another:
+
+```
+gymshark --region us stock <handle> --size m    # US store, just this once
+export GYMSHARK_REGION=us                        # change the default
+```
 
 Every command accepts `--json` for machine-readable output and `--fresh` to skip the 10-minute cache.
 
@@ -63,7 +72,7 @@ Gymshark runs a headless Shopify store on Next.js. Each collection and product p
 - **It does not use `/search`**, because `robots.txt` disallows it. `find` scans `all-products` instead. That takes about 17 requests the first time and is instant for the next 10 minutes because of the cache.
 - **It does not get around waiting rooms.** During drops, Gymshark sends visitors to a Queue-it page. The CLI tells you this and stops.
 - **It is polite to the site.** It identifies itself honestly in its User-Agent, uses gzip (250 KB per page instead of 2.2 MB), waits 1 second between uncached requests, and won't let `--watch` poll faster than every 5 minutes.
-- **It uses the US store and shows prices in USD.** To try another region, set `GYMSHARK_BASE_URL` (for example `https://uk.gymshark.com`). That is untested: regional sites may differ.
+- **It uses the Rest of World store by default** (`row.gymshark.com`, priced in USD). Each Gymshark store has its own prices and its own stock: the Vengeance T-Shirt is $55 on Rest of World and $42 in the US, and a colour can be sold out in one store and in stock in the other. Every result says which store it came from.
 
 Cache location: `$XDG_CACHE_HOME/gymshark-cli`, or `~/.cache/gymshark-cli` if that isn't set.
 
