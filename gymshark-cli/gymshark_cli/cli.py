@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
+import re
 import shutil
 import sys
 import time
@@ -66,9 +68,18 @@ def matches(p: dict, args) -> bool:
             for x in [p["title"], p["colour"], p["type"], p["fit"], p["range"], *p["features"], *p["activities"]]
             if x
         ).lower()
-        if not all(t.lower() in hay for t in terms):
+        if not all(term_matches(t.lower(), hay) for t in terms):
             return False
     return True
+
+
+def term_matches(term: str, hay: str) -> bool:
+    """Substring match, plus typo tolerance for words of 5+ letters ("vengence" finds "vengeance")."""
+    if term in hay:
+        return True
+    if len(term) < 5:
+        return False
+    return any(difflib.SequenceMatcher(None, term, word).ratio() >= 0.85 for word in set(re.findall(r"[a-z0-9]+", hay)))
 
 
 def sort_products(products: list[dict], key: str | None) -> list[dict]:

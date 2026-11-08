@@ -102,6 +102,12 @@ class FilterSortTests(unittest.TestCase):
         self.assertTrue(cli.matches(p, self.args(terms=["seamless", "LEGGINGS"])))
         self.assertFalse(cli.matches(p, self.args(terms=["seamless", "shorts"])))
 
+    def test_terms_tolerate_typos(self):
+        p = self.prod(title="Vengeance T-Shirt")
+        self.assertTrue(cli.matches(p, self.args(terms=["vengence"])))
+        self.assertFalse(cli.matches(p, self.args(terms=["vintage"])))
+        self.assertFalse(cli.matches(self.prod(title="Crest Tee"), self.args(terms=["vest"])))
+
     def test_price_and_sale(self):
         p = self.prod(price=50, discount=20)
         self.assertFalse(cli.matches(p, self.args(max_price=40)))
