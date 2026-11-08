@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gymshark-cli"
+version = "0.1.0"
+description = "Read-only CLI for browsing Gymshark's public storefront (no API key needed)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+gymshark = "gymshark_cli.cli:main"
+
+[tool.setuptools]
+packages = ["gymshark_cli"]
