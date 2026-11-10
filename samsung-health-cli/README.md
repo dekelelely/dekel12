@@ -77,8 +77,8 @@ shealth serve                 # sleep dashboard in your browser (local only)
 
 **How it finds data:** Samsung doesn't publish its export columns, and they
 vary by app version and device. So instead of hard-coding names, the tool
-*discovers* data. Any table with "sleep" or "snor" in its name is linked to a
-night, either by `sleep_id` or by its time range. Heart rate, SpO₂, breathing,
+*discovers* data. Any table with "sleep", "snor", "vascular" (Vascular Load)
+or "apnea" in its name is linked to a night, either by `sleep_id` or by its time range. Heart rate, SpO₂, breathing,
 skin temperature, HRV and stress readings are matched by table name and
 clipped to the time you were in bed.
 

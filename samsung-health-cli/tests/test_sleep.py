@@ -72,10 +72,15 @@ class SleepDetail(unittest.TestCase):
                 "2026-02-28 21:00:00.000,2026-03-01 05:00:00.000,UTC+0100,abc,\n")
             (folder / "com.samsung.shealth.sleep_mystery.20260301000000.csv").write_text(
                 "sleep_id,new_metric,\nabc,42,\n")
+            # Vascular Load (Watch Ultra) has no "sleep" in its name; found by time window
+            (folder / "com.samsung.shealth.vascular_load.20260301000000.csv").write_text(
+                "start_time,time_offset,vascular_load,\n2026-03-01 02:00:00.000,UTC+0100,1.7,\n")
             import_export(folder, Path(d) / "x.db")
             c = connect(Path(d) / "x.db", readonly=True)
             n = SleepData(c).night()
-            self.assertEqual(n["related"][0]["fields"], {"new_metric": 42})
+            rel = {r["table"]: r["fields"] for r in n["related"]}
+            self.assertEqual(rel["sleep_mystery"], {"new_metric": 42})
+            self.assertEqual(rel["vascular_load"], {"vascular_load": 1.7})
             self.assertEqual(n["stages"]["segments"], [])  # no stage table: no crash
             self.assertEqual(n["series"], {})
             out = io.StringIO()

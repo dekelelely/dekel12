@@ -7,8 +7,9 @@ versions and devices, so this module *discovers* data instead of assuming it:
                       (score, efficiency, latency, mental/physical recovery,
                       cycles, ... whatever your app version records);
   * stages          — the sleep_stage table, linked by sleep_id;
-  * related tables  — any other table whose name contains "sleep" or "snor"
-                      (snoring, sleep_combined, ...), linked by a sleep_id-like
+  * related tables  — any other table whose name contains "sleep", "snor",
+                      "vascular", "apnea", ... (snoring, vascular load, sleep
+                      apnea checks, sleep_combined, ...), linked by a sleep_id-like
                       column or by falling inside the session's time window;
   * overlays        — time-series measured during the night (heart rate,
                       SpO2, respiratory rate, skin temperature, HRV, stress),
@@ -40,6 +41,11 @@ OVERLAYS = (
     ("hrv", "Heart rate variability", "ms", (".hrv",), ("rmssd", "hrv", "sdnn", "value")),
     ("stress", "Stress", "", ("shealth.stress",), ("score",)),
 )
+
+# Tables matching any of these are treated as sleep-related. "vascular" = Vascular
+# Load and "apnea"/"breathing" = sleep-apnea checks (Galaxy Watch Ultra / Watch7+);
+# all are measured while you sleep but don't have "sleep" in their name.
+RELATED_KEYWORDS = ("sleep", "snor", "vascular", "apnea", "breathing_disturb", "bedtime")
 
 LINK_COLS = ("sleep_id", "sleep_uuid", "sleep_datauuid", "parent_id")
 
@@ -118,7 +124,7 @@ class SleepData:
         self.related: list[dict] = []
         for t in tables:
             src = t["source"].lower()
-            if t["name"] in used or not ("sleep" in src or "snor" in src):
+            if t["name"] in used or not any(k in src for k in RELATED_KEYWORDS):
                 continue
             cols = columns(conn, t["name"])
             link = pick(cols, *LINK_COLS)
