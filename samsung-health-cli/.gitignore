@@ -1,0 +1,7 @@
+# Never commit real health data
+*.db
+*.zip
+samsunghealth_*/
+__pycache__/
+*.egg-info/
+build/
