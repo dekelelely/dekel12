@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sleep · shealth</title>
+<style>
+  :root {
+    --bg: #f5f6fa; --panel: #ffffff; --text: #1a1e2b; --muted: #687087; --line: #e3e6ee;
+    --awake: #ee8a2a; --rem: #8b6cf0; --light: #5aa2f5; --deep: #2f3b9f;
+    --accent: #2f3b9f; --warn: #d64545; --chip: #eef0f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0c0f1d; --panel: #141a2d; --text: #e6e8f2; --muted: #8b92ad; --line: #252b44;
+      --awake: #f5a04a; --rem: #a68dff; --light: #62a8ff; --deep: #4c58d8;
+      --accent: #9aa8ff; --warn: #ff6b6b; --chip: #1d2440;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1080px; margin: 0 auto; padding: 20px 16px 48px; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: baseline; justify-content: space-between; }
+  h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+  h2 { font-size: 15px; margin: 0 0 12px; color: var(--muted); font-weight: 600; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-top: 16px; }
+  .range button { background: var(--chip); color: var(--text); border: 0; border-radius: 999px;
+                  padding: 6px 12px; margin-left: 4px; font: inherit; font-size: 13px; cursor: pointer; }
+  .range button.on { background: var(--accent); color: var(--panel); }
+  .title { font-size: 20px; font-weight: 650; margin: 0; }
+  .sub { color: var(--muted); margin-top: 2px; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
+  .tile { background: var(--chip); border-radius: 10px; padding: 10px 12px; }
+  .tile .v { font-size: 22px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .tile .k { color: var(--muted); font-size: 12.5px; }
+  svg text { fill: var(--muted); font-size: 11px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 13px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+  .stagebar { display: flex; height: 14px; border-radius: 7px; overflow: hidden; margin-top: 14px; }
+  .fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 0 24px; }
+  .fields div { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .fields span:first-child { color: var(--muted); }
+  .fields span:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+  .vital { margin-top: 14px; }
+  .vital .head { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 13.5px; }
+  .vital .head b { font-weight: 600; }
+  .vital .head span { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 13px; margin-top: 10px; }
+  .err { color: var(--warn); }
+  .trend rect.bar { cursor: pointer; }
+  .trend .sel { stroke: var(--text); stroke-width: 1.5; }
+  .muted { color: var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Sleep</h1>
+    <div class="range" id="range"></div>
+  </header>
+
+  <section class="panel">
+    <h2 id="trendTitle">Nights</h2>
+    <div id="trend" class="trend"></div>
+    <div class="legend" id="legend"></div>
+  </section>
+
+  <div id="night"></div>
+</main>
+
+<script>
+const STAGES = ["deep", "light", "rem", "awake"];           // bottom → top in stacked bars
+const LANES = ["awake", "rem", "light", "deep"];            // top → bottom in hypnogram
+const NAMES = { awake: "Awake", rem: "REM", light: "Light", deep: "Deep" };
+const NS = "http://www.w3.org/2000/svg";
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const state = { days: 30, nights: [], selected: null, night: null };
+
+const $ = (id) => document.getElementById(id);
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+function s(tag, attrs = {}, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (text != null) e.textContent = text;
+  return e;
+}
+const hm = (m) => m == null ? "–" : m >= 60 ? `${Math.floor(m / 60)}h ${String(Math.round(m % 60)).padStart(2, "0")}m` : `${Math.round(m)}m`;
+const hhmm = (d) => d.toTimeString().slice(0, 5);
+const D = (iso) => new Date(iso);   // naive ISO = local time
+const fmtDay = (iso) => new Date(iso + "T12:00").toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+
+async function api(path) {
+  const r = await fetch(path);
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.statusText);
+  return j;
+}
+
+/* ---------- range + trend ---------- */
+function renderRange() {
+  const box = $("range"); box.innerHTML = "";
+  for (const d of [14, 30, 90]) {
+    box.append(el("button", { class: d === state.days ? "on" : "", onclick: () => { state.days = d; load(); } }, `${d} nights`));
+  }
+}
+
+function byDate(nights) {
+  const m = new Map();
+  for (const n of nights) {
+    const a = m.get(n.date) || { date: n.date, hours: 0, score: n.score, deep: 0, light: 0, rem: 0, awake: 0, staged: false };
+    a.hours += n.hours;
+    if (n.deep_min != null) { a.staged = true; for (const k of STAGES) a[k] += n[`${k}_min`] || 0; }
+    if (a.score == null) a.score = n.score;
+    m.set(n.date, a);
+  }
+  return [...m.values()];
+}
+
+function renderTrend() {
+  const box = $("trend"); box.innerHTML = "";
+  const days = byDate(state.nights);
+  $("trendTitle").textContent = days.length ? `Last ${state.days} nights · avg ${hm(days.reduce((a, d) => a + d.hours * 60, 0) / days.length)} in bed` : "Nights";
+  if (!days.length) { box.append(el("div", { class: "muted" }, "No sleep recorded in this range.")); return; }
+  const W = box.clientWidth || 800, H = 150, padB = 18, padL = 26;
+  const maxH = Math.max(9, ...days.map((d) => d.hours));
+  const bw = (W - padL) / days.length;
+  const y = (h) => (H - padB) - (h / maxH) * (H - padB - 6);
+  const svg = s("svg", { width: W, height: H, role: "img", "aria-label": "Sleep per night by stage" });
+  for (const h of [4, 6, 8]) {
+    svg.append(s("line", { x1: padL, x2: W, y1: y(h), y2: y(h), stroke: css("--line") }));
+    svg.append(s("text", { x: 0, y: y(h) + 4 }, `${h}h`));
+  }
+  days.forEach((d, i) => {
+    const x = padL + i * bw + Math.max(1, bw * 0.15), w = Math.max(2, bw * 0.7);
+    const g = s("g", { cursor: "pointer" });
+    g.addEventListener("click", () => selectNight(d.date));
+    let base = H - padB;
+    if (d.staged) {
+      for (const k of STAGES) {
+        const hgt = (d[k] / 60 / maxH) * (H - padB - 6);
+        g.append(s("rect", { x, y: base - hgt, width: w, height: Math.max(0, hgt), fill: css(`--${k}`) }));
+        base -= hgt;
+      }
+    } else {
+      const hgt = (d.hours / maxH) * (H - padB - 6);
+      g.append(s("rect", { x, y: base - hgt, width: w, height: hgt, fill: css("--muted"), opacity: 0.5 }));
+    }
+    const hit = s("rect", { class: "bar" + (d.date === state.selected ? " sel" : ""), x: x - 1, y: 4, width: w + 2, height: H - padB - 4, fill: "transparent", rx: 3 });
+    hit.append(s("title", {}, `${fmtDay(d.date)} · ${hm(d.hours * 60)}${d.score != null ? " · score " + d.score : ""}`));
+    g.append(hit);
+    svg.append(g);
+    const every = Math.ceil(days.length / Math.max(1, Math.floor(W / 46)));
+    if (i % every === 0) svg.append(s("text", { x: x + w / 2, y: H - 4, "text-anchor": "middle" }, d.date.slice(5)));
+  });
+  box.append(svg);
+}
+
+function renderLegend() {
+  const l = $("legend"); l.innerHTML = "";
+  for (const k of LANES) l.append(el("span", {}, el("i", { style: `background:var(--${k})` }), NAMES[k]));
+}
+
+/* ---------- one night ---------- */
+function tile(v, k) { return el("div", { class: "tile" }, el("div", { class: "v" }, v), el("div", { class: "k" }, k)); }
+
+function timeScale(n, W, padL, padR = 8) {
+  const t0 = D(n.start).getTime(), t1 = D(n.end).getTime();
+  return (d) => padL + ((d.getTime() - t0) / (t1 - t0)) * (W - padL - padR);
+}
+
+function hourAxis(svg, n, x, yTop, yBot) {
+  const start = D(n.start), end = D(n.end);
+  const t = new Date(start); t.setMinutes(0, 0, 0); t.setHours(t.getHours() + 1);
+  for (; t < end; t.setHours(t.getHours() + 1)) {
+    svg.append(s("line", { x1: x(t), x2: x(t), y1: yTop, y2: yBot, stroke: css("--line") }));
+    svg.append(s("text", { x: x(t), y: yBot + 13, "text-anchor": "middle" }, hhmm(t)));
+  }
+}
+
+function hypnogram(n, W) {
+  const lane = 30, padL = 52, top = 4;
+  const hasSnore = n.snoring && n.snoring.segments && n.snoring.segments.length;
+  const rows = LANES.length + (hasSnore ? 1 : 0);
+  const H = top + rows * lane + 20;
+  const x = timeScale(n, W, padL);
+  const svg = s("svg", { width: W, height: H, role: "img", "aria-label": "Hypnogram" });
+  hourAxis(svg, n, x, top, top + rows * lane);
+  LANES.forEach((k, i) => svg.append(s("text", { x: 0, y: top + i * lane + lane / 2 + 4 }, NAMES[k])));
+  // connector line (classic hypnogram step) under the blocks
+  const segs = n.stages.segments.map(([a, b, st]) => [D(a), D(b), st]);
+  let d = "";
+  segs.forEach(([a, b, st], i) => {
+    const yy = top + LANES.indexOf(st) * lane + lane / 2;
+    d += (i ? "L" : "M") + x(a) + "," + yy + "L" + x(b) + "," + yy;
+  });
+  if (d) svg.append(s("path", { d, fill: "none", stroke: css("--muted"), "stroke-opacity": 0.45 }));
+  for (const [a, b, st] of segs) {
+    const r = s("rect", { x: x(a), y: top + LANES.indexOf(st) * lane + 5, width: Math.max(1.5, x(b) - x(a)), height: lane - 10, rx: 3, fill: css(`--${st}`) });
+    r.append(s("title", {}, `${NAMES[st]} ${hhmm(a)}–${hhmm(b)} (${hm((b - a) / 60000)})`));
+    svg.append(r);
+  }
+  if (hasSnore) {
+    const yy = top + LANES.length * lane;
+    svg.append(s("text", { x: 0, y: yy + lane / 2 + 4 }, "Snoring"));
+    for (const [a, b] of n.snoring.segments) {
+      const A = D(a), B = D(b);
+      const r = s("rect", { x: x(A), y: yy + 8, width: Math.max(3, x(B) - x(A)), height: lane - 16, rx: 2, fill: css("--warn") });
+      r.append(s("title", {}, `Snoring ${hhmm(A)}–${hhmm(B)} (${hm((B - A) / 60000)})`));
+      svg.append(r);
+    }
+  }
+  return svg;
+}
+
+function vitalChart(n, ser, key, W) {
+  const H = 84, padL = 52, top = 6, bot = H - 20;
+  const x = timeScale(n, W, padL);
+  const vals = ser.points.map((p) => p[1]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  if (key === "spo2") { lo = Math.min(lo, 88); hi = Math.max(hi, 100); }
+  const pad = (hi - lo) * 0.1 || 1; lo -= pad; hi += pad;
+  const y = (v) => bot - ((v - lo) / (hi - lo)) * (bot - top);
+  const svg = s("svg", { width: W, height: H, role: "img", "aria-label": ser.label });
+  hourAxis(svg, n, x, top, bot);
+  svg.append(s("text", { x: 0, y: y(ser.max) + 4 }, String(Math.round(ser.max))));
+  svg.append(s("text", { x: 0, y: y(ser.min) + 4 }, String(Math.round(ser.min))));
+  if (key === "spo2") {
+    svg.append(s("line", { x1: padL, x2: W - 8, y1: y(90), y2: y(90), stroke: css("--warn"), "stroke-dasharray": "4 3" }));
+    svg.append(s("text", { x: W - 8, y: y(90) - 3, "text-anchor": "end" }, "90%"));
+  }
+  svg.append(s("line", { x1: padL, x2: W - 8, y1: y(ser.avg), y2: y(ser.avg), stroke: css("--muted"), "stroke-opacity": 0.5, "stroke-dasharray": "2 3" }));
+  const d = ser.points.map(([t, v], i) => (i ? "L" : "M") + x(D(t)).toFixed(1) + "," + y(v).toFixed(1)).join("");
+  svg.append(s("path", { d, fill: "none", stroke: css("--accent"), "stroke-width": 1.6, "stroke-linejoin": "round" }));
+  return svg;
+}
+
+function renderNight(n) {
+  state.night = n;
+  const box = $("night"); box.innerHTML = "";
+  const W = Math.max(280, (box.clientWidth || 800) - 34);
+  const st = n.stages;
+
+  // header + tiles
+  const head = el("section", { class: "panel" },
+    el("p", { class: "title" }, `Night ending ${fmtDay(n.date)}`),
+    el("div", { class: "sub" }, `${hhmm(D(n.start))} → ${hhmm(D(n.end))} · ${hm(n.hours * 60)} in bed`));
+  const tiles = el("div", { class: "tiles" });
+  if (n.score != null) tiles.append(tile(n.score, "Sleep score"));
+  if (st.asleep_min != null) tiles.append(tile(hm(st.asleep_min), "Actually asleep"));
+  if (n.efficiency != null) tiles.append(tile(`${Math.round(n.efficiency)}%`, "Efficiency"));
+  if (st.fell_asleep_min != null) tiles.append(tile(hm(st.fell_asleep_min), "To fall asleep"));
+  if (st.awakenings != null) tiles.append(tile(st.awakenings, "Awakenings"));
+  if (n.snoring) tiles.append(n.snoring.episodes ? tile(hm(n.snoring.minutes), `Snoring · ${n.snoring.episodes} episodes`) : tile("None", "Snoring detected"));
+  if (n.series.heart_rate) tiles.append(tile(Math.round(n.series.heart_rate.min), "Lowest heart rate"));
+  if (n.series.spo2) tiles.append(tile(`${Math.round(n.series.spo2.avg)}%`, "Avg blood oxygen"));
+  head.append(tiles);
+  box.append(head);
+
+  // stages
+  const sp = el("section", { class: "panel" }, el("h2", {}, "Sleep stages"));
+  if (st.segments && st.segments.length) {
+    sp.append(hypnogram(n, W));
+    const bar = el("div", { class: "stagebar" });
+    const leg = el("div", { class: "legend" });
+    for (const k of LANES) {
+      bar.append(el("div", { style: `width:${st.percent[k] || 0}%;background:var(--${k})`, title: NAMES[k] }));
+      leg.append(el("span", {}, el("i", { style: `background:var(--${k})` }), `${NAMES[k]} ${hm(st.minutes[k])} · ${st.percent[k] || 0}%`));
+    }
+    sp.append(bar, leg);
+    sp.append(el("div", { class: "note" }, `${st.rem_periods ?? "–"} REM periods · ${hm(st.awake_after_onset_min)} awake after first falling asleep`));
+  } else {
+    sp.append(el("div", { class: "muted" }, "No stage data for this night. That usually means only the phone tracked it, not a watch."));
+  }
+  box.append(sp);
+
+  // vitals
+  const keys = Object.keys(n.series);
+  if (keys.length) {
+    const vp = el("section", { class: "panel" }, el("h2", {}, "During sleep"));
+    for (const k of keys) {
+      const ser = n.series[k];
+      const unit = ser.unit ? ` ${ser.unit}` : "";
+      const extra = k === "spo2" && ser.readings_below_90 ? ` · ${ser.readings_below_90} readings < 90%` : "";
+      vp.append(el("div", { class: "vital" },
+        el("div", { class: "head" }, el("b", {}, ser.label),
+          el("span", {}, `min ${ser.min} · avg ${ser.avg} · max ${ser.max}${unit}${extra}`)),
+        vitalChart(n, ser, k, W)));
+    }
+    box.append(vp);
+  }
+
+  // every field
+  if (n.measurements.length) {
+    const f = el("div", { class: "fields" });
+    for (const m of n.measurements) f.append(el("div", {}, el("span", {}, m.label), el("span", { title: `raw: ${m.value}` }, m.pretty)));
+    box.append(el("section", { class: "panel" }, el("h2", {}, "Every field Samsung recorded for this session"), f));
+  }
+
+  // related tables
+  const rel = n.related.filter((r) => Object.keys(r.fields).length || !(n.snoring && r.table === n.snoring.table));
+  if (rel.length) {
+    const rp = el("section", { class: "panel" }, el("h2", {}, "Other sleep tables with data for this night"));
+    for (const r of rel) {
+      const f = el("div", { class: "fields" });
+      f.append(el("div", {}, el("span", {}, "rows"), el("span", {}, r.rows)));
+      if (r.total_min != null) f.append(el("div", {}, el("span", {}, "total minutes"), el("span", {}, r.total_min)));
+      for (const [k, v] of Object.entries(r.fields)) f.append(el("div", {}, el("span", {}, k), el("span", {}, String(v))));
+      rp.append(el("p", { class: "muted" }, r.table), f);
+    }
+    box.append(rp);
+  }
+
+  const notes = [];
+  if (n.other_sessions.length) notes.push("Other sleep that day: " + n.other_sessions.map((o) => `${hhmm(D(o.start))}–${hhmm(D(o.end))} (${o.hours} h)`).join(", "));
+  const missing = ["heart_rate", "spo2", "respiratory_rate", "skin_temperature"].filter((k) => !n.available.overlays.includes(k));
+  if (missing.length) notes.push(`Not in your export: ${missing.join(", ").replaceAll("_", " ")}. These need a watch that measures them, with the setting turned on.`);
+  if (!n.snoring && !n.available.related_tables.some((t) => t.includes("snor"))) notes.push("No snoring data in your export. Turn on Snore detection in Samsung Health → Sleep.");
+  if (notes.length) box.append(el("section", { class: "panel" }, ...notes.map((t) => el("div", { class: "note" }, t))));
+}
+
+async function selectNight(date) {
+  state.selected = date;
+  renderTrend();
+  try { renderNight(await api(`/api/night?date=${date}`)); }
+  catch (e) { $("night").replaceChildren(el("section", { class: "panel err" }, e.message)); }
+}
+
+async function load() {
+  renderRange();
+  try {
+    const j = await api(`/api/nights?days=${state.days}`);
+    state.nights = j.nights;
+    const dates = new Set(j.nights.map((n) => n.date));
+    if (!state.selected || !dates.has(state.selected)) state.selected = j.nights.length ? j.nights[j.nights.length - 1].date : null;
+    renderTrend();
+    if (state.selected) await selectNight(state.selected);
+  } catch (e) {
+    $("trend").replaceChildren(el("div", { class: "err" }, e.message));
+  }
+}
+
+renderLegend();
+load();
+let rt;
+addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => { renderTrend(); if (state.night) renderNight(state.night); }, 150); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { renderTrend(); if (state.night) renderNight(state.night); });
+</script>
+</body>
+</html>

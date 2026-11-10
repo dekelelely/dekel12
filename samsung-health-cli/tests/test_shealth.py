@@ -106,8 +106,7 @@ class EndToEnd(unittest.TestCase):
         self.assertTrue(metrics.weight(self.conn, self.start, self.end))
         w = metrics.workouts(self.conn, self.start, self.end)
         self.assertTrue(all(r["type"] in metrics.EXERCISE_TYPES.values() for r in w))
-        with self.assertRaises(Exception):
-            metrics.spo2(self.conn, self.start, self.end)  # not in demo export
+        self.assertTrue(metrics.spo2(self.conn, self.start, self.end))
 
     def test_reimport_keeps_newest_copy(self):
         with tempfile.TemporaryDirectory() as d:

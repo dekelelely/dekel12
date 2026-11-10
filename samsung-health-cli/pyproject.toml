@@ -15,3 +15,6 @@ shealth = "shealth.cli:main"
 
 [tool.setuptools]
 packages = ["shealth"]
+
+[tool.setuptools.package-data]
+shealth = ["web/*.html"]

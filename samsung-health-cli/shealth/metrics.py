@@ -11,9 +11,7 @@ from datetime import date, datetime, timedelta
 from statistics import mean
 
 from .db import NoDataError, columns, find_table, pick
-from .timeutil import day_from_daytime, parse_ts, to_local
-
-SLEEP_STAGES = {40001: "awake", 40002: "light", 40003: "deep", 40004: "rem"}
+from .timeutil import day_from_daytime, to_local
 
 # Samsung Health exercise_type codes (most common ones; unknown codes are shown as "type <n>").
 EXERCISE_TYPES = {
@@ -96,51 +94,10 @@ def _keep_max(by_day, r, cnt_col, start, end):
 # sleep
 # --------------------------------------------------------------------------- #
 
-def sleep(conn, start: date, end: date) -> list[dict]:
-    """One record per sleep session, attributed to the local date you woke up."""
-    t = _need(conn, "sleep", "com.samsung.shealth.sleep", "com.samsung.health.sleep")
-    cols = columns(conn, t)
-    uid = pick(cols, "datauuid")
-    score = pick(cols, "sleep_score")
-    eff = pick(cols, "efficiency")
-
-    stages = _sleep_stages(conn)
-    out = []
-    for r in conn.execute(f'SELECT * FROM "{t}"'):
-        off = r["time_offset"] if "time_offset" in cols else None
-        s, e = to_local(r["start_time"], off), to_local(r["end_time"], off)
-        if not s or not e or e <= s or not _in(e.date(), start, end):
-            continue
-        rec = {
-            "date": e.date().isoformat(),
-            "bedtime": s.strftime("%H:%M"),
-            "wake": e.strftime("%H:%M"),
-            "hours": round((e - s).total_seconds() / 3600, 2),
-            "score": _num(r[score]) if score else None,
-            "efficiency": _num(r[eff]) if eff else None,
-        }
-        st = stages.get(r[uid]) if uid else None
-        for name in ("deep", "rem", "light", "awake"):
-            rec[f"{name}_min"] = round(st.get(name, 0)) if st else None
-        out.append(rec)
-    out.sort(key=lambda x: (x["date"], x["bedtime"]))
-    return out
-
-
-def _sleep_stages(conn) -> dict:
-    t = find_table(conn, "com.samsung.shealth.sleep_stage", "com.samsung.health.sleep_stage")
-    if not t:
-        return {}
-    cols = columns(conn, t)
-    if not {"sleep_id", "stage", "start_time", "end_time"} <= set(cols):
-        return {}
-    res: dict = defaultdict(lambda: defaultdict(float))
-    for r in conn.execute(f'SELECT sleep_id, stage, start_time, end_time FROM "{t}"'):
-        s, e = parse_ts(r["start_time"]), parse_ts(r["end_time"])
-        name = SLEEP_STAGES.get(r["stage"])
-        if s and e and name:
-            res[r["sleep_id"]][name] += (e - s).total_seconds() / 60
-    return res
+def sleep(conn, start: date, end: date, all_fields: bool = False) -> list[dict]:
+    """One record per sleep session (wake-up date). See sleepdata.py."""
+    from .sleepdata import SleepData
+    return SleepData(conn).nights(start, end, all_fields)
 
 
 def sleep_nightly(conn, start, end) -> dict[str, float]:

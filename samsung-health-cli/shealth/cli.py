@@ -5,7 +5,8 @@ Workflow:
      The export lands in  Internal storage/Download/Samsung Health/<folder>
   2. Copy that folder (or a zip of it) to your computer.
   3. shealth import <folder-or-zip>
-  4. shealth summary | steps | sleep | heart | workouts | weight | stress | spo2 | sql
+  4. shealth summary | steps | sleep | night | heart | workouts | weight | stress | spo2 | sql
+  5. shealth serve   → sleep dashboard in your browser (local only)
 """
 
 from __future__ import annotations
@@ -17,8 +18,9 @@ import sys
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import __version__, demo, metrics, render
+from . import __version__, demo, metrics, nightview, render
 from .db import DEFAULT_DB, NoDataError, columns, connect, import_export, meta
+from .sleepdata import SleepData
 
 
 # --------------------------------------------------------------------------- #
@@ -120,6 +122,50 @@ def cmd_summary(args):
         print(f"\nLatest weight: {lw['weight_kg']} kg on {lw['date']}")
 
 
+def cmd_sleep(args):
+    conn = connect(args.db, readonly=True)
+    start, end = _window(args, conn)
+    rows = SleepData(conn).nights(start, end, all_fields=args.all)
+    if args.format != "table":
+        render.emit(rows, args.format, cols=_union_keys(rows) if rows else None)
+        return
+    for r in rows:
+        r.pop("id", None)
+    # only show columns your export actually has data for
+    cols = [c for c in _union_keys(rows) if any(r.get(c) is not None for r in rows)]
+    avg_keys = [c for c in cols if c not in ("date", "bedtime", "wake")
+                and all(isinstance(r.get(c), (int, float)) or r.get(c) is None for r in rows)]
+    footer = {"date": "average", **metrics.averages(rows, avg_keys)} if rows else None
+    _header(args, start, end, "Sleep")
+    render.emit(rows, "table", cols, None, footer)
+    if rows:
+        print("\nDetail for one night (hypnogram, snoring, vitals, every field): "
+              f"shealth night {rows[-1]['date']}")
+
+
+def _union_keys(rows):
+    keys = {}
+    for r in rows:
+        keys.update(dict.fromkeys(r))
+    return list(keys)
+
+
+def cmd_night(args):
+    conn = connect(args.db, readonly=True)
+    n = SleepData(conn).night(args.date)
+    if args.format == "json":
+        print(json.dumps(n, indent=2, default=str))
+    elif args.format == "csv":
+        render.emit([{"start": a, "end": b, "stage": st} for a, b, st in n["stages"]["segments"]], "csv")
+    else:
+        nightview.render(n, sys.stdout)
+
+
+def cmd_serve(args):
+    from .server import serve
+    serve(args.db, args.host, args.port, open_browser=not args.no_browser)
+
+
 def cmd_sql(args):
     conn = connect(args.db, readonly=True)
     q = args.query if args.query != "-" else sys.stdin.read()
@@ -177,8 +223,6 @@ def build_parser() -> argparse.ArgumentParser:
 
     specs = [
         ("steps", metrics.steps, "Steps", "steps", ["steps", "distance_km", "active_kcal"], 14, "steps"),
-        ("sleep", metrics.sleep, "Sleep sessions", "hours",
-         ["hours", "score", "efficiency", "deep_min", "rem_min", "light_min", "awake_min"], 14, None),
         ("heart", metrics.heart_rate, "Heart rate (bpm; low = 5th percentile)", None,
          ["low", "avg", "max"], 14, None),
         ("stress", metrics.stress, "Stress score", "avg", ["avg", "max"], 14, None),
@@ -189,6 +233,25 @@ def build_parser() -> argparse.ArgumentParser:
     for name, fn, title, bar_col, avg_keys, days, total in specs:
         s = sub.add_parser(name, parents=[common, window(days)], help=title.split(" (")[0].lower())
         s.set_defaults(func=_metric_cmd(fn, title, bar_col, avg_keys, total_key=total))
+
+    s = sub.add_parser("sleep", parents=[common, window(14)],
+                       help="one row per night: stages, snoring, sleeping HR, SpO2, breathing")
+    s.add_argument("-a", "--all", action="store_true",
+                   help="also include every raw field from the sleep session table")
+    s.set_defaults(func=cmd_sleep)
+
+    s = sub.add_parser("night", parents=[common],
+                       help="everything about one night: hypnogram, snoring, vitals, all fields")
+    s.add_argument("date", nargs="?", type=date.fromisoformat, metavar="YYYY-MM-DD",
+                   help="wake-up date (default: most recent night)")
+    s.set_defaults(func=cmd_night)
+
+    s = sub.add_parser("serve", parents=[common], help="open the local sleep dashboard in your browser")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--host", default="127.0.0.1",
+                   help="default 127.0.0.1 (this computer only). 0.0.0.0 exposes it to your network")
+    s.add_argument("--no-browser", action="store_true")
+    s.set_defaults(func=cmd_serve)
 
     s = sub.add_parser("sql", parents=[common], help="run a read-only SQL query ('-' reads stdin)",
                        description="Tables are listed by `shealth tables`. Helper functions: "

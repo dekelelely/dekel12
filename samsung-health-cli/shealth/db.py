@@ -213,6 +213,9 @@ def import_export(path: Path | str, db_path: Path | str = DEFAULT_DB, log=print)
             ph = ", ".join("?" * len(cols))
             cur.executemany(f'INSERT INTO "{name}" VALUES ({ph})', rows)
             n = cur.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]
+            for c in ("start_time", "sleep_id"):  # used for per-night lookups
+                if c in cols:
+                    cur.execute(f'CREATE INDEX "ix_{name}_{c}" ON "{name}" ("{c}")')
         cur.execute("INSERT INTO _shealth_tables VALUES (?,?,?,?)", (name, src, fname, n))
         total_rows += n
 

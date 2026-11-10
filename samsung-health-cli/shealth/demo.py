@@ -61,24 +61,57 @@ def build(path, days: int = 60, end: datetime | None = None, seed: int = 7) -> s
     add("com.samsung.shealth.tracker.pedometer_day_summary",
         ["step_count", "distance", "calorie", "day_time", "deviceuuid", "datauuid"], summary)
 
-    # --- sleep + stages --------------------------------------------------- #
-    sl, stages = [], []
+    # --- sleep: sessions, stages, snoring, and night-time SpO2 / breathing / skin temp
+    sl, stages, snore, ox, resp, skin = [], [], [], [], [], []
     P = "com.samsung.health.sleep."
+    O = "com.samsung.health.oxygen_saturation."
     for d in day_list[1:]:
         bed = datetime(d.year, d.month, d.day) - timedelta(hours=rnd.uniform(0.5, 2.5))
         wake = bed + timedelta(hours=max(4.5, rnd.gauss(7.1, 0.8)))
         sid = str(uuid.uuid4())
-        sl.append([_ts(bed), _ts(wake), OFFSET, rnd.randint(60, 92), round(rnd.uniform(82, 96), 1), sid])
-        t = bed
-        while t < wake:
-            seg = min(wake, t + timedelta(minutes=rnd.randint(10, 45)))
-            stage = rnd.choices([40001, 40002, 40003, 40004], [0.06, 0.55, 0.17, 0.22])[0]
-            stages.append([_ts(t), sid, stage, _ts(seg), OFFSET, uuid.uuid4()])
-            t = seg
+        latency_min = rnd.randint(4, 30)
+        t = bed + timedelta(minutes=latency_min)
+        stages.append([_ts(bed), sid, 40001, _ts(t), OFFSET, uuid.uuid4()])
+        n_rem = 0
+        while t < wake:  # crude ~90 min cycles: light -> deep -> light -> REM, sometimes awake
+            for stage, lo, hi in ((40002, 15, 35), (40003, 10, 40), (40002, 10, 25),
+                                  (40004, 5 + 5 * n_rem, 15 + 8 * n_rem), (40001, 0, 6)):
+                seg_end = min(wake, t + timedelta(minutes=rnd.randint(lo, hi)))
+                if seg_end > t:
+                    stages.append([_ts(t), sid, stage, _ts(seg_end), OFFSET, uuid.uuid4()])
+                t = seg_end
+            n_rem += 1
+        sl.append([_ts(bed), _ts(wake), OFFSET, rnd.randint(60, 92), round(rnd.uniform(82, 96), 1),
+                   latency_min * 60000, rnd.randint(55, 95), rnd.randint(55, 95),
+                   rnd.randint(3, 25), n_rem, sid])
+        for _ in range(rnd.choice([0, 0, 2, 4, 7, 11])):
+            s0 = bed + timedelta(minutes=rnd.randint(30, int((wake - bed).total_seconds() // 60) - 10))
+            snore.append([_ts(s0), _ts(s0 + timedelta(seconds=rnd.randint(40, 420))), OFFSET, sid,
+                          uuid.uuid4()])
+        m = bed
+        while m < wake:
+            ox.append([_ts(m), OFFSET, rnd.choice([94, 95, 96, 96, 97, 97, 98, 89]), uuid.uuid4()])
+            resp.append([_ts(m), _ts(m + timedelta(minutes=5)), OFFSET, round(rnd.gauss(14.5, 1.2), 1),
+                         uuid.uuid4()])
+            skin.append([_ts(m), _ts(m + timedelta(minutes=5)), OFFSET, round(rnd.gauss(33.8, 0.4), 2),
+                         uuid.uuid4()])
+            m += timedelta(minutes=5)
     add("com.samsung.shealth.sleep",
-        [P + "start_time", P + "end_time", P + "time_offset", "sleep_score", "efficiency", P + "datauuid"], sl)
+        [P + "start_time", P + "end_time", P + "time_offset", "sleep_score", "efficiency",
+         "sleep_latency", "mental_recovery", "physical_recovery", "movement_awakening",
+         "sleep_cycle", P + "datauuid"], sl)
     add("com.samsung.shealth.sleep_stage",
         ["start_time", "sleep_id", "stage", "end_time", "time_offset", "datauuid"], stages)
+    # NOTE: the real snoring/respiratory/skin-temp file names are not publicly documented.
+    # These are plausible names; the CLI discovers tables by keyword, not exact name.
+    add("com.samsung.shealth.sleep_snoring",
+        ["start_time", "end_time", "time_offset", "sleep_id", "datauuid"], snore)
+    add("com.samsung.shealth.tracker.oxygen_saturation",
+        [O + "start_time", O + "time_offset", O + "spo2", O + "datauuid"], ox)
+    add("com.samsung.shealth.respiratory_rate",
+        ["start_time", "end_time", "time_offset", "average", "datauuid"], resp)
+    add("com.samsung.shealth.skin_temperature",
+        ["start_time", "end_time", "time_offset", "temperature", "datauuid"], skin)
 
     # --- heart rate (every 10 min) + stress (hourly) ---------------------- #
     hr, st = [], []
