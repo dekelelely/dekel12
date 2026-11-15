@@ -221,29 +221,31 @@
     "back-flip": flipMove("flip", -1, -55, "backflip!"),
     "front-flip": flipMove("flip", 1, 85, "front flip!"),
     "side-flip": flipMove("roll", 1, 0, "side flip!", 0.8),
-    // Dumbbell curls: he squats to pick up two dumbbells, curls them one arm at a time with his eyes shut at the top
-    // of each rep, does a last curl with both, holds it with a wink, and drops them with a thud.
-    "dumbbell-curl": [
-      { pose: "default", offset: 0, x: 0, squat: 0.5, dumbbell: 0.5, label: "picks up dumbbells" },
-      { pose: "default", offset: 0, x: 0, squat: 0.5, dumbbell: 1, label: "picks up dumbbells" },
-      { pose: "default", offset: 0, x: 0, dumbbell: 1, label: "picks up dumbbells" },
-      ...["curlR", "curlL", "curlR", "curlL", "curlR", "curlL"].flatMap((arm) => {
-        const lean = arm === "curlR" ? -0.05 : 0.05;
-        return [
-          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, [arm]: 0.5, lean, label: "curls" },
-          { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, [arm]: 1, lean, label: "curls" },
-          { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, [arm]: 1, lean, label: "curls" },
-          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, [arm]: 0.4, label: "curls" },
-          { pose: mood("open"), offset: 0, x: 0, dumbbell: 1, label: "curls" }
-        ];
-      }),
-      { pose: mood("open"), offset: 0, x: 0, squat: 0.15, dumbbell: 1, curlL: 0.5, curlR: 0.5, label: "curls both" },
-      { pose: mood("closed"), offset: 0, x: 0, dumbbell: 1, curlL: 1, curlR: 1, label: "curls both" },
-      ...Array.from({ length: 3 }, () => ({ pose: mood("wink"), offset: 0, x: 0, dumbbell: 1, curlL: 1, curlR: 1, label: "holds it" })),
-      { pose: "default", offset: 0, x: 0, squat: 0.3, dumbbell: 1, label: "drops them" },
-      { pose: "default", offset: 1, x: 0, dumbbell: 0, poof: "dot", label: "drops them" },
-      ...run("default", 2), ...BLINK
-    ],
+    // Dumbbell curls: he squats to pick up two dumbbells, turns side-on and curls them one arm at a time (his stubby
+    // arm as the forearm, swinging up from the elbow), eyes shut at the top of each rep, then turns back to you and
+    // raises both in a flex with a wink, and drops them with a thud.
+    "dumbbell-curl": (() => {
+      const T = -45;   // turned away from the camera so each curl shows from the side
+      const at = (extra) => ({ pose: mood("open"), offset: 0, x: 0, turnTo: T, dumbbell: 1, label: "curls", ...extra });
+      return [
+        { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T / 2, dumbbell: 0.5, label: "picks up dumbbells" },
+        { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T, dumbbell: 1, label: "picks up dumbbells" },
+        at({ pose: "default", label: "picks up dumbbells" }),
+        ...["curlR", "curlL", "curlR", "curlL", "curlR", "curlL"].flatMap((arm) => [
+          at({ [arm]: 0.35 }),
+          at({ pose: mood("closed"), [arm]: 0.8 }),
+          at({ pose: mood("closed"), [arm]: 1 }),
+          at({ pose: mood("closed"), [arm]: 1 }),
+          at({ [arm]: 0.5 }),
+          at({})
+        ]),
+        { pose: mood("open", "up"), offset: 0, x: 0, turnTo: T / 2, dumbbell: 1, flex: 1, label: "flexes" },
+        ...Array.from({ length: 4 }, () => ({ pose: mood("wink", "up"), offset: 0, x: 0, dumbbell: 1, flex: 1, label: "flexes" })),
+        { pose: "default", offset: 0, x: 0, squat: 0.3, dumbbell: 1, flex: 1, label: "drops them" },
+        { pose: "default", offset: 1, x: 0, dumbbell: 0, poof: "dot", label: "drops them" },
+        ...run("default", 2), ...BLINK
+      ];
+    })(),
     // Bench press: he turns side-on, a bench rises under him and he lies back on it, presses a barbell four times with
     // his eyes shut as he pushes, racks it, sits up and throws his arms up.
     "bench-press": (() => {
@@ -546,9 +548,12 @@
     const dumbbells = arms.map((arm, i) => {
       const side = i ? 1 : -1;
       const d = new THREE.Group();
-      d.position.set(side * (ARM_LEN + 0.1), 0, 0);   // in his fist, just past the end of the arm
-      d.add(part(0.7, 0.7, 5.4, barMat, 0, 0, 0));
-      for (const z of [-2.05, 2.05]) d.add(part(2.5, 2.5, 0.9, ironMat, 0, 0, z), part(1.5, 1.5, 0.35, barMat, 0, 0, z + Math.sign(z) * 0.6));
+      // In his fist at the end of the arm, the bar running out from his side (the arm's local y) and set a little
+      // outward, so the inner plate clears his body while the arm hangs.
+      d.position.set(side * (ARM_LEN - 0.4), 1, 0);
+      d.rotation.x = Math.PI / 2;
+      d.add(part(0.7, 0.7, 4.6, barMat, 0, 0, 0));
+      for (const z of [-1.6, 1.6]) d.add(part(2.5, 2.5, 0.9, ironMat, 0, 0, z), part(1.5, 1.5, 0.35, barMat, 0, 0, z + Math.sign(z) * 0.6));
       d.visible = false;
       arm.add(d);
       return d;
@@ -891,7 +896,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0, wall: 0, bench: 0, barbell: 0, press: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0, flex: 0, wall: 0, bench: 0, barbell: 0, press: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -929,6 +934,7 @@
       goal.dumbbell = f.dumbbell || 0;
       goal.curlL = f.curlL || 0;
       goal.curlR = f.curlR || 0;
+      goal.flex = f.flex || 0;
       goal.wall = f.wall || 0;
       goal.bench = f.bench || 0;
       goal.barbell = f.barbell || 0;
@@ -1215,6 +1221,7 @@
         arm.position.y = BODY_H * 0.5 - state.type * (BODY_H * 0.5 - 1.9) - state.type * 0.75 * press;   // lifts high, comes down onto the keys
         const reach = 0.5 + 0.5 * Math.sin(clock * 12 + i * 2.4);   // pulls back into the body and pushes out again
         arm.position.z = state.type * (DEPTH / 2 + 0.1 - 0.9 * reach);
+        arm.rotation.x = 0;
         arm.rotation.y = -side * Math.PI / 2 * state.type;
         arm.rotation.z = side * (i ? state.armR : state.armL);
         // Holding the guitar: the right hand (viewer's left) strums over the pickups, the left frets up the neck.
@@ -1236,13 +1243,17 @@
           arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * hold;
           arm.rotation.z *= 1 - hold;
         }
-        // Dumbbell curls: each arm swings a weight from beside his hip up to beside his head, out at his side where
-        // the curl reads from the front.
-        const grip = clamp(state.dumbbell * 1.5 - 0.3, 0, 1);
+        // Dumbbell curls: the stubby arm is his forearm, hanging from an elbow low at his side and swinging forward
+        // and up to his chest. flex hands the arms back to the pose (arms up), still holding the weights.
+        const grip = clamp(state.dumbbell * 1.5 - 0.3, 0, 1) * (1 - state.flex);
         if (grip > 0) {
-          const curl = i ? state.curlR : state.curlL;   // 0 hanging down, 1 curled up
-          arm.rotation.z += (side * (-1.2 + 2.45 * curl) - arm.rotation.z) * grip;
-          arm.rotation.y += (-side * 0.3 - arm.rotation.y) * grip;
+          const curl = 2.45 * (i ? state.curlR : state.curlL);   // radians forward and up from hanging straight down
+          arm.position.x += (side * (BODY_W / 2 + 1.3) - arm.position.x) * grip;
+          arm.position.y += (3.3 - arm.position.y) * grip;
+          arm.position.z += (0.5 - arm.position.z) * grip;
+          arm.rotation.x += (-curl - arm.rotation.x) * grip;
+          arm.rotation.y *= 1 - grip;
+          arm.rotation.z += (-side * Math.PI / 2 - arm.rotation.z) * grip;
         }
         // Bench press: both arms point straight out of his chest and slide out and in like pistons, pushing the bar.
         const holdBar = clamp(state.barbell * 1.5 - 0.3, 0, 1);
