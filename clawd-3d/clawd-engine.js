@@ -171,10 +171,26 @@
       ...[-6, -5, -4, -3, -2, -1].flatMap((x) => run(mood("right", "down", x % 2 === 0 ? "left" : "right"), 2, { x })),
       ...run("look-right", 2), ...run("default", 2), ...BLINK
     ],
-    peek: [
-      ...run("look-right", 1, { x: -9 }), ...run("look-right", 5, { x: -6 }), ...run("look-right", 3, { x: -9 }),
-      ...run("look-right", 4, { x: -5 }), ...run("arms-up", 2, { x: -3 }), ...run("arms-up", 2), ...crouch(), REST
-    ],
+    // Peek from behind a wall: a brick wall rises in front of him; he leans out past its right side for a look, ducks
+    // back, peeks from the left with a wink, takes a bolder look from the right, then steps out with his arms up as
+    // the wall sinks away, and walks back to his spot.
+    peek: (() => {
+      const behind = (extra) => ({ pose: "default", offset: 0, x: 0, wall: 1, label: "hides behind a wall", ...extra });
+      const out = (side, x, eyes, lean = 0.32) => ({ pose: mood(eyes), offset: 0, x: side * x, lean: -side * lean, wall: 1, label: "peeks" });
+      const times = (n, make) => Array.from({ length: n }, make);
+      return [
+        behind({ offset: 1, wall: 0.6, poof: "dot" }), behind({ offset: 1 }), behind(),
+        out(1, 2, "open"), ...times(4, () => out(1, 3, "right")), ...times(2, () => out(1, 3, "open")),
+        behind(), behind(), behind(),
+        // The camera sits a little to his right, so the left-hand peek leans out further to show as much of him.
+        out(-1, 3, "open", 0.36), ...times(3, () => out(-1, 4, "left", 0.36)), ...times(2, () => out(-1, 4, "wink", 0.36)),
+        behind(), behind(),
+        ...times(3, () => out(1, 4, "open", 0.15)),
+        ...times(3, () => ({ pose: mood("open", "up"), offset: 0, x: 5, wall: 0.3, poof: "wave", label: "boo!" })),
+        ...[4, 3, 2, 1].map((x, i) => ({ pose: mood("open", "down", i % 2 ? "left" : "right"), offset: 0, x, label: "walks back" })),
+        REST
+      ];
+    })(),
     wink: [...run(mood("wink"), 5), REST],
     boop: [
       ...run(mood("closed"), 1, { offset: 1, poof: "dot" }), ...run(mood("closed"), 2, { offset: 1, poof: "wave" }),
@@ -228,6 +244,35 @@
       { pose: "default", offset: 1, x: 0, dumbbell: 0, poof: "dot", label: "drops them" },
       ...run("default", 2), ...BLINK
     ],
+    // Bench press: he turns side-on, a bench rises under him and he lies back on it, presses a barbell four times with
+    // his eyes shut as he pushes, racks it, sits up and throws his arms up.
+    "bench-press": (() => {
+      const T = 95;   // lies across the screen, head to one side and legs to the other
+      const lying = (extra) => ({ pose: mood("open"), offset: 0, x: 0, turnTo: T, flip: -90, bench: 1, barbell: 1, label: "bench press", ...extra });
+      return [
+        { pose: "default", offset: 0, x: 0, turnTo: T / 2, label: "gets on the bench" },
+        { pose: "default", offset: 0, x: 0, turnTo: T, bench: 0.5, poof: "dot", label: "gets on the bench" },
+        { pose: "default", offset: 0, x: 0, turnTo: T, squat: 0.3, bench: 1, label: "gets on the bench" },
+        { pose: "default", offset: 0, x: 0, turnTo: T, flip: -35, bench: 1, label: "lies back" },
+        { pose: "default", offset: 0, x: 0, turnTo: T, flip: -70, bench: 1, label: "lies back" },
+        lying({ barbell: 0.5, press: 1, label: "unracks the bar" }),
+        lying({ press: 1, label: "unracks the bar" }),
+        ...[1, 2, 3, 4].flatMap(() => [
+          lying({ press: 0.5 }),
+          lying({ press: 0 }),
+          lying({ pose: mood("closed"), press: 0.45 }),
+          lying({ pose: mood("closed"), press: 1 }),
+          lying({ press: 1 })
+        ]),
+        lying({ barbell: 0.4, press: 1, label: "racks it" }),
+        lying({ barbell: 0, label: "racks it" }),
+        { pose: "default", offset: 0, x: 0, turnTo: T, flip: -50, bench: 1, label: "sits up" },
+        { pose: "default", offset: 0, x: 0, turnTo: T, flip: -15, bench: 1, label: "sits up" },
+        { pose: mood("open", "up"), offset: 0, x: 0, turnTo: T / 2, bench: 0.3, poof: "wave", label: "ta-da" },
+        { pose: mood("open", "up"), offset: 0, x: 0, turnTo: 0, label: "ta-da" },
+        ...run("default", 2), ...BLINK
+      ];
+    })(),
     // Rebuilt from a recording of the Claude app: a look, a ring of code, then Clawd turns to a laptop and types.
     laptop: [
       ...run("look-right", 4),
@@ -509,6 +554,67 @@
       return d;
     });
 
+    // ---- Brick wall for the peek: rises from the floor in front of him and stays put while he leans out past it ----
+    const BRICKS = { W: 19, H: 14, D: 2 };   // wider and taller than Clawd, so he hides completely behind it
+    const brickCanvas = document.createElement("canvas");
+    brickCanvas.width = 256;
+    brickCanvas.height = 192;
+    {
+      const c = brickCanvas.getContext("2d");
+      c.fillStyle = "#5c616a";   // mortar
+      c.fillRect(0, 0, 256, 192);
+      for (let row = 0; row < 8; row++) {
+        for (let col = -1; col < 5; col++) {
+          const x = col * 64 + (row % 2 ? 32 : 0) + 3, y = row * 24 + 3;
+          const shade = 160 + Math.floor(Math.random() * 26);
+          c.fillStyle = `rgb(${shade - 6}, ${shade}, ${shade + 8})`;
+          c.fillRect(x, y, 58, 18);
+          c.fillStyle = "rgba(255, 255, 255, 0.18)";   // a lit top edge on each brick
+          c.fillRect(x, y, 58, 3);
+        }
+      }
+    }
+    const brickTex = new THREE.CanvasTexture(brickCanvas);
+    brickTex.encoding = THREE.sRGBEncoding;
+    const brickMat = new THREE.MeshStandardMaterial({ map: brickTex, roughness: 0.9, clippingPlanes: floorClip });
+    const wallEdgeMat = new THREE.MeshStandardMaterial({ color: lin("#7c828c"), roughness: 0.9, clippingPlanes: floorClip });
+    const wallGeo = new THREE.BoxGeometry(BRICKS.W, BRICKS.H, BRICKS.D);
+    wallGeo.translate(0, BRICKS.H / 2, 0);   // grows up from the floor
+    const peekWall = new THREE.Mesh(wallGeo, [wallEdgeMat, wallEdgeMat, wallEdgeMat, wallEdgeMat, brickMat, brickMat]);
+    peekWall.position.set(0, 0, DEPTH / 2 + 0.8 + BRICKS.D / 2);
+    peekWall.castShadow = true;
+    peekWall.receiveShadow = true;
+    peekWall.visible = false;
+    scene.add(peekWall);
+
+    // ---- Bench and barbell for the bench press. The bench stands where he is, turned with him, long side along the
+    // way he lies; the barbell rides above his chest, held in both hands ----
+    const padMat = new THREE.MeshStandardMaterial({ color: lin("#2c3038"), roughness: 0.7, clippingPlanes: floorClip });
+    const frameMat = new THREE.MeshStandardMaterial({ color: lin("#9aa0a9"), roughness: 0.35, metalness: 0.6, clippingPlanes: floorClip });
+    const BENCH_TOP = LEG_H + BODY_H / 2 - DEPTH / 2;   // his back's height once he lies back around his middle
+    const bench = new THREE.Group();
+    bench.add(
+      part(5, 1.1, 15, padMat, 0, BENCH_TOP - 0.55, -3.2),                // pad, reaching well past his head
+      part(1, BENCH_TOP - 1.1, 1, frameMat, 0, (BENCH_TOP - 1.1) / 2, -9),
+      part(1, BENCH_TOP - 1.1, 1, frameMat, 0, (BENCH_TOP - 1.1) / 2, 2.6),
+      part(4.6, 0.5, 1.2, frameMat, 0, 0.25, -9),                           // feet
+      part(4.6, 0.5, 1.2, frameMat, 0, 0.25, 2.6)
+    );
+    bench.visible = false;
+    scene.add(bench);
+    const barbell = new THREE.Group();     // bar along his left-right axis
+    barbell.add(part(19, 0.55, 0.55, barMat, 0, 0, 0));
+    for (const side of [-1, 1]) {
+      barbell.add(
+        part(0.45, 1.1, 1.1, barMat, side * 6.9, 0, 0),                    // collar
+        part(0.85, 4.6, 4.6, ironMat, side * 7.6, 0, 0),                   // big plate
+        part(0.7, 3.4, 3.4, ironMat, side * 8.5, 0, 0)                     // small plate
+      );
+    }
+    barbell.position.set(0, BODY_H * 0.5, DEPTH / 2);
+    barbell.visible = false;
+    body.add(barbell);
+
     // Yellow lightning bits that crackle off the strings.
     const zapMats = [lin("#ffd23f"), lin("#ffe680")].map((color) => new THREE.MeshBasicMaterial({ color }));
     const zapGeo = new THREE.BoxGeometry(0.22, 0.75, 0.22);
@@ -785,7 +891,7 @@
     const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
     const wrap = (a) => a - TAU * Math.round(a / TAU);
     const SINK = [0, 0, LEG_H + BODY_H / 2, LEG_H + BODY_H + 1];   // offset 2 leaves only the eyes above the line
-    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0 };
+    const state = { x: 0, y: 0, ry: 0, crouch: 0, armL: 0, armR: 0, liftL: 0, liftR: 0, eyeX: 0, eyeY: 0, lidL: 0, lidR: 0, squash: 1, laptop: 0, type: 0, guitar: 0, strum: 0, bang: 0, fret: 0.3, lean: 0, kick: 0, windmill: 0, flip: 0, roll: 0, dumbbell: 0, curlL: 0, curlR: 0, wall: 0, bench: 0, barbell: 0, press: 0 };
     const goal = { ...state };
 
     function targetsFor(f) {
@@ -823,6 +929,10 @@
       goal.dumbbell = f.dumbbell || 0;
       goal.curlL = f.curlL || 0;
       goal.curlR = f.curlR || 0;
+      goal.wall = f.wall || 0;
+      goal.bench = f.bench || 0;
+      goal.barbell = f.barbell || 0;
+      goal.press = f.press || 0;
       zapping = !!f.zap;
       // While ultra effort is on, Clawd keeps the guitar between moves and jams quietly.
       if (ultra && seqName === "idle") {
@@ -1134,12 +1244,34 @@
           arm.rotation.z += (side * (-1.2 + 2.45 * curl) - arm.rotation.z) * grip;
           arm.rotation.y += (-side * 0.3 - arm.rotation.y) * grip;
         }
+        // Bench press: both arms point straight out of his chest and slide out and in like pistons, pushing the bar.
+        const holdBar = clamp(state.barbell * 1.5 - 0.3, 0, 1);
+        if (holdBar > 0) {
+          const pz = DEPTH / 2 - ARM_LEN + 0.4 + 3.2 * state.press;
+          arm.position.x += (side * (BODY_W / 2 - 1.6) - arm.position.x) * holdBar;
+          arm.position.y += (BODY_H * 0.5 - arm.position.y) * holdBar;
+          arm.position.z += (pz - arm.position.z) * holdBar;
+          arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * holdBar;
+          arm.rotation.z *= 1 - holdBar;
+        }
       });
       const dShown = clamp(state.dumbbell * 2, 0, 1);
       dumbbells.forEach((d) => {
         d.visible = dShown > 0.01;
         d.scale.setScalar(Math.max(dShown, 0.001));
       });
+      const wShown = clamp(state.wall * 1.6, 0, 1);
+      peekWall.visible = wShown > 0.01;
+      peekWall.scale.set(1, Math.max(wShown, 0.001), 1);
+      const bShown = clamp(state.bench * 2, 0, 1);
+      bench.visible = bShown > 0.01;
+      bench.scale.set(1, Math.max(bShown, 0.001), 1);
+      bench.position.set(state.x, 0, 0);
+      bench.rotation.y = state.ry;
+      const barShown = clamp(state.barbell * 2, 0, 1);
+      barbell.visible = barShown > 0.01;
+      barbell.scale.setScalar(Math.max(barShown, 0.001));
+      barbell.position.z = DEPTH / 2 + 0.75 + 3.2 * state.press;
       const gShown = clamp(state.guitar * 2, 0, 1);
       guitarPivot.visible = gShown > 0.01;
       guitarPivot.scale.setScalar(Math.max(gShown, 0.001));
