@@ -221,22 +221,23 @@
     "back-flip": flipMove("flip", -1, -55, "backflip!"),
     "front-flip": flipMove("flip", 1, 85, "front flip!"),
     "side-flip": flipMove("roll", 1, 0, "side flip!", 0.8),
-    // Dumbbell curls: he squats to pick up two dumbbells, turns side-on and curls them one arm at a time (his stubby
-    // arm as the forearm, swinging up from the elbow), eyes shut at the top of each rep, then turns back to you and
-    // raises both in a flex with a wink, and drops them with a thud.
+    // Dumbbell curls: he squats to pick up two dumbbells, turns to profile and curls both in the sagittal plane (his
+    // stubby arm as the forearm, swinging forward and up from the elbow), eyes shut at the top of each rep, then turns
+    // back to you and raises both in a flex with a wink, and drops them with a thud.
     "dumbbell-curl": (() => {
-      const T = -45;   // turned away from the camera so each curl shows from the side
+      const T = -70;   // in profile to the camera, so each curl swings forward and up across the screen
       const at = (extra) => ({ pose: mood("open"), offset: 0, x: 0, turnTo: T, dumbbell: 1, label: "curls", ...extra });
       return [
         { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T / 2, dumbbell: 0.5, label: "picks up dumbbells" },
         { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T, dumbbell: 1, label: "picks up dumbbells" },
         at({ pose: "default", label: "picks up dumbbells" }),
-        ...["curlR", "curlL", "curlR", "curlL", "curlR", "curlL"].flatMap((arm) => [
-          at({ [arm]: 0.35 }),
-          at({ pose: mood("closed"), [arm]: 0.8 }),
-          at({ pose: mood("closed"), [arm]: 1 }),
-          at({ pose: mood("closed"), [arm]: 1 }),
-          at({ [arm]: 0.5 }),
+        // Both arms together: in profile the far arm is behind him, so the near one shows every rep.
+        ...[1, 2, 3, 4].flatMap(() => [
+          at({ curlL: 0.35, curlR: 0.35 }),
+          at({ pose: mood("closed"), curlL: 0.8, curlR: 0.8 }),
+          at({ pose: mood("closed"), curlL: 1, curlR: 1 }),
+          at({ pose: mood("closed"), curlL: 1, curlR: 1 }),
+          at({ curlL: 0.5, curlR: 0.5 }),
           at({})
         ]),
         { pose: mood("open", "up"), offset: 0, x: 0, turnTo: T / 2, dumbbell: 1, flex: 1, label: "flexes" },
