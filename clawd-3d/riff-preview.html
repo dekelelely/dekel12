@@ -1,0 +1,122 @@
+<title>Ultracode Riff</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Martian+Mono:wght@400;600&display=swap">
+<style>
+  /* Layout: a dark stage like the app's full dashboard, with the play buttons and a note under it. One deliberate dark look. */
+  :root {
+    --bg: #0d0f12;
+    --stage-hi: #1e2227;
+    --surface: #171a1e;
+    --ink: #eceef1;
+    --muted: #9ba2ac;
+    --line: #2a2f36;
+    --clay: #e0805f;
+    --on-clay: #1a0f0a;
+    --f-display: "Martian Mono", ui-monospace, Menlo, Consolas, monospace;
+    --f-body: "Atkinson Hyperlegible", system-ui, -apple-system, "Segoe UI", sans-serif;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { background: var(--bg); }
+  body { margin: 0; color: var(--ink); font-family: var(--f-body); font-size: 16px; line-height: 1.55; }
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding-block: clamp(20px, 4vw, 40px) 48px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+  h1 { margin: 0; font-family: var(--f-display); font-weight: 600; font-size: clamp(26px, 4vw, 38px); letter-spacing: -0.03em; }
+  h1 span { color: var(--clay); }
+  .lede { margin: 0; max-width: 60ch; color: var(--muted); }
+  .stage {
+    position: relative;
+    height: clamp(300px, 50vw, 520px);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    overflow: hidden;
+    background: radial-gradient(120% 90% at 50% 30%, var(--stage-hi), var(--bg));
+  }
+  .stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; touch-action: pan-y; }
+  #fx { pointer-events: none; }
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  button {
+    font-family: var(--f-display);
+    font-size: 15px;
+    padding: 11px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  button.main { background: var(--clay); border-color: var(--clay); color: var(--on-clay); }
+  button:disabled { opacity: 0.5; cursor: default; }
+  button:focus-visible { outline: 2px solid var(--clay); outline-offset: 2px; }
+  .status { margin: 0; font-family: var(--f-display); font-size: 13px; color: var(--muted); }
+  .note { margin: 0; max-width: 64ch; font-size: 15px; color: var(--muted); }
+</style>
+
+<main class="wrap">
+  <h1>Ultracode <span>riff</span></h1>
+  <p class="lede">A rock riff generated in code for Clawd's ultracode routine, timed to his moves. Turn your sound on and press play.</p>
+  <section class="stage" id="stage" aria-label="Clawd playing the ultracode routine">
+    <canvas id="scene" aria-label="Clawd"></canvas>
+    <canvas id="fx" aria-hidden="true"></canvas>
+  </section>
+  <div class="controls">
+    <button type="button" class="main" id="play">Play with Clawd</button>
+    <button type="button" id="riff">Riff only</button>
+    <p class="status" id="status" aria-live="polite">Ready</p>
+  </div>
+  <p class="note">A preview, not in the apps yet. Once added, it would play only in the full dashboard, never from the floating bubble or the corner. Everything you hear is generated: distorted oscillators for the guitar, noise and tones for the drums, no recordings.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="clawd-engine.js?v=1"></script>
+<script src="riff/ultracode-riff.js?v=1"></script>
+<script>
+(() => {
+  const playBtn = document.getElementById("play");
+  const riffBtn = document.getElementById("riff");
+  const status = document.getElementById("status");
+  const clawd = window.ClawdEngine && window.ClawdEngine.create({
+    stage: document.getElementById("stage"),
+    canvas: document.getElementById("scene"),
+    fx: document.getElementById("fx"),
+    mode: "stage"
+  });
+  if (clawd) {
+    clawd.setColors({ floor: "#2b3138", dots: "#4a525c", dust: "#4a525c", code: "#4cc9db" });
+    clawd.play("idle", { snap: true });
+  } else {
+    playBtn.disabled = true;
+  }
+
+  let ctx = null;
+  async function start(withClawd) {
+    if (!window.ClawdRiff) return;
+    if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
+    await ctx.resume();
+    playBtn.disabled = riffBtn.disabled = true;
+    status.textContent = "Playing";
+    const t0 = ctx.currentTime + 0.15;
+    window.ClawdRiff.schedule(ctx, ctx.destination, t0);
+    // Start his routine when the riff's first frame actually reaches the speakers.
+    const delay = (t0 - ctx.currentTime + (ctx.outputLatency || ctx.baseLatency || 0)) * 1000;
+    if (withClawd && clawd) setTimeout(() => clawd.play("ultracode"), delay);
+    setTimeout(() => {
+      playBtn.disabled = !clawd;
+      riffBtn.disabled = false;
+      status.textContent = "Ready";
+    }, delay + window.ClawdRiff.duration * 1000);
+  }
+  playBtn.addEventListener("click", () => start(true));
+  riffBtn.addEventListener("click", () => start(false));
+})();
+</script>

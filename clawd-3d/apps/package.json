@@ -1,0 +1,11 @@
+{
+  "name": "clawd-apps",
+  "private": true,
+  "description": "Shared web files for the Clawd Windows and Android apps.",
+  "scripts": {
+    "prepare-web": "node scripts/prepare-web.mjs"
+  },
+  "dependencies": {
+    "three": "0.128.0"
+  }
+}
