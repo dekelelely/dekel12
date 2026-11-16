@@ -221,17 +221,16 @@
     "back-flip": flipMove("flip", -1, -55, "backflip!"),
     "front-flip": flipMove("flip", 1, 85, "front flip!"),
     "side-flip": flipMove("roll", 1, 0, "side flip!", 0.8),
-    // Dumbbell curls: he squats to pick up two dumbbells, turns to profile and curls both in the sagittal plane (his
-    // stubby arm as the forearm, swinging forward and up from the elbow), eyes shut at the top of each rep, then turns
-    // back to you and raises both in a flex with a wink, and drops them with a thud.
+    // Dumbbell curls: he squats to pick up two dumbbells and, facing you, curls both in the sagittal plane (his stubby
+    // arm as the forearm, swinging forward and up from the elbow toward the camera), eyes shut at the top of each rep,
+    // then raises both in a flex with a wink, and drops them with a thud.
     "dumbbell-curl": (() => {
-      const T = -70;   // in profile to the camera, so each curl swings forward and up across the screen
+      const T = 0;   // facing the camera
       const at = (extra) => ({ pose: mood("open"), offset: 0, x: 0, turnTo: T, dumbbell: 1, label: "curls", ...extra });
       return [
         { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T / 2, dumbbell: 0.5, label: "picks up dumbbells" },
         { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T, dumbbell: 1, label: "picks up dumbbells" },
         at({ pose: "default", label: "picks up dumbbells" }),
-        // Both arms together: in profile the far arm is behind him, so the near one shows every rep.
         ...[1, 2, 3, 4].flatMap(() => [
           at({ curlL: 0.35, curlR: 0.35 }),
           at({ pose: mood("closed"), curlL: 0.8, curlR: 0.8 }),
