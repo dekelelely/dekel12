@@ -225,7 +225,7 @@
     // arm as the forearm, swinging forward and up from the elbow toward the camera), eyes shut at the top of each rep,
     // then raises both in a flex with a wink, and drops them with a thud.
     "dumbbell-curl": (() => {
-      const T = 0;   // facing the camera
+      const T = 20;   // straight at the camera, which sits a little to his right
       const at = (extra) => ({ pose: mood("open"), offset: 0, x: 0, turnTo: T, dumbbell: 1, label: "curls", ...extra });
       return [
         { pose: "default", offset: 0, x: 0, squat: 0.5, turnTo: T / 2, dumbbell: 0.5, label: "picks up dumbbells" },
@@ -239,8 +239,7 @@
           at({ curlL: 0.5, curlR: 0.5 }),
           at({})
         ]),
-        { pose: mood("open", "up"), offset: 0, x: 0, turnTo: T / 2, dumbbell: 1, flex: 1, label: "flexes" },
-        ...Array.from({ length: 4 }, () => ({ pose: mood("wink", "up"), offset: 0, x: 0, dumbbell: 1, flex: 1, label: "flexes" })),
+        ...Array.from({ length: 5 }, (_, k) => ({ pose: mood(k ? "wink" : "open", "up"), offset: 0, x: 0, turnTo: T, dumbbell: 1, flex: 1, label: "flexes" })),
         { pose: "default", offset: 0, x: 0, squat: 0.3, dumbbell: 1, flex: 1, label: "drops them" },
         { pose: "default", offset: 1, x: 0, dumbbell: 0, poof: "dot", label: "drops them" },
         ...run("default", 2), ...BLINK
@@ -542,20 +541,31 @@
     // A point along the guitar (distance from the body's centre toward the headstock) in body coordinates.
     const onGuitar = (d) => [GUITAR_AT.x + d * Math.cos(GUITAR_AT.tilt), GUITAR_AT.y + d * Math.sin(GUITAR_AT.tilt)];
 
-    // ---- Dumbbells for the curls: one in each fist, the bar running front to back with an iron plate at each end ----
+    // ---- Dumbbell curls: during the curl each arm hangs down his side as the upper arm, and a forearm grows from its
+    // end (the elbow) to curl the dumbbell; the forearm turns about the arm's local y, the axis out from his side ----
+    const FOREARM = 2.6;
+    const forearms = arms.map((arm, i) => {
+      const side = i ? 1 : -1;
+      const elbow = new THREE.Group();
+      elbow.position.set(side * ARM_LEN, 0, 0);
+      const m = box(FOREARM, 2.4, 2.1, clayMat);
+      m.position.x = side * FOREARM / 2;
+      elbow.add(m);
+      elbow.userData.mesh = m;
+      arm.add(elbow);
+      return elbow;
+    });
     const ironMat = new THREE.MeshStandardMaterial({ color: lin("#4a505a"), roughness: 0.5, metalness: 0.3, clippingPlanes: floorClip });
     const barMat = new THREE.MeshStandardMaterial({ color: lin("#d3d7de"), roughness: 0.3, metalness: 0.6, clippingPlanes: floorClip });
-    const dumbbells = arms.map((arm, i) => {
-      const side = i ? 1 : -1;
+    const dumbbells = forearms.map((elbow) => {
       const d = new THREE.Group();
-      // In his fist at the end of the arm, the bar running out from his side (the arm's local y) and set a little
-      // outward, so the inner plate clears his body while the arm hangs.
-      d.position.set(side * (ARM_LEN - 0.4), 1, 0);
+      // Underhand (supinated) grip: the bar runs out from his side, left to right as he faces you, and stays that way
+      // as the forearm curls. Set a little outward so the inner plate clears his body. Placed by the update loop.
       d.rotation.x = Math.PI / 2;
       d.add(part(0.7, 0.7, 4.6, barMat, 0, 0, 0));
       for (const z of [-1.6, 1.6]) d.add(part(2.5, 2.5, 0.9, ironMat, 0, 0, z), part(1.5, 1.5, 0.35, barMat, 0, 0, z + Math.sign(z) * 0.6));
       d.visible = false;
-      arm.add(d);
+      elbow.add(d);
       return d;
     });
 
@@ -1243,18 +1253,24 @@
           arm.rotation.y += (-side * Math.PI / 2 - arm.rotation.y) * hold;
           arm.rotation.z *= 1 - hold;
         }
-        // Dumbbell curls: the stubby arm is his forearm, hanging from an elbow low at his side and swinging forward
-        // and up to his chest. flex hands the arms back to the pose (arms up), still holding the weights.
+        // Dumbbell curls, as in the gym: the arm hangs straight down his side from the shoulder with the elbow pinned
+        // there, and the forearm curls the dumbbell forward and up from his thigh to his shoulder (the sagittal
+        // plane). flex hands the arms back to the pose (arms up), still holding the weights.
         const grip = clamp(state.dumbbell * 1.5 - 0.3, 0, 1) * (1 - state.flex);
         if (grip > 0) {
-          const curl = 2.45 * (i ? state.curlR : state.curlL);   // radians forward and up from hanging straight down
           arm.position.x += (side * (BODY_W / 2 + 1.3) - arm.position.x) * grip;
-          arm.position.y += (3.3 - arm.position.y) * grip;
-          arm.position.z += (0.5 - arm.position.z) * grip;
-          arm.rotation.x += (-curl - arm.rotation.x) * grip;
+          arm.position.y += (BODY_H * 0.78 - arm.position.y) * grip;
+          arm.position.z += (0.3 - arm.position.z) * grip;
+          arm.rotation.x *= 1 - grip;
           arm.rotation.y *= 1 - grip;
           arm.rotation.z += (-side * Math.PI / 2 - arm.rotation.z) * grip;
         }
+        const elbow = forearms[i];
+        elbow.rotation.y = -side * 2.45 * (i ? state.curlR : state.curlL) * grip;   // forward and up from hanging
+        elbow.userData.mesh.visible = grip > 0.01;
+        elbow.userData.mesh.scale.setScalar(Math.max(grip, 0.001));
+        // The dumbbell sits in the forearm's fist while curling, and at the end of the arm when it isn't.
+        dumbbells[i].position.set(side * (grip * (FOREARM - 0.4) + (1 - grip) * 0.1), grip, 0);
         // Bench press: both arms point straight out of his chest and slide out and in like pistons, pushing the bar.
         const holdBar = clamp(state.barbell * 1.5 - 0.3, 0, 1);
         if (holdBar > 0) {
